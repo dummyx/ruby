@@ -22,7 +22,7 @@ jobs:
     - name: Checkout custom CodeQL queries
       uses: actions/checkout@v4
       with:
-        repository: prg-titech/guardql # <-- Specify your query repository here
+        repository: dummyx/guardql # <-- Specify your query repository here
         path: ./.github/codeql-queries   # <-- Specify a local path to place the queries
 
     # Step 3: Initialize CodeQL, pointing to the local path
