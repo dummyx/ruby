@@ -1,12 +1,18 @@
 name: "CodeQL Analysis with Remote Queries"
-description: "Composite action to run CodeQL analysis with remote queries"
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, guardql-actions ]
+  pull_request:
+    branches: [ main, guardql-actions ]
 
-inputs: {}
-outputs: {}
-
-runs:
-  using: "composite"
-  steps:
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
     # Step 1: Checkout the code of the current repository to be analyzed
     - name: Checkout repository
       uses: actions/checkout@v4
