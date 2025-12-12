@@ -71,6 +71,7 @@ static inline rb_ifaddr_t *
 check_ifaddr(VALUE self)
 {
       return rb_check_typeddata(self, &ifaddr_type);
+      RB_GC_GUARD(self);
 }
 
 static rb_ifaddr_t *
@@ -82,12 +83,14 @@ get_ifaddr(VALUE self)
         rb_raise(rb_eTypeError, "uninitialized ifaddr");
     }
     return rifaddr;
+    RB_GC_GUARD(self);
 }
 
 static struct ifaddrs *
 get_ifaddrs(VALUE self)
 {
     return get_ifaddr(self)->ifaddr;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -134,6 +137,8 @@ rsock_getifaddrs(void)
     }
 
     return result;
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -148,6 +153,7 @@ ifaddr_name(VALUE self)
 {
     struct ifaddrs *ifa = get_ifaddrs(self);
     return rb_str_new_cstr(ifa->ifa_name);
+    RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_IF_NAMETOINDEX
@@ -167,6 +173,7 @@ ifaddr_ifindex(VALUE self)
         rb_raise(rb_eArgError, "invalid interface name: %s", ifa->ifa_name);
     }
     return UINT2NUM(ifindex);
+    RB_GC_GUARD(self);
 }
 #else
 #define ifaddr_ifindex rb_f_notimplement
@@ -184,6 +191,7 @@ ifaddr_flags(VALUE self)
 {
     struct ifaddrs *ifa = get_ifaddrs(self);
     return IFAFLAGS2NUM(ifa->ifa_flags);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -201,6 +209,7 @@ ifaddr_addr(VALUE self)
     if (ifa->ifa_addr)
         return rsock_sockaddr_obj(ifa->ifa_addr, rsock_sockaddr_len(ifa->ifa_addr));
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -218,6 +227,7 @@ ifaddr_netmask(VALUE self)
     if (ifa->ifa_netmask)
         return rsock_sockaddr_obj(ifa->ifa_netmask, rsock_sockaddr_len(ifa->ifa_netmask));
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -235,6 +245,7 @@ ifaddr_broadaddr(VALUE self)
     if ((ifa->ifa_flags & IFF_BROADCAST) && ifa->ifa_broadaddr)
         return rsock_sockaddr_obj(ifa->ifa_broadaddr, rsock_sockaddr_len(ifa->ifa_broadaddr));
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -252,6 +263,7 @@ ifaddr_dstaddr(VALUE self)
     if ((ifa->ifa_flags & IFF_POINTOPOINT) && ifa->ifa_dstaddr)
         return rsock_sockaddr_obj(ifa->ifa_dstaddr, rsock_sockaddr_len(ifa->ifa_dstaddr));
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_STRUCT_IF_DATA_IFI_VHID
@@ -344,6 +356,7 @@ ifaddr_inspect_flags(ifa_flags_t flags, VALUE result)
     if (flags) {
         rb_str_catf(result, "%s%#"PRIxIFAFLAGS, sep, flags);
     }
+        RB_GC_GUARD(result);
 }
 
 /*
@@ -397,6 +410,8 @@ ifaddr_inspect(VALUE self)
 
     rb_str_cat2(result, ">");
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 #endif
 
@@ -445,6 +460,7 @@ static VALUE
 socket_s_getifaddrs(VALUE self)
 {
     return rsock_getifaddrs();
+    RB_GC_GUARD(self);
 }
 #else
 #define socket_s_getifaddrs rb_f_notimplement

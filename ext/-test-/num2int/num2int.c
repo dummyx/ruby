@@ -6,6 +6,8 @@ test_num2short(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%d", NUM2SHORT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -14,6 +16,8 @@ test_num2ushort(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%u", NUM2USHORT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -22,6 +26,8 @@ test_num2int(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%d", NUM2INT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -30,6 +36,8 @@ test_num2uint(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%u", NUM2UINT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -38,6 +46,8 @@ test_num2long(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%ld", NUM2LONG(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -46,6 +56,8 @@ test_num2ulong(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%lu", NUM2ULONG(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 #ifdef HAVE_LONG_LONG
@@ -55,6 +67,8 @@ test_num2ll(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%"PRI_LL_PREFIX"d", NUM2LL(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -63,6 +77,8 @@ test_num2ull(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%"PRI_LL_PREFIX"u", NUM2ULL(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 #endif
 
@@ -72,6 +88,8 @@ test_fix2short(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%d", FIX2SHORT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -80,6 +98,8 @@ test_fix2int(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%d", FIX2INT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -88,6 +108,8 @@ test_fix2uint(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%u", FIX2UINT(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -96,6 +118,8 @@ test_fix2long(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%ld", FIX2LONG(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -104,6 +128,8 @@ test_fix2ulong(VALUE obj, VALUE num)
     char buf[128];
     snprintf(buf, sizeof(buf), "%lu", FIX2ULONG(num));
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -132,5 +158,6 @@ Init_num2int(void)
 
     rb_define_module_function(mNum2int, "FIX2LONG", test_fix2long, 1);
     rb_define_module_function(mNum2int, "FIX2ULONG", test_fix2ulong, 1);
+    RB_GC_GUARD(mNum2int);
 }
 

@@ -58,6 +58,8 @@ rsock_raise_resolution_error(const char *reason, int error)
     VALUE self = rb_class_new_instance(1, &msg, rb_eResolution);
     rb_ivar_set(self, id_error_code, INT2NUM(error));
     rb_exc_raise(self);
+    RB_GC_GUARD(msg);
+    RB_GC_GUARD(self);
 }
 
 #if defined __APPLE__
@@ -82,6 +84,7 @@ rsock_init_sock(VALUE sock, int fd)
     rb_io_synchronized(fp);
 
     return sock;
+    RB_GC_GUARD(sock);
 }
 
 VALUE
@@ -93,6 +96,7 @@ rsock_sendto_blocking(void *data)
     do_write_retry(sendto(arg->fd, RSTRING_PTR(mesg), RSTRING_LEN(mesg),
                           arg->flags, arg->to, arg->tolen));
     return (VALUE)ret;
+    RB_GC_GUARD(mesg);
 }
 
 VALUE
@@ -104,6 +108,7 @@ rsock_send_blocking(void *data)
     do_write_retry(send(arg->fd, RSTRING_PTR(mesg), RSTRING_LEN(mesg),
                         arg->flags));
     return (VALUE)ret;
+    RB_GC_GUARD(mesg);
 }
 
 struct recvfrom_arg {
@@ -145,6 +150,7 @@ rsock_strbuf(VALUE str, long buflen)
         rb_str_modify_expand(str, buflen - len);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -153,6 +159,7 @@ recvfrom_locktmp(VALUE v)
     struct recvfrom_arg *arg = (struct recvfrom_arg *)v;
 
     return rb_io_blocking_region(arg->fptr, recvfrom_blocking, arg);
+    RB_GC_GUARD(v);
 }
 
 int
@@ -243,6 +250,10 @@ rsock_s_recvfrom(VALUE socket, int argc, VALUE *argv, enum sock_recv_type from)
       default:
         rb_bug("rsock_s_recvfrom called with bad value");
     }
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(socket);
+        RB_GC_GUARD(flg);
+        RB_GC_GUARD(len);
 }
 
 VALUE
@@ -321,6 +332,12 @@ rsock_s_recvfrom_nonblock(VALUE sock, VALUE len, VALUE flg, VALUE str,
         rb_bug("rsock_s_recvfrom_nonblock called with bad value");
     }
     return rb_assoc_new(str, addr);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(flg);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(addr);
 }
 
 #if MSG_DONTWAIT_RELIABLE
@@ -381,6 +398,11 @@ rsock_read_nonblock(VALUE sock, VALUE length, VALUE buf, VALUE ex)
     }
 
     return str;
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(length);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(str);
 }
 
 /* :nodoc: */
@@ -427,6 +449,9 @@ rsock_write_nonblock(VALUE sock, VALUE str, VALUE ex)
     }
 
     return LONG2FIX(n);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sock);
 }
 #endif /* MSG_DONTWAIT_RELIABLE */
 
@@ -554,6 +579,9 @@ wait_connectable(VALUE self, VALUE timeout)
     }
 
     return 0;
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 struct connect_arg {
@@ -607,6 +635,8 @@ rsock_connect(VALUE self, const struct sockaddr *sockaddr, int len, int socks, V
         }
     }
     return status;
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -689,6 +719,8 @@ rsock_s_accept_nonblock(VALUE klass, VALUE ex, rb_io_t *fptr,
     }
     rb_update_max_fd(fd2);
     return rsock_init_sock(rb_obj_alloc(klass), fd2);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(klass);
 }
 
 struct accept_arg {
@@ -748,6 +780,8 @@ rsock_s_accept(VALUE klass, VALUE io, struct sockaddr *sockaddr, socklen_t *len)
     if (!klass) return INT2NUM(peer);
 
     return rsock_init_sock(rb_obj_alloc(klass), peer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(klass);
 }
 
 int
@@ -802,6 +836,7 @@ static VALUE
 sock_resolv_error_code(VALUE self)
 {
     return rb_attr_get(self, id_error_code);
+    RB_GC_GUARD(self);
 }
 
 void

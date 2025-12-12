@@ -132,6 +132,8 @@ Init_version(void)
     rb_define_global_const("RUBY_ENGINE_VERSION", /* MKSTR(version) */ version);
 
     rb_provide("ruby2_keywords.rb");
+    RB_GC_GUARD(version);
+    RB_GC_GUARD(ruby_engine_name);
 }
 
 #if USE_RJIT
@@ -208,6 +210,7 @@ define_ruby_description(const char *const jit_opt)
      * The full ruby version string, like <tt>ruby -v</tt> prints
      */
     rb_define_global_const("RUBY_DESCRIPTION", /* MKSTR(description) */ description);
+    RB_GC_GUARD(description);
 }
 
 void

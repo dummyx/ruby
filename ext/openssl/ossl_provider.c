@@ -67,6 +67,9 @@ ossl_provider_s_load(VALUE klass, VALUE name)
     SetProvider(obj, provider);
 
     return obj;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 struct ary_with_state { VALUE ary; int state; };
@@ -79,6 +82,8 @@ rb_push_provider_name(VALUE rb_push_provider_name_args)
 
     VALUE name = rb_str_new2(OSSL_PROVIDER_get0_name(args->prov));
     return rb_ary_push(args->ary, name);
+    RB_GC_GUARD(rb_push_provider_name_args);
+    RB_GC_GUARD(name);
 }
 
 static int
@@ -117,6 +122,8 @@ ossl_provider_s_provider_names(VALUE klass)
     }
 
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -143,6 +150,7 @@ ossl_provider_unload(VALUE self)
     }
     RTYPEDDATA_DATA(self) = NULL;
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -163,6 +171,7 @@ ossl_provider_get_name(VALUE self)
     GetProvider(self, prov);
 
     return rb_str_new2(OSSL_PROVIDER_get0_name(prov));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -182,6 +191,7 @@ ossl_provider_inspect(VALUE self)
 
     return rb_sprintf("#<%"PRIsVALUE" name=\"%s\">",
                       rb_obj_class(self), OSSL_PROVIDER_get0_name(prov));
+                      RB_GC_GUARD(self);
 }
 
 void

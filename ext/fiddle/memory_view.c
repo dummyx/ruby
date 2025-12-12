@@ -83,6 +83,8 @@ rb_fiddle_memview_s_allocate(VALUE klass)
     data->members = NULL;
     data->n_members = 0;
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -94,6 +96,7 @@ rb_fiddle_memview_release(VALUE obj)
     if (NIL_P(data->view.obj)) return Qnil;
     fiddle_memview_release(data);
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -103,6 +106,9 @@ rb_fiddle_memview_s_export(VALUE klass, VALUE target)
     CONST_ID(id_new, "new");
     VALUE memview = rb_funcall(klass, id_new, 1, target);
     return rb_ensure(rb_yield, memview, rb_fiddle_memview_release, memview);
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(memview);
 }
 
 static VALUE
@@ -117,6 +123,8 @@ rb_fiddle_memview_initialize(VALUE obj, VALUE target)
     }
 
     return Qnil;
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -126,6 +134,7 @@ rb_fiddle_memview_get_obj(VALUE obj)
     TypedData_Get_Struct(obj, struct memview_data, &fiddle_memview_data_type, data);
 
     return data->view.obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -136,6 +145,7 @@ rb_fiddle_memview_get_byte_size(VALUE obj)
 
     if (NIL_P(data->view.obj)) return Qnil;
     return SSIZET2NUM(data->view.byte_size);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -146,6 +156,7 @@ rb_fiddle_memview_get_readonly(VALUE obj)
 
     if (NIL_P(data->view.obj)) return Qnil;
     return data->view.readonly ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -156,6 +167,7 @@ rb_fiddle_memview_get_format(VALUE obj)
 
     if (NIL_P(data->view.obj)) return Qnil;
     return data->view.format == NULL ? Qnil : rb_str_new_cstr(data->view.format);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -166,6 +178,7 @@ rb_fiddle_memview_get_item_size(VALUE obj)
 
     if (NIL_P(data->view.obj)) return Qnil;
     return SSIZET2NUM(data->view.item_size);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -176,6 +189,7 @@ rb_fiddle_memview_get_ndim(VALUE obj)
 
     if (NIL_P(data->view.obj)) return Qnil;
     return SSIZET2NUM(data->view.ndim);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -194,6 +208,8 @@ rb_fiddle_memview_get_shape(VALUE obj)
         rb_ary_push(shape, SSIZET2NUM(data->view.shape[i]));
     }
     return shape;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(shape);
 }
 
 static VALUE
@@ -212,6 +228,8 @@ rb_fiddle_memview_get_strides(VALUE obj)
         rb_ary_push(strides, SSIZET2NUM(data->view.strides[i]));
     }
     return strides;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(strides);
 }
 
 static VALUE
@@ -230,6 +248,8 @@ rb_fiddle_memview_get_sub_offsets(VALUE obj)
         rb_ary_push(sub_offsets, SSIZET2NUM(data->view.sub_offsets[i]));
     }
     return sub_offsets;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(sub_offsets);
 }
 
 static VALUE
@@ -270,6 +290,8 @@ rb_fiddle_memview_aref(int argc, VALUE *argv, VALUE obj)
     }
 
     return rb_memory_view_extract_item_members(ptr, data->members, data->n_members);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(indices_v);
 }
 
 static VALUE
@@ -300,6 +322,8 @@ rb_fiddle_memview_to_s(VALUE self)
         rb_ivar_set(string, id_memory_view, self);
     }
     return rb_obj_freeze(string);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(string);
 }
 
 void

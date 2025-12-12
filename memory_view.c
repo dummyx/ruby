@@ -102,6 +102,7 @@ register_exported_object(VALUE obj)
     RB_VM_LOCK_ENTER();
     st_update(exported_object_table, (st_data_t)obj, exported_object_add_ref, 0);
     RB_VM_LOCK_LEAVE();
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -111,6 +112,7 @@ unregister_exported_object(VALUE obj)
     if (exported_object_table)
         st_update(exported_object_table, (st_data_t)obj, exported_object_dec_ref, 0);
     RB_VM_LOCK_LEAVE();
+    RB_GC_GUARD(obj);
 }
 
 // MemoryView
@@ -141,6 +143,8 @@ rb_memory_view_register(VALUE klass, const rb_memory_view_entry_t *entry)
         entry_obj = TypedData_Wrap_Struct(0, &memory_view_entry_data_type, (void *)entry);
         rb_ivar_set(klass, id_memory_view, entry_obj);
         return true;
+        RB_GC_GUARD(entry_obj);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -214,6 +218,7 @@ rb_memory_view_init_as_byte_array(rb_memory_view_t *view, VALUE obj, void *data,
     view->private_data = NULL;
 
     return true;
+    RB_GC_GUARD(obj);
 }
 
 #ifdef HAVE_TRUE_LONG_LONG
@@ -499,6 +504,7 @@ rb_memory_view_parse_item_format(const char *format,
     }
 
     return total;
+    RB_GC_GUARD(error);
 }
 
 /* Return the item size. */
@@ -740,10 +746,12 @@ rb_memory_view_extract_item_members(const void *ptr, const rb_memory_view_item_c
         for (j = 0; j < members[i].repeat; ++j) {
             VALUE v = extract_item_member(ptr, &members[i], j);
             rb_ary_push(item, v);
+    RB_GC_GUARD(v);
         }
     }
 
     return item;
+    RB_GC_GUARD(item);
 }
 
 void
@@ -796,6 +804,8 @@ lookup_memory_view_entry(VALUE klass)
         return NULL;
 
     return (const rb_memory_view_entry_t *)RTYPEDDATA_DATA(entry_obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(entry_obj);
 }
 
 /* Examine whether the given object supports memory view. */
@@ -808,6 +818,8 @@ rb_memory_view_available_p(VALUE obj)
         return (* entry->available_p_func)(obj);
     else
         return false;
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(klass);
 }
 
 /* Obtain a memory view from obj, and substitute the information to view. */
@@ -830,6 +842,8 @@ rb_memory_view_get(VALUE obj, rb_memory_view_t* view, int flags)
     }
     else
         return false;
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(klass);
 }
 
 /* Release the memory view obtained from obj. */
@@ -867,4 +881,5 @@ Init_MemoryView(void)
     rb_memory_view_exported_object_registry = obj;
 
     id_memory_view = rb_intern_const("__memory_view__");
+    RB_GC_GUARD(obj);
 }

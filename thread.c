@@ -129,6 +129,7 @@ rb_thread_local_storage(VALUE thread)
         RB_FL_SET_RAW(thread, THREAD_LOCAL_STORAGE_INITIALISED);
     }
     return rb_ivar_get(thread, idLocals);
+    RB_GC_GUARD(thread);
 }
 
 enum SLEEP_FLAGS {
@@ -555,6 +556,7 @@ rb_vm_proc_local_ep(VALUE proc)
     }
     else {
         return NULL;
+        RB_GC_GUARD(proc);
     }
 }
 
@@ -592,6 +594,7 @@ thread_do_start_proc(rb_thread_t *th)
             th->invoke_arg.proc.kw_splat,
             VM_BLOCK_HANDLER_NONE
         );
+    RB_GC_GUARD(self);
     }
     else {
         args_len = RARRAY_LENINT(args);
@@ -613,6 +616,8 @@ thread_do_start_proc(rb_thread_t *th)
             th->invoke_arg.proc.kw_splat,
             VM_BLOCK_HANDLER_NONE
         );
+        RB_GC_GUARD(args);
+        RB_GC_GUARD(procval);
     }
 }
 
@@ -641,6 +646,7 @@ thread_do_start(rb_thread_t *th)
     }
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 void rb_ec_clear_current_thread_trace_func(const rb_execution_context_t *ec);
@@ -716,6 +722,7 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
                 rb_str_cat_cstr(mesg, " terminated with exception (report_on_exception is true):\n");
                 rb_write_error_str(mesg);
                 rb_ec_error_print(th->ec, errinfo);
+            RB_GC_GUARD(mesg);
             }
 
             if (th->invoke_type == thread_invoke_type_ractor_proc) {
@@ -731,6 +738,7 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
             }
         }
         th->value = Qnil;
+    RB_GC_GUARD(exc);
     }
 
     // The thread is effectively finished and can be joined.
@@ -792,6 +800,8 @@ thread_start_func_2(rb_thread_t *th, VALUE *stack_start)
     }
 
     return 0;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(errinfo);
 }
 
 struct thread_create_params {
@@ -879,6 +889,7 @@ thread_create_core(VALUE thval, struct thread_create_params *params)
         rb_raise(rb_eThreadError, "can't create Thread: %s", strerror(err));
     }
     return thval;
+    RB_GC_GUARD(thval);
 }
 
 #define threadptr_initialized(th) ((th)->invoke_type != thread_invoke_type_none)
@@ -920,6 +931,8 @@ thread_s_new(int argc, VALUE *argv, VALUE klass)
                  klass);
     }
     return thread;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -941,6 +954,8 @@ thread_start(VALUE klass, VALUE args)
         .proc = rb_block_proc(),
     };
     return thread_create_core(rb_thread_alloc(klass), &params);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -972,6 +987,7 @@ thread_initialize(VALUE thread, VALUE args)
         }
         else {
             rb_raise(rb_eThreadError, "already initialized thread");
+    RB_GC_GUARD(loc);
         }
     }
     else {
@@ -982,6 +998,8 @@ thread_initialize(VALUE thread, VALUE args)
         };
         return thread_create_core(thread, &params);
     }
+        RB_GC_GUARD(thread);
+        RB_GC_GUARD(args);
 }
 
 VALUE
@@ -1005,6 +1023,8 @@ rb_thread_create_ractor(rb_ractor_t *r, VALUE args, VALUE proc)
         .proc = proc,
     };
     return thread_create_core(rb_thread_alloc(rb_cThread), &params);
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(args);
 }
 
 
@@ -1035,6 +1055,7 @@ remove_from_join_list(VALUE arg)
     }
 
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 static int
@@ -1079,9 +1100,11 @@ thread_join_sleep(VALUE arg)
         th->status = THREAD_RUNNABLE;
 
         RUBY_DEBUG_LOG("interrupted target_th:%u status:%s", rb_th_serial(target_th), thread_status_name(target_th, TRUE));
+    RB_GC_GUARD(scheduler);
     }
 
     return Qtrue;
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -1141,9 +1164,11 @@ thread_join(rb_thread_t *target_th, VALUE timeout, rb_hrtime_t *limit)
         else {
             /* normal exception */
             rb_exc_raise(err);
+    RB_GC_GUARD(err);
         }
     }
     return target_th->self;
+    RB_GC_GUARD(timeout);
 }
 
 /*
@@ -1212,6 +1237,8 @@ thread_join_m(int argc, VALUE *argv, VALUE self)
     }
 
     return thread_join(rb_thread_ptr(self), timeout, limit);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(timeout);
 }
 
 /*
@@ -1238,6 +1265,7 @@ thread_value(VALUE self)
         return Qnil;
     }
     return th->value;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1408,6 +1436,9 @@ rb_thread_sleep_deadly_allow_spurious_wakeup(VALUE blocker, VALUE timeout, rb_hr
             sleep_forever(GET_THREAD(), SLEEP_DEADLOCKABLE);
         }
     }
+            RB_GC_GUARD(scheduler);
+            RB_GC_GUARD(timeout);
+            RB_GC_GUARD(blocker);
 }
 
 void
@@ -1452,6 +1483,7 @@ int
 rb_thread_interrupted(VALUE thval)
 {
     return (int)RUBY_VM_INTERRUPTED(rb_thread_ptr(thval)->ec);
+    RB_GC_GUARD(thval);
 }
 
 void
@@ -1551,7 +1583,9 @@ rb_nogvl(void *(*func)(void *), void *data1,
             if (!UNDEF_P(result)) {
                 rb_errno_set(state.saved_errno);
                 return state.result;
+    RB_GC_GUARD(result);
             }
+    RB_GC_GUARD(scheduler);
         }
     }
 
@@ -1797,6 +1831,7 @@ rb_thread_mn_schedulable(VALUE thval)
 {
     rb_thread_t *th = rb_thread_ptr(thval);
     return th->mn_schedulable;
+    RB_GC_GUARD(thval);
 }
 
 VALUE
@@ -1972,6 +2007,7 @@ thread_s_pass(VALUE klass)
 {
     rb_thread_schedule();
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 /*****************************************************/
@@ -2003,6 +2039,7 @@ rb_threadptr_pending_interrupt_enque(rb_thread_t *th, VALUE v)
 {
     rb_ary_push(th->pending_interrupt_queue, v);
     th->pending_interrupt_queue_checked = 0;
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -2035,6 +2072,7 @@ rb_threadptr_pending_interrupt_from_symbol(rb_thread_t *th, VALUE sym)
     else {
         rb_raise(rb_eThreadError, "unknown mask signature");
     }
+        RB_GC_GUARD(sym);
 }
 
 static enum handle_interrupt_timing
@@ -2072,11 +2110,16 @@ rb_threadptr_pending_interrupt_check_mask(rb_thread_t *th, VALUE err)
 
             if ((sym = rb_hash_aref(mask, klass)) != Qnil) {
                 return rb_threadptr_pending_interrupt_from_symbol(th, sym);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(sym);
             }
         }
         /* try to next mask */
     }
     return INTERRUPT_NONE;
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(mask);
 }
 
 static int
@@ -2093,9 +2136,11 @@ rb_threadptr_pending_interrupt_include_p(rb_thread_t *th, VALUE err)
         VALUE e = RARRAY_AREF(th->pending_interrupt_queue, i);
         if (rb_obj_is_kind_of(e, err)) {
             return TRUE;
+    RB_GC_GUARD(e);
         }
     }
     return FALSE;
+    RB_GC_GUARD(err);
 }
 
 static VALUE
@@ -2110,6 +2155,7 @@ rb_threadptr_pending_interrupt_deque(rb_thread_t *th, enum handle_interrupt_timi
         enum handle_interrupt_timing mask_timing = rb_threadptr_pending_interrupt_check_mask(th, CLASS_OF(err));
 
         switch (mask_timing) {
+          RB_GC_GUARD(err);
           case INTERRUPT_ON_BLOCKING:
             if (timing != INTERRUPT_ON_BLOCKING) {
                 break;
@@ -2174,6 +2220,7 @@ handle_interrupt_arg_check_i(VALUE key, VALUE val, VALUE args)
             *maskp = rb_ident_hash_new();
             if (SYMBOL_P(prev)) {
                 rb_hash_aset(*maskp, rb_eException, prev);
+        RB_GC_GUARD(prev);
             }
         }
         rb_hash_aset(*maskp, key, val);
@@ -2183,6 +2230,9 @@ handle_interrupt_arg_check_i(VALUE key, VALUE val, VALUE args)
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2326,6 +2376,9 @@ rb_thread_s_handle_interrupt(VALUE self, VALUE mask_arg)
     }
 
     return r;
+    RB_GC_GUARD(mask_arg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mask);
 }
 
 /*
@@ -2355,9 +2408,11 @@ rb_thread_pending_interrupt_p(int argc, VALUE *argv, VALUE target_thread)
             rb_raise(rb_eTypeError, "class or module required for rescue clause");
         }
         return RBOOL(rb_threadptr_pending_interrupt_include_p(target_th, err));
+    RB_GC_GUARD(err);
     }
     else {
         return Qtrue;
+        RB_GC_GUARD(target_thread);
     }
 }
 
@@ -2422,6 +2477,7 @@ static VALUE
 rb_thread_s_pending_interrupt_p(int argc, VALUE *argv, VALUE self)
 {
     return rb_thread_pending_interrupt_p(argc, argv, GET_THREAD()->self);
+    RB_GC_GUARD(self);
 }
 
 NORETURN(static void rb_threadptr_to_kill(rb_thread_t *th));
@@ -2532,6 +2588,7 @@ rb_threadptr_execute_interrupts(rb_thread_t *th, int blocking_timing)
                     th->status == THREAD_STOPPED_FOREVER)
                     th->status = THREAD_RUNNABLE;
                 rb_exc_raise(err);
+        RB_GC_GUARD(err);
             }
         }
 
@@ -2564,6 +2621,7 @@ void
 rb_thread_execute_interrupts(VALUE thval)
 {
     rb_threadptr_execute_interrupts(rb_thread_ptr(thval), 1);
+    RB_GC_GUARD(thval);
 }
 
 static void
@@ -2598,6 +2656,7 @@ rb_threadptr_raise(rb_thread_t *target_th, int argc, VALUE *argv)
     rb_threadptr_pending_interrupt_enque(target_th, exc);
     rb_threadptr_interrupt(target_th);
     return Qnil;
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -2665,6 +2724,7 @@ rb_notify_fd_close(int fd, struct rb_io_close_wait_list *busy)
                 err = th->vm->special_exceptions[ruby_error_stream_closed];
                 rb_threadptr_pending_interrupt_enque(th, err);
                 rb_threadptr_interrupt(th);
+    RB_GC_GUARD(err);
             }
         }
     }
@@ -2686,6 +2746,7 @@ rb_notify_fd_close(int fd, struct rb_io_close_wait_list *busy)
        of this function. */
     RB_GC_GUARD(wakeup_mutex);
     return has_any;
+    RB_GC_GUARD(wakeup_mutex);
 }
 
 void
@@ -2749,6 +2810,7 @@ thread_raise_m(int argc, VALUE *argv, VALUE self)
         RUBY_VM_CHECK_INTS(target_th->ec);
     }
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 
@@ -2788,6 +2850,7 @@ rb_thread_kill(VALUE thread)
     }
 
     return thread;
+    RB_GC_GUARD(thread);
 }
 
 int
@@ -2799,6 +2862,7 @@ rb_thread_to_be_killed(VALUE thread)
         return TRUE;
     }
     return FALSE;
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -2819,6 +2883,8 @@ static VALUE
 rb_thread_s_kill(VALUE obj, VALUE th)
 {
     return rb_thread_kill(th);
+    RB_GC_GUARD(th);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -2839,6 +2905,7 @@ rb_thread_exit(VALUE _)
 {
     rb_thread_t *th = GET_THREAD();
     return rb_thread_kill(th->self);
+    RB_GC_GUARD(_);
 }
 
 
@@ -2865,6 +2932,7 @@ rb_thread_wakeup(VALUE thread)
         rb_raise(rb_eThreadError, "killed thread");
     }
     return thread;
+    RB_GC_GUARD(thread);
 }
 
 VALUE
@@ -2881,6 +2949,7 @@ rb_thread_wakeup_alive(VALUE thread)
     }
 
     return thread;
+    RB_GC_GUARD(thread);
 }
 
 
@@ -2911,6 +2980,7 @@ rb_thread_run(VALUE thread)
     rb_thread_wakeup(thread);
     rb_thread_schedule();
     return thread;
+    RB_GC_GUARD(thread);
 }
 
 
@@ -2944,6 +3014,7 @@ static VALUE
 thread_stop(VALUE _)
 {
     return rb_thread_stop();
+    RB_GC_GUARD(_);
 }
 
 /********************************************************************/
@@ -2979,6 +3050,7 @@ static VALUE
 thread_list(VALUE _)
 {
     return rb_thread_list();
+    RB_GC_GUARD(_);
 }
 
 VALUE
@@ -3000,6 +3072,7 @@ static VALUE
 thread_s_current(VALUE klass)
 {
     return rb_thread_current();
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -3019,6 +3092,7 @@ static VALUE
 rb_thread_s_main(VALUE klass)
 {
     return rb_thread_main();
+    RB_GC_GUARD(klass);
 }
 
 
@@ -3046,6 +3120,7 @@ static VALUE
 rb_thread_s_abort_exc(VALUE _)
 {
     return RBOOL(GET_THREAD()->vm->thread_abort_on_exception);
+    RB_GC_GUARD(_);
 }
 
 
@@ -3084,6 +3159,8 @@ rb_thread_s_abort_exc_set(VALUE self, VALUE val)
 {
     GET_THREAD()->vm->thread_abort_on_exception = RTEST(val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 
@@ -3106,6 +3183,7 @@ static VALUE
 rb_thread_abort_exc(VALUE thread)
 {
     return RBOOL(rb_thread_ptr(thread)->abort_on_exception);
+    RB_GC_GUARD(thread);
 }
 
 
@@ -3127,6 +3205,8 @@ rb_thread_abort_exc_set(VALUE thread, VALUE val)
 {
     rb_thread_ptr(thread)->abort_on_exception = RTEST(val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(thread);
 }
 
 
@@ -3176,6 +3256,7 @@ static VALUE
 rb_thread_s_report_exc(VALUE _)
 {
     return RBOOL(GET_THREAD()->vm->thread_report_on_exception);
+    RB_GC_GUARD(_);
 }
 
 
@@ -3214,6 +3295,8 @@ rb_thread_s_report_exc_set(VALUE self, VALUE val)
 {
     GET_THREAD()->vm->thread_report_on_exception = RTEST(val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 
@@ -3232,6 +3315,7 @@ static VALUE
 rb_thread_s_ignore_deadlock(VALUE _)
 {
     return RBOOL(GET_THREAD()->vm->thread_ignore_deadlock);
+    RB_GC_GUARD(_);
 }
 
 
@@ -3260,6 +3344,8 @@ rb_thread_s_ignore_deadlock_set(VALUE self, VALUE val)
 {
     GET_THREAD()->vm->thread_ignore_deadlock = RTEST(val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 
@@ -3283,6 +3369,7 @@ static VALUE
 rb_thread_report_exc(VALUE thread)
 {
     return RBOOL(rb_thread_ptr(thread)->report_on_exception);
+    RB_GC_GUARD(thread);
 }
 
 
@@ -3304,6 +3391,8 @@ rb_thread_report_exc_set(VALUE thread, VALUE val)
 {
     rb_thread_ptr(thread)->report_on_exception = RTEST(val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(thread);
 }
 
 
@@ -3320,6 +3409,7 @@ VALUE
 rb_thread_group(VALUE thread)
 {
     return rb_thread_ptr(thread)->thgroup;
+    RB_GC_GUARD(thread);
 }
 
 static const char *
@@ -3393,6 +3483,7 @@ rb_thread_status(VALUE thread)
     }
     else {
         return rb_str_new2(thread_status_name(target_th, FALSE));
+        RB_GC_GUARD(thread);
     }
 }
 
@@ -3415,6 +3506,7 @@ static VALUE
 rb_thread_alive_p(VALUE thread)
 {
     return RBOOL(!thread_finished(rb_thread_ptr(thread)));
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -3440,6 +3532,7 @@ rb_thread_stop_p(VALUE thread)
         return Qtrue;
     }
     return RBOOL(th->status == THREAD_STOPPED || th->status == THREAD_STOPPED_FOREVER);
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -3453,6 +3546,7 @@ static VALUE
 rb_thread_getname(VALUE thread)
 {
     return rb_thread_ptr(thread)->name;
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -3483,6 +3577,8 @@ rb_thread_setname(VALUE thread, VALUE name)
         native_set_another_thread_name(target_th->nt->thread_id, name);
     }
     return name;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(thread);
 }
 
 #if USE_NATIVE_THREAD_NATIVE_THREAD_ID
@@ -3514,6 +3610,7 @@ rb_thread_native_thread_id(VALUE thread)
     rb_thread_t *target_th = rb_thread_ptr(thread);
     if (rb_threadptr_dead(target_th)) return Qnil;
     return native_thread_native_thread_id(target_th);
+    RB_GC_GUARD(thread);
 }
 #else
 # define rb_thread_native_thread_id rb_f_notimplement
@@ -3546,6 +3643,10 @@ rb_thread_to_s(VALUE thread)
     rb_str_catf(str, " %s>", status);
 
     return str;
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(loc);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(cname);
 }
 
 /* variables for recursive traversals */
@@ -3566,6 +3667,7 @@ threadptr_local_aref(rb_thread_t *th, ID id)
         }
         else {
             return Qnil;
+            RB_GC_GUARD(val);
         }
     }
 }
@@ -3574,6 +3676,7 @@ VALUE
 rb_thread_local_aref(VALUE thread, ID id)
 {
     return threadptr_local_aref(rb_thread_ptr(thread), id);
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -3642,6 +3745,8 @@ rb_thread_aref(VALUE thread, VALUE key)
     ID id = rb_check_id(&key);
     if (!id) return Qnil;
     return rb_thread_local_aref(thread, id);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -3691,6 +3796,9 @@ rb_thread_fetch(int argc, VALUE *argv, VALUE self)
     else {
         return argv[1];
     }
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -3715,6 +3823,7 @@ threadptr_local_aset(rb_thread_t *th, ID id, VALUE val)
             rb_id_table_insert(local_storage, id, val);
             return val;
         }
+            RB_GC_GUARD(val);
     }
 }
 
@@ -3726,6 +3835,8 @@ rb_thread_local_aset(VALUE thread, ID id, VALUE val)
     }
 
     return threadptr_local_aset(rb_thread_ptr(thread), id, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -3745,6 +3856,9 @@ static VALUE
 rb_thread_aset(VALUE self, VALUE id, VALUE val)
 {
     return rb_thread_local_aset(self, rb_to_id(id), val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3786,6 +3900,10 @@ rb_thread_variable_get(VALUE thread, VALUE key)
     }
     locals = rb_thread_local_storage(thread);
     return rb_hash_aref(locals, symbol);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(symbol);
+    RB_GC_GUARD(locals);
 }
 
 /*
@@ -3808,6 +3926,10 @@ rb_thread_variable_set(VALUE thread, VALUE key, VALUE val)
 
     locals = rb_thread_local_storage(thread);
     return rb_hash_aset(locals, rb_to_symbol(key), val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(locals);
 }
 
 /*
@@ -3834,6 +3956,9 @@ rb_thread_key_p(VALUE self, VALUE key)
         return Qfalse;
     }
     return RBOOL(rb_id_table_lookup(local_storage, id, &val));
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
 }
 
 static enum rb_id_table_iterator_result
@@ -3841,6 +3966,7 @@ thread_keys_i(ID key, VALUE value, void *ary)
 {
     rb_ary_push((VALUE)ary, ID2SYM(key));
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 int
@@ -3874,6 +4000,8 @@ rb_thread_keys(VALUE self)
         rb_id_table_foreach(local_storage, thread_keys_i, (void *)ary);
     }
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -3881,6 +4009,9 @@ keys_i(VALUE key, VALUE value, VALUE ary)
 {
     rb_ary_push(ary, key);
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3914,6 +4045,9 @@ rb_thread_variables(VALUE thread)
     rb_hash_foreach(locals, keys_i, ary);
 
     return ary;
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(locals);
 }
 
 /*
@@ -3944,6 +4078,10 @@ rb_thread_variable_p(VALUE thread, VALUE key)
     locals = rb_thread_local_storage(thread);
 
     return RBOOL(rb_hash_lookup(locals, symbol) != Qnil);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(symbol);
+    RB_GC_GUARD(locals);
 }
 
 /*
@@ -3965,6 +4103,7 @@ static VALUE
 rb_thread_priority(VALUE thread)
 {
     return INT2NUM(rb_thread_ptr(thread)->priority);
+    RB_GC_GUARD(thread);
 }
 
 
@@ -4014,6 +4153,8 @@ rb_thread_priority_set(VALUE thread, VALUE prio)
     target_th->priority = (int8_t)priority;
 #endif
     return INT2NUM(target_th->priority);
+    RB_GC_GUARD(prio);
+    RB_GC_GUARD(thread);
 }
 
 /* for IO */
@@ -4288,6 +4429,7 @@ select_set_free(VALUE p)
     rb_fd_term(&set->orig_eset);
 
     return Qfalse;
+    RB_GC_GUARD(p);
 }
 
 static VALUE
@@ -4330,6 +4472,7 @@ do_select(VALUE p)
     }
 
     return (VALUE)result;
+    RB_GC_GUARD(p);
 }
 
 int
@@ -4699,10 +4842,14 @@ clear_coverage_i(st_data_t key, st_data_t val, st_data_t dummy)
         VALUE counters = RARRAY_AREF(branches, 1);
         for (i = 0; i < RARRAY_LEN(counters); i++) {
             RARRAY_ASET(counters, i, INT2FIX(0));
+    RB_GC_GUARD(counters);
         }
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(branches);
+    RB_GC_GUARD(lines);
+    RB_GC_GUARD(coverage);
 }
 
 void
@@ -4712,6 +4859,7 @@ rb_clear_coverages(void)
     if (RTEST(coverages)) {
         rb_hash_foreach(coverages, clear_coverage_i, 0);
     }
+        RB_GC_GUARD(coverages);
 }
 
 #if defined(HAVE_WORKING_FORK)
@@ -4853,6 +5001,8 @@ thgroup_s_alloc(VALUE klass)
     data->enclosed = 0;
 
     return group;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(group);
 }
 
 /*
@@ -4877,6 +5027,8 @@ thgroup_list(VALUE group)
         }
     }
     return ary;
+    RB_GC_GUARD(group);
+    RB_GC_GUARD(ary);
 }
 
 
@@ -4905,6 +5057,7 @@ thgroup_enclose(VALUE group)
     data->enclosed = 1;
 
     return group;
+    RB_GC_GUARD(group);
 }
 
 
@@ -4922,6 +5075,7 @@ thgroup_enclosed_p(VALUE group)
 
     TypedData_Get_Struct(group, struct thgroup, &thgroup_data_type, data);
     return RBOOL(data->enclosed);
+    RB_GC_GUARD(group);
 }
 
 
@@ -4976,6 +5130,8 @@ thgroup_add(VALUE group, VALUE thread)
 
     target_th->thgroup = group;
     return group;
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(group);
 }
 
 /*
@@ -4997,6 +5153,7 @@ static VALUE
 thread_shield_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &thread_shield_data_type, (void *)mutex_alloc(0));
+    RB_GC_GUARD(klass);
 }
 
 #define GetThreadShieldPtr(obj) ((VALUE)rb_check_typeddata((obj), &thread_shield_data_type))
@@ -5008,6 +5165,7 @@ static inline unsigned int
 rb_thread_shield_waiting(VALUE b)
 {
     return ((RBASIC(b)->flags&THREAD_SHIELD_WAITING_MASK)>>THREAD_SHIELD_WAITING_SHIFT);
+    RB_GC_GUARD(b);
 }
 
 static inline void
@@ -5019,6 +5177,7 @@ rb_thread_shield_waiting_inc(VALUE b)
         rb_raise(rb_eRuntimeError, "waiting count overflow");
     RBASIC(b)->flags &= ~THREAD_SHIELD_WAITING_MASK;
     RBASIC(b)->flags |= ((VALUE)w << THREAD_SHIELD_WAITING_SHIFT);
+    RB_GC_GUARD(b);
 }
 
 static inline void
@@ -5029,6 +5188,7 @@ rb_thread_shield_waiting_dec(VALUE b)
     w--;
     RBASIC(b)->flags &= ~THREAD_SHIELD_WAITING_MASK;
     RBASIC(b)->flags |= ((VALUE)w << THREAD_SHIELD_WAITING_SHIFT);
+    RB_GC_GUARD(b);
 }
 
 VALUE
@@ -5037,6 +5197,7 @@ rb_thread_shield_new(void)
     VALUE thread_shield = thread_shield_alloc(rb_cThreadShield);
     rb_mutex_lock((VALUE)DATA_PTR(thread_shield));
     return thread_shield;
+    RB_GC_GUARD(thread_shield);
 }
 
 bool
@@ -5048,6 +5209,8 @@ rb_thread_shield_owned(VALUE self)
     rb_mutex_t *m = mutex_ptr(mutex);
 
     return m->fiber == GET_EC()->fiber_ptr;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mutex);
 }
 
 /*
@@ -5073,6 +5236,8 @@ rb_thread_shield_wait(VALUE self)
     if (DATA_PTR(self)) return Qtrue;
     rb_mutex_unlock(mutex);
     return rb_thread_shield_waiting(self) > 0 ? Qnil : Qfalse;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mutex);
 }
 
 static VALUE
@@ -5082,6 +5247,8 @@ thread_shield_get_mutex(VALUE self)
     if (!mutex)
         rb_raise(rb_eThreadError, "destroyed thread shield - %p", (void *)self);
     return mutex;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mutex);
 }
 
 /*
@@ -5093,6 +5260,8 @@ rb_thread_shield_release(VALUE self)
     VALUE mutex = thread_shield_get_mutex(self);
     rb_mutex_unlock(mutex);
     return RBOOL(rb_thread_shield_waiting(self) > 0);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mutex);
 }
 
 /*
@@ -5105,6 +5274,8 @@ rb_thread_shield_destroy(VALUE self)
     DATA_PTR(self) = 0;
     rb_mutex_unlock(mutex);
     return RBOOL(rb_thread_shield_waiting(self) > 0);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mutex);
 }
 
 static VALUE
@@ -5117,6 +5288,7 @@ static void
 threadptr_recursive_hash_set(rb_thread_t *th, VALUE hash)
 {
     th->ec->local_storage_recursive_hash = hash;
+    RB_GC_GUARD(hash);
 }
 
 ID rb_frame_last_func(void);
@@ -5146,6 +5318,9 @@ recursive_list_access(VALUE sym)
         rb_hash_aset(hash, sym, list);
     }
     return list;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(list);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -5178,6 +5353,10 @@ recursive_check(VALUE list, VALUE obj, VALUE paired_obj_id)
         }
     }
     return true;
+    RB_GC_GUARD(paired_obj_id);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(list);
+    RB_GC_GUARD(pair_list);
 }
 
 /*
@@ -5206,9 +5385,14 @@ recursive_push(VALUE list, VALUE obj, VALUE paired_obj)
             pair_list = rb_hash_new();
             rb_hash_aset(pair_list, other_paired_obj, Qtrue);
             rb_hash_aset(list, obj, pair_list);
+        RB_GC_GUARD(other_paired_obj);
         }
         rb_hash_aset(pair_list, paired_obj, Qtrue);
     }
+        RB_GC_GUARD(pair_list);
+        RB_GC_GUARD(paired_obj);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(list);
 }
 
 /*
@@ -5232,10 +5416,14 @@ recursive_pop(VALUE list, VALUE obj, VALUE paired_obj)
             if (!RHASH_EMPTY_P(pair_list)) {
                 return 1; /* keep hash until is empty */
             }
+    RB_GC_GUARD(pair_list);
         }
     }
     rb_hash_delete_entry(list, obj);
     return 1;
+    RB_GC_GUARD(paired_obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(list);
 }
 
 struct exec_recursive_params {
@@ -5251,6 +5439,9 @@ exec_recursive_i(RB_BLOCK_CALL_FUNC_ARGLIST(tag, data))
 {
     struct exec_recursive_params *p = (void *)data;
     return (*p->func)(p->obj, p->arg, FALSE);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(tag);
 }
 
 /*
@@ -5322,6 +5513,10 @@ exec_recursive(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE pairid, VALUE
              "for %+"PRIsVALUE" in %+"PRIsVALUE,
              sym, rb_thread_current());
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(pairid);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5333,6 +5528,8 @@ VALUE
 rb_exec_recursive(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE arg)
 {
     return exec_recursive(func, obj, 0, arg, 0, rb_frame_last_func());
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5344,6 +5541,9 @@ VALUE
 rb_exec_recursive_paired(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE paired_obj, VALUE arg)
 {
     return exec_recursive(func, obj, rb_memory_id(paired_obj), arg, 0, rb_frame_last_func());
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(paired_obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5356,12 +5556,16 @@ VALUE
 rb_exec_recursive_outer(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE arg)
 {
     return exec_recursive(func, obj, 0, arg, 1, rb_frame_last_func());
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_exec_recursive_outer_mid(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE arg, ID mid)
 {
     return exec_recursive(func, obj, 0, arg, 1, mid);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5374,6 +5578,9 @@ VALUE
 rb_exec_recursive_paired_outer(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE paired_obj, VALUE arg)
 {
     return exec_recursive(func, obj, rb_memory_id(paired_obj), arg, 1, rb_frame_last_func());
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(paired_obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5388,6 +5595,7 @@ static VALUE
 rb_thread_backtrace_m(int argc, VALUE *argv, VALUE thval)
 {
     return rb_vm_thread_backtrace(argc, argv, thval);
+    RB_GC_GUARD(thval);
 }
 
 /* call-seq:
@@ -5405,6 +5613,7 @@ static VALUE
 rb_thread_backtrace_locations_m(int argc, VALUE *argv, VALUE thval)
 {
     return rb_vm_thread_backtrace_locations(argc, argv, thval);
+    RB_GC_GUARD(thval);
 }
 
 void
@@ -5551,6 +5760,7 @@ Init_Thread(void)
 
     // TODO: Suppress unused function warning for now
     // if (0) rb_thread_sched_destroy(NULL);
+    RB_GC_GUARD(cThGroup);
 }
 
 int
@@ -5599,6 +5809,8 @@ debug_deadlock_check(rb_ractor_t *r, VALUE msg)
         rb_str_concat(msg, rb_ary_join(rb_ec_backtrace_str_ary(th->ec, 0, 0), sep));
         rb_str_catf(msg, "\n");
     }
+        RB_GC_GUARD(sep);
+        RB_GC_GUARD(msg);
 }
 
 static void
@@ -5684,9 +5896,13 @@ update_line_coverage(VALUE data, const rb_trace_arg_t *trace_arg)
             count = FIX2LONG(num) + 1;
             if (POSFIXABLE(count)) {
                 RARRAY_ASET(lines, line, LONG2FIX(count));
+                RB_GC_GUARD(num);
             }
+                RB_GC_GUARD(lines);
         }
     }
+                RB_GC_GUARD(coverage);
+                RB_GC_GUARD(data);
 }
 
 static void
@@ -5704,9 +5920,14 @@ update_branch_coverage(VALUE data, const rb_trace_arg_t *trace_arg)
             count = FIX2LONG(num) + 1;
             if (POSFIXABLE(count)) {
                 RARRAY_ASET(counters, idx, LONG2FIX(count));
+                RB_GC_GUARD(counters);
+                RB_GC_GUARD(num);
             }
+                RB_GC_GUARD(branches);
         }
     }
+                RB_GC_GUARD(coverage);
+                RB_GC_GUARD(data);
 }
 
 const rb_method_entry_t *
@@ -5767,6 +5988,11 @@ rb_resolve_me_location(const rb_method_entry_t *me, VALUE resolved_location[5])
         resolved_location[4] = end_pos_column;
     }
     return me;
+    RB_GC_GUARD(end_pos_column);
+    RB_GC_GUARD(end_pos_lineno);
+    RB_GC_GUARD(beg_pos_column);
+    RB_GC_GUARD(beg_pos_lineno);
+    RB_GC_GUARD(path);
 }
 
 static void
@@ -5786,6 +6012,8 @@ update_method_coverage(VALUE me2counter, rb_trace_arg_t *trace_arg)
     if (POSFIXABLE(count)) {
         rb_hash_aset(me2counter, (VALUE) me, LONG2FIX(count));
     }
+        RB_GC_GUARD(rcount);
+        RB_GC_GUARD(me2counter);
 }
 
 VALUE
@@ -5806,6 +6034,8 @@ rb_set_coverages(VALUE coverages, int mode, VALUE me2counter)
     GET_VM()->coverages = coverages;
     GET_VM()->me2counter = me2counter;
     GET_VM()->coverage_mode = mode;
+    RB_GC_GUARD(coverages);
+    RB_GC_GUARD(me2counter);
 }
 
 void
@@ -5820,6 +6050,7 @@ rb_resume_coverages(void)
     if (mode & COVERAGE_TARGET_METHODS) {
         rb_add_event_hook2((rb_event_hook_func_t) update_method_coverage, RUBY_EVENT_CALL, me2counter, RUBY_EVENT_HOOK_FLAG_SAFE | RUBY_EVENT_HOOK_FLAG_RAW_ARG);
     }
+        RB_GC_GUARD(me2counter);
 }
 
 void
@@ -5883,10 +6114,14 @@ rb_default_coverage(int n)
         RARRAY_ASET(branches, 0, structure);
         /* branch execution counters */
         RARRAY_ASET(branches, 1, rb_ary_hidden_new(0));
+    RB_GC_GUARD(structure);
     }
     RARRAY_ASET(coverage, COVERAGE_INDEX_BRANCHES, branches);
 
     return coverage;
+    RB_GC_GUARD(branches);
+    RB_GC_GUARD(lines);
+    RB_GC_GUARD(coverage);
 }
 
 static VALUE
@@ -5900,6 +6135,7 @@ uninterruptible_exit(VALUE v)
         RUBY_VM_SET_INTERRUPT(cur_th->ec);
     }
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 VALUE
@@ -5916,6 +6152,9 @@ rb_uninterruptible(VALUE (*b_proc)(VALUE), VALUE data)
 
     RUBY_VM_CHECK_INTS(cur_th->ec);
     return ret;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(interrupt_mask);
 }
 
 static void
@@ -5966,6 +6205,7 @@ rb_internal_thread_specific_get(VALUE thread_val, rb_internal_thread_specific_ke
     VM_ASSERT(th->specific_storage);
 
     return th->specific_storage[key];
+    RB_GC_GUARD(thread_val);
 }
 
 // async and native thread safe.
@@ -5979,6 +6219,7 @@ rb_internal_thread_specific_set(VALUE thread_val, rb_internal_thread_specific_ke
     VM_ASSERT(th->specific_storage);
 
     th->specific_storage[key] = data;
+    RB_GC_GUARD(thread_val);
 }
 
 // interrupt_exec

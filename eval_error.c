@@ -33,6 +33,7 @@ error_pos(const VALUE str)
     if (!NIL_P(pos)) {
         write_warn_str(str, pos);
     }
+        RB_GC_GUARD(pos);
 }
 
 static VALUE
@@ -56,6 +57,7 @@ error_pos_str(void)
         }
     }
     return Qnil;
+    RB_GC_GUARD(sourcefile);
 }
 
 static void
@@ -73,6 +75,8 @@ set_backtrace(VALUE info, VALUE bt)
         }
     }
     rb_check_funcall(info, set_backtrace, 1, &bt);
+    RB_GC_GUARD(info);
+    RB_GC_GUARD(bt);
 }
 
 #define CSI_BEGIN "\033["
@@ -120,8 +124,10 @@ print_errinfo(const VALUE eclass, const VALUE errat, const VALUE emesg, const VA
         else {
             write_warn_str(str, emesg);
             write_warn(str, "\n");
+            RB_GC_GUARD(epath);
         }
     }
+            RB_GC_GUARD(mesg);
 }
 
 VALUE
@@ -207,12 +213,15 @@ rb_decorate_message(const VALUE eclass, VALUE emesg, int highlight)
                     }
                 }
             }
+    RB_GC_GUARD(epath);
         }
     }
 
     RB_GC_GUARD(emesg);
 
     return str;
+    RB_GC_GUARD(emesg);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -257,6 +266,8 @@ print_backtrace(const VALUE eclass, const VALUE errat, const VALUE str, int reve
                 VALUE bt = rb_str_new_cstr("\t");
                 if (reverse) rb_str_catf(bt, "%*ld: ", width, len - i);
                 write_warn_str(str, rb_str_catf(bt, "from %"PRIsVALUE"\n", line));
+                RB_GC_GUARD(bt);
+                RB_GC_GUARD(line);
             }
         }
     }
@@ -274,6 +285,8 @@ shown_cause_p(VALUE cause, VALUE *shown_causes)
     if (rb_hash_has_key(shown, cause)) return TRUE;
     rb_hash_aset(shown, cause, Qtrue);
     return FALSE;
+    RB_GC_GUARD(cause);
+    RB_GC_GUARD(shown);
 }
 
 static void
@@ -294,8 +307,16 @@ show_cause(VALUE errinfo, VALUE str, VALUE opt, VALUE highlight, VALUE reverse, 
             print_errinfo(eclass, errat, emesg, str, RTEST(highlight));
             print_backtrace(eclass, errat, str, FALSE, backtrace_limit);
             show_cause(cause, str, opt, highlight, reverse, backtrace_limit, shown_causes);
+            RB_GC_GUARD(errat);
+            RB_GC_GUARD(emesg);
         }
     }
+            RB_GC_GUARD(cause);
+            RB_GC_GUARD(reverse);
+            RB_GC_GUARD(highlight);
+            RB_GC_GUARD(opt);
+            RB_GC_GUARD(str);
+            RB_GC_GUARD(errinfo);
 }
 
 void
@@ -307,6 +328,9 @@ rb_exc_check_circular_cause(VALUE exc)
             rb_raise(rb_eArgError, "circular causes");
         }
     } while (!NIL_P(cause = rb_attr_get(cause, id_cause)));
+            RB_GC_GUARD(cause);
+            RB_GC_GUARD(exc);
+            RB_GC_GUARD(shown_causes);
 }
 
 void
@@ -349,6 +373,14 @@ rb_error_write(VALUE errinfo, VALUE emesg, VALUE errat, VALUE str, VALUE opt, VA
         print_backtrace(eclass, errat, str, FALSE, backtrace_limit);
         show_cause(errinfo, str, opt, highlight, reverse, backtrace_limit, &shown_causes);
     }
+        RB_GC_GUARD(shown_causes);
+        RB_GC_GUARD(reverse);
+        RB_GC_GUARD(highlight);
+        RB_GC_GUARD(opt);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(errat);
+        RB_GC_GUARD(emesg);
+        RB_GC_GUARD(errinfo);
 }
 
 static void
@@ -384,6 +416,9 @@ rb_ec_error_print_detailed(rb_execution_context_t *const ec, const VALUE errinfo
     EC_POP_TAG();
     ec->errinfo = errinfo;
     rb_ec_raised_set(ec, raised_flag);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(emesg0);
+    RB_GC_GUARD(highlight);
 }
 
 void
@@ -411,6 +446,8 @@ rb_print_undef(VALUE klass, ID id, rb_method_visibility_t visi)
       default: UNREACHABLE;
     }
     rb_name_err_raise_str(mesg, klass, ID2SYM(id));
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -418,6 +455,8 @@ rb_print_undef_str(VALUE klass, VALUE name)
 {
     const int is_mod = RB_TYPE_P(klass, T_MODULE);
     rb_name_err_raise_str(undef_mesg(""), klass, name);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(name);
 }
 
 #define inaccessible_mesg_for(v, k) rb_fstring_lit("method '%1$s' for "k" '%2$s' is "v)
@@ -439,6 +478,8 @@ rb_print_inaccessible(VALUE klass, ID id, rb_method_visibility_t visi)
       default: UNREACHABLE;
     }
     rb_name_err_raise_str(mesg, klass, ID2SYM(id));
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(klass);
 }
 
 static int
@@ -446,6 +487,8 @@ sysexit_status(VALUE err)
 {
     VALUE st = rb_ivar_get(err, id_status);
     return NUM2INT(st);
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(st);
 }
 
 enum {
@@ -498,6 +541,8 @@ exiting_split(VALUE errinfo, volatile int *exitcode, volatile int *sigstatus)
         *sigstatus = sig;
 
     return result;
+    RB_GC_GUARD(errinfo);
+    RB_GC_GUARD(signo);
 }
 
 #define unknown_longjmp_status(status) \
@@ -554,4 +599,5 @@ error_handle(rb_execution_context_t *ec, VALUE errinfo, enum ruby_tag_type ex)
     }
     rb_ec_reset_raised(ec);
     return status;
+    RB_GC_GUARD(errinfo);
 }

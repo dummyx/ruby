@@ -81,6 +81,8 @@ eq(VALUE x, VALUE y)
         return x == y;
     }
     return RTEST(rb_funcall(x, idEq, 1, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static int
@@ -95,6 +97,8 @@ cmp(VALUE x, VALUE y)
     }
     if (RB_BIGNUM_TYPE_P(x)) return FIX2INT(rb_big_cmp(x, y));
     return rb_cmpint(rb_funcall(x, idCmp, 1, y), x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define ne(x,y) (!eq((x),(y)))
@@ -111,6 +115,8 @@ addv(VALUE x, VALUE y)
     }
     if (RB_BIGNUM_TYPE_P(x)) return rb_big_plus(x, y);
     return rb_funcall(x, '+', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -121,6 +127,8 @@ subv(VALUE x, VALUE y)
     }
     if (RB_BIGNUM_TYPE_P(x)) return rb_big_minus(x, y);
     return rb_funcall(x, '-', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -132,6 +140,8 @@ mulv(VALUE x, VALUE y)
     if (RB_BIGNUM_TYPE_P(x))
         return rb_big_mul(x, y);
     return rb_funcall(x, '*', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -143,6 +153,8 @@ divv(VALUE x, VALUE y)
     if (RB_BIGNUM_TYPE_P(x))
         return rb_big_div(x, y);
     return rb_funcall(x, id_div, 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -154,6 +166,8 @@ modv(VALUE x, VALUE y)
     }
     if (RB_BIGNUM_TYPE_P(x)) return rb_big_modulo(x, y);
     return rb_funcall(x, '%', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define neg(x) (subv(INT2FIX(0), (x)))
@@ -173,6 +187,8 @@ quor(VALUE x, VALUE y)
         }
     }
     return rb_numeric_quo(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -184,6 +200,9 @@ quov(VALUE x, VALUE y)
         ret = RRATIONAL(ret)->num;
     }
     return ret;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(ret);
 }
 
 #define mulquov(x,y,z) (((y) == (z)) ? (x) : quov(mulv((x),(y)),(z)))
@@ -207,6 +226,10 @@ divmodv(VALUE n, VALUE d, VALUE *q, VALUE *r)
     }
     *q = rb_ary_entry(ary, 0);
     *r = rb_ary_entry(ary, 1);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(ary);
 }
 
 #if SIZEOF_LONG == 8
@@ -334,6 +357,7 @@ v2w(VALUE v)
     }
 #endif
     return WIDEVAL_WRAP(v);
+    RB_GC_GUARD(v);
 }
 
 #define NUM2WV(v) v2w(rb_Integer(v))
@@ -370,6 +394,8 @@ wcmp(wideval_t wx, wideval_t wy)
     x = w2v(wx);
     y = w2v(wy);
     return cmp(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define wne(x,y) (!weq((x),(y)))
@@ -484,6 +510,8 @@ wdivmod(wideval_t wn, wideval_t wd, wideval_t *wq, wideval_t *wr)
     divmodv(w2v(wn), w2v(wd), &vq, &vr);
     *wq = v2w(vq);
     *wr = v2w(vr);
+    RB_GC_GUARD(vq);
+    RB_GC_GUARD(vr);
 }
 
 static void
@@ -557,6 +585,8 @@ num_exact_check(VALUE v)
     }
     ASSUME(!NIL_P(tmp));
     return tmp;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(tmp);
 }
 
 NORETURN(static void num_exact_fail(VALUE v));
@@ -565,6 +595,7 @@ num_exact_fail(VALUE v)
 {
     rb_raise(rb_eTypeError, "can't convert %"PRIsVALUE" into an exact number",
              rb_obj_class(v));
+             RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -573,6 +604,8 @@ num_exact(VALUE v)
     VALUE num = num_exact_check(v);
     if (NIL_P(num)) num_exact_fail(v);
     return num;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(num);
 }
 
 /* time_t */
@@ -620,6 +653,7 @@ rb_time_unmagnify_to_float(wideval_t w)
         return rb_Float(quov(v, INT2FIX(TIME_SCALE)));
     else
         return quov(v, DBL2NUM(TIME_SCALE));
+        RB_GC_GUARD(v);
 }
 
 static void
@@ -973,6 +1007,11 @@ timegmw_noleapsecond(struct vtm *vtm)
     wret = wadd(wret, v2w(vtm->subsecx));
 
     return wret;
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(vdays);
+    RB_GC_GUARD(r400);
+    RB_GC_GUARD(q400);
+    RB_GC_GUARD(year1900);
 }
 
 static VALUE
@@ -1000,6 +1039,7 @@ zone_str(const char *zone)
         str = rb_enc_str_new(zone, len, rb_locale_encoding());
     }
     return rb_fstring(str);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -1102,6 +1142,9 @@ gmtimew_noleapsecond(wideval_t timew, struct vtm *vtm)
 
     vtm->utc_offset = INT2FIX(0);
     vtm->zone = str_utc;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(subsecx);
+    RB_GC_GUARD(timev);
 }
 
 static struct tm *
@@ -1371,6 +1414,7 @@ gmtimew(wideval_t timew, struct vtm *result)
     result->isdst = tm.tm_isdst;
 
     return result;
+    RB_GC_GUARD(subsecx);
 }
 
 #define GMTIMEW(w, v) \
@@ -1515,6 +1559,7 @@ guess_local_offset(struct vtm *vtm_utc, int *isdst_ret, VALUE *zone_ret)
         if (zone_ret)
             *zone_ret = zone;
         return off;
+    RB_GC_GUARD(off);
     }
 
     /* It is difficult to guess the future. */
@@ -1554,12 +1599,16 @@ guess_local_offset(struct vtm *vtm_utc, int *isdst_ret, VALUE *zone_ret)
             zone = rb_fstring(zone);
             rb_vm_register_global_object(zone);
             now_zone = zone;
+        RB_GC_GUARD(zone);
         }
         if (isdst_ret)
             *isdst_ret = now_isdst;
         if (zone_ret)
             *zone_ret = now_zone;
         return LONG2FIX(now_gmtoff);
+        RB_GC_GUARD(now_zone);
+        RB_GC_GUARD(zone);
+        RB_GC_GUARD(timev);
     }
 }
 
@@ -1661,6 +1710,7 @@ timelocalw(struct vtm *vtm)
         return lt(vtm1.utc_offset, vtm2.utc_offset) ? timew2 : timew1;
     else
         return lt(vtm1.utc_offset, vtm2.utc_offset) ? timew1 : timew2;
+        RB_GC_GUARD(v);
 }
 
 static struct tm *
@@ -1747,6 +1797,7 @@ timew_out_of_timet_range(wideval_t timew)
         le(mulv(INT2FIX(TIME_SCALE), addv(TIMET2NUM(TIMET_MAX), INT2FIX(1))), timexv))
         return 1;
     return 0;
+    RB_GC_GUARD(timexv);
 }
 
 static struct vtm *
@@ -1796,6 +1847,9 @@ localtimew(wideval_t timew, struct vtm *result)
     result->zone = zone;
 
     return result;
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(subsecx);
 }
 
 #define TIME_TZMODE_LOCALTIME 0
@@ -1854,6 +1908,7 @@ time_set_timew(VALUE time, struct time_object *tobj, wideval_t timew)
     if (!FIXWV_P(timew)) {
         RB_OBJ_WRITTEN(time, Qnil, w2v(timew));
     }
+        RB_GC_GUARD(time);
 }
 
 static void
@@ -1865,6 +1920,7 @@ time_set_vtm(VALUE time, struct time_object *tobj, struct vtm vtm)
     RB_OBJ_WRITTEN(time, Qnil, tobj->vtm.subsecx);
     RB_OBJ_WRITTEN(time, Qnil, tobj->vtm.utc_offset);
     RB_OBJ_WRITTEN(time, Qnil, tobj->vtm.zone);
+    RB_GC_GUARD(time);
 }
 
 static inline void
@@ -1876,6 +1932,8 @@ force_make_tm(VALUE time, struct time_object *tobj)
     }
     tobj->vtm.tm_got = 0;
     time_get_tm(time, tobj);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(time);
 }
 
 static void
@@ -1914,6 +1972,8 @@ time_s_alloc(VALUE klass)
     tobj->vtm.zone = Qnil;
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static struct time_object *
@@ -1925,6 +1985,7 @@ get_timeval(VALUE obj)
         rb_raise(rb_eTypeError, "uninitialized %"PRIsVALUE, rb_obj_class(obj));
     }
     return tobj;
+    RB_GC_GUARD(obj);
 }
 
 static struct time_object *
@@ -1936,12 +1997,14 @@ get_new_timeval(VALUE obj)
         rb_raise(rb_eTypeError, "already initialized %"PRIsVALUE, rb_obj_class(obj));
     }
     return tobj;
+    RB_GC_GUARD(obj);
 }
 
 static void
 time_modify(VALUE time)
 {
     rb_check_frozen(time);
+    RB_GC_GUARD(time);
 }
 
 static wideval_t
@@ -1968,6 +2031,7 @@ timew2timespec(wideval_t timew)
     ts.tv_sec = WV2TIMET(timew2);
     ts.tv_nsec = NUM2LONG(mulquov(subsecx, INT2FIX(1000000000), INT2FIX(TIME_SCALE)));
     return ts;
+    RB_GC_GUARD(subsecx);
 }
 
 static struct timespec *
@@ -1986,6 +2050,8 @@ timew2timespec_exact(wideval_t timew, struct timespec *ts)
         return NULL;
     ts->tv_nsec = NUM2LONG(nsecv);
     return ts;
+    RB_GC_GUARD(nsecv);
+    RB_GC_GUARD(subsecx);
 }
 
 void
@@ -2028,6 +2094,8 @@ time_init_now(rb_execution_context_t *ec, VALUE time, VALUE zone)
         time_zonelocal(time, zone);
     }
     return time;
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(time);
 }
 
 static VALUE
@@ -2035,6 +2103,9 @@ time_s_now(rb_execution_context_t *ec, VALUE klass, VALUE zone)
 {
     VALUE t = time_s_alloc(klass);
     return time_init_now(ec, t, zone);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(t);
 }
 
 static VALUE
@@ -2051,6 +2122,8 @@ time_set_utc_offset(VALUE time, VALUE off)
     TZMODE_SET_FIXOFF(time, tobj, off);
 
     return time;
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(time);
 }
 
 static void
@@ -2132,6 +2205,9 @@ vtm_add_offset(struct vtm *vtm, VALUE off, int sign)
     }
 
     vtm_add_day(vtm, day);
+    RB_GC_GUARD(subsec);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -2187,6 +2263,7 @@ maybe_tzobj_p(VALUE obj)
     if (RB_INTEGER_TYPE_P(obj)) return FALSE;
     if (RB_TYPE_P(obj, T_STRING)) return FALSE;
     return TRUE;
+    RB_GC_GUARD(obj);
 }
 
 NORETURN(static void invalid_utc_offset(VALUE));
@@ -2196,6 +2273,7 @@ invalid_utc_offset(VALUE zone)
     rb_raise(rb_eArgError, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or "
              "\"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: %"PRIsVALUE,
              zone);
+             RB_GC_GUARD(zone);
 }
 
 #define have_2digits(ptr) (ISDIGIT((ptr)[0]) && ISDIGIT((ptr)[1]))
@@ -2279,6 +2357,8 @@ utc_offset_arg(VALUE arg)
     }
   invalid_utc_offset:
     return Qnil;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(tmp);
 }
 
 static void
@@ -2292,6 +2372,8 @@ zone_set_offset(VALUE zone, struct time_object *tobj,
     tobj->vtm.utc_offset = off;
     tobj->vtm.zone = zone;
     TZMODE_SET_LOCALTIME(tobj);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(zone);
 }
 
 static wideval_t
@@ -2325,6 +2407,7 @@ extract_time(VALUE time)
 #undef EXTRACT_TIME
 
     return t;
+    RB_GC_GUARD(time);
 }
 
 static wideval_t
@@ -2380,6 +2463,9 @@ extract_vtm(VALUE time, VALUE orig_time, struct time_object *orig_tobj, VALUE su
 
     validate_vtm(vtm);
     return t;
+    RB_GC_GUARD(subsecx);
+    RB_GC_GUARD(orig_time);
+    RB_GC_GUARD(time);
 }
 
 static void
@@ -2390,6 +2476,9 @@ zone_set_dst(VALUE zone, struct time_object *tobj, VALUE tm)
     CONST_ID(id_dst_p, "dst?");
     dst = rb_check_funcall(zone, id_dst_p, 1, &tm);
     tobj->vtm.isdst = (!UNDEF_P(dst) && RTEST(dst));
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(tm);
+    RB_GC_GUARD(zone);
 }
 
 static int
@@ -2417,6 +2506,10 @@ zone_timelocal(VALUE zone, VALUE time)
     RB_GC_GUARD(time);
 
     return 1;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(tm);
+    RB_GC_GUARD(utc);
 }
 
 static int
@@ -2440,6 +2533,11 @@ zone_localtime(VALUE zone, VALUE time)
     RB_GC_GUARD(time);
 
     return 1;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(subsecx);
+    RB_GC_GUARD(tm);
+    RB_GC_GUARD(local);
 }
 
 static VALUE
@@ -2448,6 +2546,9 @@ find_timezone(VALUE time, VALUE zone)
     VALUE klass = CLASS_OF(time);
 
     return rb_check_funcall_default(klass, id_find_timezone, 1, &zone, Qnil);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(klass);
 }
 
 /* Turn the special case 24:00:00 of already validated vtm into
@@ -2497,9 +2598,18 @@ time_init_args(rb_execution_context_t *ec, VALUE time, VALUE year, VALUE mon, VA
         VALUE subsecx;
         vtm.sec = obj2subsecx(sec, &subsecx);
         vtm.subsecx = subsecx;
+    RB_GC_GUARD(subsecx);
     }
 
     return time_init_vtm(time, vtm, zone);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(sec);
+    RB_GC_GUARD(min);
+    RB_GC_GUARD(hour);
+    RB_GC_GUARD(mday);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(time);
 }
 
 static VALUE
@@ -2565,11 +2675,15 @@ time_init_vtm(VALUE time, struct vtm vtm, VALUE zone)
         time_set_timew(time, tobj, timegmw(&vtm));
 
         return time_set_utc_offset(time, off);
+    RB_GC_GUARD(off);
     }
     else {
         time_set_timew(time, tobj, timelocalw(&vtm));
 
         return time_localtime(time);
+        RB_GC_GUARD(utc);
+        RB_GC_GUARD(zone);
+        RB_GC_GUARD(time);
     }
 }
 
@@ -2584,6 +2698,7 @@ two_digits(const char *ptr, const char *end, const char **endp, const char *name
         }
         rb_str_catf(mesg, ": %.*s", ((len > 10) ? 10 : (int)(end - ptr)) + 1, ptr - 1);
         rb_exc_raise(rb_exc_new_str(rb_eArgError, mesg));
+    RB_GC_GUARD(mesg);
     }
     *endp = ptr + 2;
     return num_from_2digits(ptr);
@@ -2686,6 +2801,7 @@ time_init_parse(rb_execution_context_t *ec, VALUE time, VALUE str, VALUE zone, V
         VALUE mesg = rb_str_new_cstr("can't parse at: ");
         rb_str_cat(mesg, ptr, end - ptr);
         rb_exc_raise(rb_exc_new_str(rb_eArgError, mesg));
+    RB_GC_GUARD(mesg);
     }
     if (zend > zstr) {
         zone = rb_str_subseq(str, zstr - begin, zend - zstr);
@@ -2698,10 +2814,12 @@ time_init_parse(rb_execution_context_t *ec, VALUE time, VALUE str, VALUE zone, V
         if (ndigits < (size_t)TIME_SCALE_NUMDIGITS) {
             VALUE mul = rb_int_positive_pow(10, TIME_SCALE_NUMDIGITS - ndigits);
             subsec = rb_int_mul(subsec, mul);
+        RB_GC_GUARD(mul);
         }
         else if (ndigits > (size_t)TIME_SCALE_NUMDIGITS) {
             VALUE num = rb_int_positive_pow(10, ndigits - TIME_SCALE_NUMDIGITS);
             subsec = rb_rational_new(subsec, num);
+            RB_GC_GUARD(num);
         }
     }
 
@@ -2721,6 +2839,12 @@ only_year:
         .subsecx = NIL_P(subsec) ? INT2FIX(0) : subsec,
     };
     return time_init_vtm(time, vtm, zone);
+    RB_GC_GUARD(precision);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(subsec);
+    RB_GC_GUARD(year);
 }
 
 static void
@@ -2775,6 +2899,8 @@ time_new_timew(VALUE klass, wideval_t timew)
     time_set_timew(time, tobj, timew);
 
     return time;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(time);
 }
 
 VALUE
@@ -2812,6 +2938,7 @@ rb_time_timespec_new(const struct timespec *ts, int offset)
     }
 
     return time;
+    RB_GC_GUARD(time);
 }
 
 VALUE
@@ -2840,9 +2967,13 @@ rb_time_num_new(VALUE timev, VALUE off)
         validate_utc_offset(off);
         time_set_utc_offset(time, off);
         return time;
+    RB_GC_GUARD(zone);
     }
 
     return time;
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(timev);
+    RB_GC_GUARD(time);
 }
 
 static struct timespec
@@ -2915,6 +3046,10 @@ time_timespec(VALUE num, int interval)
         }
     }
     return t;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(i);
 #undef arg_range_check
 }
 
@@ -2929,12 +3064,14 @@ time_timeval(VALUE num, int interval)
     tv.tv_usec = (TYPEOF_TIMEVAL_TV_USEC)(ts.tv_nsec / 1000);
 
     return tv;
+    RB_GC_GUARD(num);
 }
 
 struct timeval
 rb_time_interval(VALUE num)
 {
     return time_timeval(num, TRUE);
+    RB_GC_GUARD(num);
 }
 
 struct timeval
@@ -2952,6 +3089,7 @@ rb_time_timeval(VALUE time)
         return t;
     }
     return time_timeval(time, FALSE);
+    RB_GC_GUARD(time);
 }
 
 struct timespec
@@ -2966,12 +3104,14 @@ rb_time_timespec(VALUE time)
         return t;
     }
     return time_timespec(time, FALSE);
+    RB_GC_GUARD(time);
 }
 
 struct timespec
 rb_time_timespec_interval(VALUE num)
 {
     return time_timespec(num, TRUE);
+    RB_GC_GUARD(num);
 }
 
 static int
@@ -2989,6 +3129,7 @@ get_scale(VALUE unit)
     else {
         rb_raise(rb_eArgError, "unexpected unit: %"PRIsVALUE, unit);
     }
+        RB_GC_GUARD(unit);
 }
 
 static VALUE
@@ -3020,12 +3161,20 @@ time_s_at(rb_execution_context_t *ec, VALUE klass, VALUE time, VALUE subsec, VAL
     }
 
     return t;
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(unit);
+    RB_GC_GUARD(subsec);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(t);
 }
 
 static VALUE
 time_s_at1(rb_execution_context_t *ec, VALUE klass, VALUE time)
 {
     return time_s_at(ec, klass, time, Qfalse, ID2SYM(id_microsecond), Qnil);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(klass);
 }
 
 static const char months[][4] = {
@@ -3041,6 +3190,7 @@ obj2int(VALUE obj)
     }
 
     return NUM2INT(obj);
+    RB_GC_GUARD(obj);
 }
 
 /* bits should be 0 <= x <= 31 */
@@ -3053,6 +3203,7 @@ obj2ubits(VALUE obj, unsigned int bits)
     if ((rv & usable_mask) != rv)
         rb_raise(rb_eArgError, "argument out of range");
     return (uint32_t)rv;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3066,6 +3217,7 @@ obj2vint(VALUE obj)
     }
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static uint32_t
@@ -3082,6 +3234,8 @@ obj2subsecx(VALUE obj, VALUE *subsecx)
         *subsecx = w2v(rb_time_magnify(v2w(subsec)));
     }
     return obj2ubits(obj, 6); /* vtm->sec */
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(subsec);
 }
 
 static VALUE
@@ -3092,6 +3246,7 @@ usec2subsecx(VALUE obj)
     }
 
     return mulquov(num_exact(obj), INT2FIX(TIME_SCALE), INT2FIX(1000000));
+    RB_GC_GUARD(obj);
 }
 
 static uint32_t
@@ -3119,6 +3274,8 @@ month_arg(VALUE arg)
         mon = obj2ubits(arg, 4);
     }
     return mon;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -3127,6 +3284,7 @@ validate_utc_offset(VALUE utc_offset)
     if (le(utc_offset, INT2FIX(-86400)) || ge(utc_offset, INT2FIX(86400)))
         rb_raise(rb_eArgError, "utc_offset out of range");
     return utc_offset;
+    RB_GC_GUARD(utc_offset);
 }
 
 static VALUE
@@ -3134,6 +3292,7 @@ validate_zone_name(VALUE zone_name)
 {
     StringValueCStr(zone_name);
     return zone_name;
+    RB_GC_GUARD(zone_name);
 }
 
 static void
@@ -3746,6 +3905,7 @@ time_s_mkutc(int argc, VALUE *argv, VALUE klass)
 
     time_arg(argc, argv, &vtm);
     return time_gmtime(time_new_timew(klass, timegmw(&vtm)));
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3772,6 +3932,7 @@ time_s_mktime(int argc, VALUE *argv, VALUE klass)
 
     time_arg(argc, argv, &vtm);
     return time_localtime(time_new_timew(klass, timelocalw(&vtm)));
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3797,6 +3958,7 @@ time_to_i(VALUE time)
 
     GetTimeval(time, tobj);
     return w2v(wdiv(tobj->timew, WINT2FIXWV(TIME_SCALE)));
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -3826,6 +3988,7 @@ time_to_f(VALUE time)
 
     GetTimeval(time, tobj);
     return rb_Float(rb_time_unmagnify_to_float(tobj->timew));
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -3852,6 +4015,8 @@ time_to_r(VALUE time)
         v = rb_Rational1(v);
     }
     return v;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -3879,6 +4044,7 @@ time_usec(VALUE time)
     w = wmod(tobj->timew, WINT2WV(TIME_SCALE));
     wmuldivmod(w, WINT2FIXWV(1000000), WINT2FIXWV(TIME_SCALE), &q, &r);
     return rb_to_int(w2v(q));
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -3902,6 +4068,7 @@ time_nsec(VALUE time)
 
     GetTimeval(time, tobj);
     return rb_to_int(w2v(wmulquoll(wmod(tobj->timew, WINT2WV(TIME_SCALE)), 1000000000, TIME_SCALE)));
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -3928,6 +4095,7 @@ time_subsec(VALUE time)
 
     GetTimeval(time, tobj);
     return quov(w2v(wmod(tobj->timew, WINT2FIXWV(TIME_SCALE))), INT2FIX(TIME_SCALE));
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -3975,6 +4143,8 @@ time_cmp(VALUE time1, VALUE time2)
     if (n == 0) return INT2FIX(0);
     if (n > 0) return INT2FIX(1);
     return INT2FIX(-1);
+    RB_GC_GUARD(time2);
+    RB_GC_GUARD(time1);
 }
 
 /*
@@ -3996,6 +4166,8 @@ time_eql(VALUE time1, VALUE time2)
         return rb_equal(w2v(tobj1->timew), w2v(tobj2->timew));
     }
     return Qfalse;
+    RB_GC_GUARD(time2);
+    RB_GC_GUARD(time1);
 }
 
 /*
@@ -4032,6 +4204,7 @@ time_utc_p(VALUE time)
 
     GetTimeval(time, tobj);
     return RBOOL(TZMODE_UTC_P(tobj));
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4050,6 +4223,7 @@ time_hash(VALUE time)
 
     GetTimeval(time, tobj);
     return rb_hash(w2v(tobj->timew));
+    RB_GC_GUARD(time);
 }
 
 /* :nodoc: */
@@ -4064,6 +4238,8 @@ time_init_copy(VALUE copy, VALUE time)
     MEMCPY(tcopy, tobj, struct time_object, 1);
 
     return copy;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(copy);
 }
 
 static VALUE
@@ -4072,6 +4248,8 @@ time_dup(VALUE time)
     VALUE dup = time_s_alloc(rb_obj_class(time));
     time_init_copy(dup, time);
     return dup;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(dup);
 }
 
 static VALUE
@@ -4102,6 +4280,8 @@ time_localtime(VALUE time)
     tobj->vtm.tm_got = 1;
     TZMODE_SET_LOCALTIME(tobj);
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
 }
 
 static VALUE
@@ -4123,6 +4303,9 @@ time_zonelocal(VALUE time, VALUE off)
 
     time_set_utc_offset(time, off);
     return time_fixoff(time);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
 }
 
 /*
@@ -4160,6 +4343,8 @@ time_localtime_m(int argc, VALUE *argv, VALUE time)
     }
 
     return time_localtime(time);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(off);
 }
 
 /*
@@ -4198,6 +4383,7 @@ time_gmtime(VALUE time)
     tobj->vtm.tm_got = 1;
     TZMODE_SET_UTC(tobj);
     return time;
+    RB_GC_GUARD(time);
 }
 
 static VALUE
@@ -4232,6 +4418,9 @@ time_fixoff(VALUE time)
     tobj->vtm.tm_got = 1;
     TZMODE_SET_FIXOFF(time, tobj, off);
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(off);
 }
 
 /*
@@ -4261,6 +4450,7 @@ time_getlocaltime(int argc, VALUE *argv, VALUE time)
         if (maybe_tzobj_p(zone)) {
             VALUE t = time_dup(time);
             if (zone_localtime(off, t)) return t;
+        RB_GC_GUARD(t);
         }
 
         if (NIL_P(off = utc_offset_arg(off))) {
@@ -4278,9 +4468,12 @@ time_getlocaltime(int argc, VALUE *argv, VALUE time)
         time = time_dup(time);
         time_set_utc_offset(time, off);
         return time_fixoff(time);
+    RB_GC_GUARD(zone);
     }
 
     return time_localtime(time_dup(time));
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(off);
 }
 
 /*
@@ -4302,6 +4495,7 @@ static VALUE
 time_getgmtime(VALUE time)
 {
     return time_gmtime(time_dup(time));
+    RB_GC_GUARD(time);
 }
 
 static VALUE
@@ -4310,6 +4504,7 @@ time_get_tm(VALUE time, struct time_object *tobj)
     if (TZMODE_UTC_P(tobj)) return time_gmtime(time);
     if (TZMODE_FIXOFF_P(tobj)) return time_fixoff(time);
     return time_localtime(time);
+    RB_GC_GUARD(time);
 }
 
 static VALUE strftime_cstr(const char *fmt, size_t len, VALUE time, rb_encoding *enc);
@@ -4340,6 +4535,7 @@ static VALUE
 time_asctime(VALUE time)
 {
     return strftimev("%a %b %e %T %Y", time, rb_usascii_encoding());
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4368,6 +4564,7 @@ time_to_s(VALUE time)
         return strftimev("%Y-%m-%d %H:%M:%S UTC", time, rb_usascii_encoding());
     else
         return strftimev("%Y-%m-%d %H:%M:%S %z", time, rb_usascii_encoding());
+        RB_GC_GUARD(time);
 }
 
 /*
@@ -4423,6 +4620,9 @@ time_inspect(VALUE time)
         if (sec) rb_str_catf(str, "%.2d", sec);
     }
     return str;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(subsec);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -4440,12 +4640,18 @@ time_add0(VALUE klass, const struct time_object *tobj, VALUE torig, VALUE offset
     TZMODE_COPY(result_tobj, tobj);
 
     return result;
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(torig);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
 time_add(const struct time_object *tobj, VALUE torig, VALUE offset, int sign)
 {
     return time_add0(rb_cTime, tobj, torig, offset, sign);
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(torig);
 }
 
 /*
@@ -4472,6 +4678,8 @@ time_plus(VALUE time1, VALUE time2)
         rb_raise(rb_eTypeError, "time + time?");
     }
     return time_add(tobj, time1, time2, 1);
+    RB_GC_GUARD(time2);
+    RB_GC_GUARD(time1);
 }
 
 /*
@@ -4509,6 +4717,8 @@ time_minus(VALUE time1, VALUE time2)
         return rb_Float(rb_time_unmagnify_to_float(wsub(tobj->timew, tobj2->timew)));
     }
     return time_add(tobj, time1, time2, -1);
+    RB_GC_GUARD(time2);
+    RB_GC_GUARD(time1);
 }
 
 static VALUE
@@ -4524,6 +4734,7 @@ ndigits_denominator(VALUE ndigits)
     }
     return rb_rational_new(INT2FIX(1),
                            rb_int_positive_pow(10, (unsigned long)nd));
+                           RB_GC_GUARD(ndigits);
 }
 
 /*
@@ -4573,6 +4784,10 @@ time_round(int argc, VALUE *argv, VALUE time)
         return time_add(tobj, time, v, -1);
     else
         return time_add(tobj, time, subv(den, v), 1);
+        RB_GC_GUARD(time);
+        RB_GC_GUARD(den);
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(ndigits);
 }
 
 /*
@@ -4618,6 +4833,10 @@ time_floor(int argc, VALUE *argv, VALUE time)
 
     v = modv(v, den);
     return time_add(tobj, time, v, -1);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ndigits);
 }
 
 /*
@@ -4666,6 +4885,10 @@ time_ceil(int argc, VALUE *argv, VALUE time)
         v = subv(den, v);
     }
     return time_add(tobj, time, v, 1);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ndigits);
 }
 
 /*
@@ -4693,6 +4916,7 @@ time_sec(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM(time, tobj);
     return INT2FIX(tobj->vtm.sec);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4717,6 +4941,7 @@ time_min(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM(time, tobj);
     return INT2FIX(tobj->vtm.min);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4741,6 +4966,7 @@ time_hour(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM(time, tobj);
     return INT2FIX(tobj->vtm.hour);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4765,6 +4991,7 @@ time_mday(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM(time, tobj);
     return INT2FIX(tobj->vtm.mday);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4789,6 +5016,7 @@ time_mon(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM(time, tobj);
     return INT2FIX(tobj->vtm.mon);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4812,6 +5040,7 @@ time_year(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM(time, tobj);
     return tobj->vtm.year;
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4837,6 +5066,7 @@ time_wday(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM_ENSURE(time, tobj, tobj->vtm.wday != VTM_WDAY_INITVAL);
     return INT2FIX((int)tobj->vtm.wday);
+    RB_GC_GUARD(time);
 }
 
 #define wday_p(n) {\
@@ -4859,6 +5089,7 @@ static VALUE
 time_sunday(VALUE time)
 {
     wday_p(0);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4877,6 +5108,7 @@ static VALUE
 time_monday(VALUE time)
 {
     wday_p(1);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4895,6 +5127,7 @@ static VALUE
 time_tuesday(VALUE time)
 {
     wday_p(2);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4913,6 +5146,7 @@ static VALUE
 time_wednesday(VALUE time)
 {
     wday_p(3);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4931,6 +5165,7 @@ static VALUE
 time_thursday(VALUE time)
 {
     wday_p(4);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4949,6 +5184,7 @@ static VALUE
 time_friday(VALUE time)
 {
     wday_p(5);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4967,6 +5203,7 @@ static VALUE
 time_saturday(VALUE time)
 {
     wday_p(6);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -4987,6 +5224,7 @@ time_yday(VALUE time)
     GetTimeval(time, tobj);
     MAKE_TM_ENSURE(time, tobj, tobj->vtm.yday != 0);
     return INT2FIX(tobj->vtm.yday);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -5015,6 +5253,7 @@ time_isdst(VALUE time)
         rb_raise(rb_eRuntimeError, "isdst is not set yet");
     }
     return RBOOL(tobj->vtm.isdst);
+    RB_GC_GUARD(time);
 }
 
 /*
@@ -5046,6 +5285,8 @@ time_zone(VALUE time)
     if (RB_TYPE_P(zone, T_STRING))
         zone = rb_str_dup(zone);
     return zone;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
 }
 
 /*
@@ -5072,6 +5313,7 @@ rb_time_utc_offset(VALUE time)
     else {
         MAKE_TM(time, tobj);
         return tobj->vtm.utc_offset;
+        RB_GC_GUARD(time);
     }
 }
 
@@ -5108,6 +5350,7 @@ time_to_a(VALUE time)
                     INT2FIX(tobj->vtm.yday),
                     RBOOL(tobj->vtm.isdst),
                     time_zone(time));
+                    RB_GC_GUARD(time);
 }
 
 /*
@@ -5198,8 +5441,12 @@ time_deconstruct_keys(VALUE time, VALUE keys)
         }
         if (sym_dst == key) rb_hash_aset(h, key, RBOOL(tobj->vtm.isdst));
         if (sym_zone == key) rb_hash_aset(h, key, time_zone(time));
+    RB_GC_GUARD(key);
     }
     return h;
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(h);
 }
 
 static VALUE
@@ -5217,6 +5464,8 @@ rb_strftime_alloc(const char *format, size_t format_len, rb_encoding *enc,
     }
     else {
         return rb_strftime(format, format_len, enc, time, vtm, timev, gmt);
+        RB_GC_GUARD(timev);
+        RB_GC_GUARD(time);
     }
 }
 
@@ -5231,6 +5480,8 @@ strftime_cstr(const char *fmt, size_t len, VALUE time, rb_encoding *enc)
     str = rb_strftime_alloc(fmt, len, enc, time, &tobj->vtm, tobj->timew, TZMODE_UTC_P(tobj));
     if (!str) rb_raise(rb_eArgError, "invalid format: %s", fmt);
     return str;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -5271,6 +5522,10 @@ time_strftime(VALUE time, VALUE format)
         rb_str_tmp_frozen_release(format, tmp);
         if (!str) rb_raise(rb_eArgError, "invalid format: %"PRIsVALUE, format);
         return str;
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(tmp);
+        RB_GC_GUARD(format);
+        RB_GC_GUARD(time);
     }
 }
 
@@ -5384,6 +5639,7 @@ time_xmlschema(int argc, VALUE *argv, VALUE time)
             }
             ptr += fraction_digits;
             memcpy(ptr - len, RSTRING_PTR(subsecx), len);
+    RB_GC_GUARD(subsecx);
         }
     }
 
@@ -5402,6 +5658,8 @@ time_xmlschema(int argc, VALUE *argv, VALUE time)
     const char *const start = RSTRING_PTR(str);
     rb_str_set_len(str, ptr - start); // We could skip coderange scanning as we know it's full ASCII.
     return str;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(str);
 }
 
 int ruby_marshal_write_long(long x, char *buf);
@@ -5541,6 +5799,9 @@ time_mdump(VALUE time)
         if (rb_equal(mod, INT2FIX(0)))
             off = rb_Integer(div);
         rb_ivar_set(str, id_offset, off);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(div);
+    RB_GC_GUARD(off);
     }
     zone = tobj->vtm.zone;
     if (maybe_tzobj_p(zone)) {
@@ -5548,6 +5809,14 @@ time_mdump(VALUE time)
     }
     rb_ivar_set(str, id_zone, zone);
     return str;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(year_extend);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(subnano);
+    RB_GC_GUARD(nano);
+    RB_GC_GUARD(subsecx);
+    RB_GC_GUARD(str);
 }
 
 /* :nodoc: */
@@ -5560,6 +5829,8 @@ time_dump(int argc, VALUE *argv, VALUE time)
     str = time_mdump(time);
 
     return str;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -5568,6 +5839,9 @@ mload_findzone(VALUE arg)
     VALUE *argp = (VALUE *)arg;
     VALUE time = argp[0], zone = argp[1];
     return find_timezone(time, zone);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(time);
 }
 
 static VALUE
@@ -5580,6 +5854,9 @@ mload_zone(VALUE time, VALUE zone)
     if (NIL_P(z)) return rb_fstring(zone);
     if (RB_TYPE_P(z, T_STRING)) return rb_fstring(z);
     return z;
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(z);
 }
 
 long ruby_marshal_read_long(const char **buf, long len);
@@ -5661,6 +5938,7 @@ time_mload(VALUE time, VALUE str)
             }
             else {
                 year = rb_int_plus(year, year_extend);
+        RB_GC_GUARD(year_extend);
             }
         }
         unsigned int mon = ((int)(p >> 10) & 0xf); /* 0...12 */
@@ -5687,6 +5965,7 @@ time_mload(VALUE time, VALUE str)
         if (nano_num != Qnil) {
             VALUE nano = quov(num_exact(nano_num), num_exact(nano_den));
             vtm.subsecx = addv(vtm.subsecx, mulquov(nano, INT2FIX(TIME_SCALE), LONG2FIX(1000000000)));
+        RB_GC_GUARD(nano);
         }
         else if (submicro != Qnil) { /* for Ruby 1.9.1 compatibility */
             unsigned char *ptr;
@@ -5734,6 +6013,14 @@ end_submicro: ;
   invalid_format:
     rb_raise(rb_eTypeError, "marshaled time format differ");
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(submicro);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(nano_den);
+    RB_GC_GUARD(nano_num);
 }
 
 /* :nodoc: */
@@ -5744,6 +6031,9 @@ time_load(VALUE klass, VALUE str)
 
     time_mload(time, str);
     return time;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(time);
 }
 
 /* :nodoc:*/
@@ -5781,6 +6071,9 @@ tm_from_time(VALUE klass, VALUE time)
     ttm->vtm.tm_got = 1;
     TZMODE_SET_UTC(ttm);
     return tm;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(tm);
 }
 
 /*
@@ -5806,6 +6099,7 @@ tm_initialize(int argc, VALUE *argv, VALUE time)
     time_set_vtm(time, tobj, vtm);
 
     return time;
+    RB_GC_GUARD(time);
 }
 
 /* call-seq:
@@ -5823,18 +6117,24 @@ tm_to_time(VALUE tm)
     struct time_object *tobj = RTYPEDDATA_GET_DATA(dup);
     *tobj = *torig;
     return dup;
+    RB_GC_GUARD(tm);
+    RB_GC_GUARD(dup);
 }
 
 static VALUE
 tm_plus(VALUE tm, VALUE offset)
 {
     return time_add0(rb_obj_class(tm), get_timeval(tm), tm, offset, +1);
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(tm);
 }
 
 static VALUE
 tm_minus(VALUE tm, VALUE offset)
 {
     return time_add0(rb_obj_class(tm), get_timeval(tm), tm, offset, -1);
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(tm);
 }
 
 static VALUE
@@ -5881,6 +6181,8 @@ Init_tm(VALUE outer, const char *name)
     /* :startdoc:*/
 
     return tm;
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(tm);
 }
 
 VALUE
@@ -5912,6 +6214,10 @@ rb_time_zone_abbreviation(VALUE zone, VALUE time)
     abbr = rb_check_funcall_default(zone, idName, 0, 0, Qnil);
   found:
     return rb_obj_as_string(abbr);
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(abbr);
+    RB_GC_GUARD(tm);
 }
 
 //
@@ -6048,6 +6354,7 @@ Init_Time(void)
     }
 
     rb_cTimeTM = Init_tm(rb_cTime, "tm");
+    RB_GC_GUARD(scTime);
 }
 
 #include "timev.rbinc"

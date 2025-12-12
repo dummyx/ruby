@@ -13,6 +13,7 @@ update_func(st_data_t *key, st_data_t *value, st_data_t arg, int existing)
       default:
         *value = ret;
         return ST_CONTINUE;
+        RB_GC_GUARD(ret);
     }
 }
 
@@ -23,6 +24,8 @@ test_st_update(VALUE self, VALUE key)
         return Qtrue;
     else
         return Qfalse;
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(self);
 }
 
 void
@@ -30,5 +33,6 @@ Init_update(void)
 {
     VALUE st = rb_define_class_under(rb_define_module("Bug"), "StTable", rb_cHash);
     rb_define_method(st, "st_update", test_st_update, 1);
+    RB_GC_GUARD(st);
 }
 

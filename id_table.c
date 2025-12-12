@@ -162,6 +162,7 @@ hash_table_raw_insert(struct rb_id_table *tbl, id_key_t key, VALUE val)
     }
     ITEM_SET_KEY(tbl, ix, key);
     tbl->items[ix].val = val;
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -257,6 +258,7 @@ int
 rb_id_table_insert(struct rb_id_table *tbl, ID id, VALUE val)
 {
     return rb_id_table_insert_key(tbl, id2key(id), val);
+    RB_GC_GUARD(val);
 }
 
 int
@@ -316,6 +318,7 @@ rb_id_table_foreach_values_with_replace(struct rb_id_table *tbl, rb_id_table_for
                 VALUE val = tbl->items[i].val;
                 ret = (*replace)(&val, data, TRUE);
                 tbl->items[i].val = val;
+            RB_GC_GUARD(val);
             }
 
             if (ret == ID_TABLE_STOP)

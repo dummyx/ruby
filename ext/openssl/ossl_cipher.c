@@ -68,6 +68,7 @@ ossl_evp_get_cipherbyname(VALUE obj)
 		       "unsupported cipher algorithm: %"PRIsVALUE, obj);
 
 	return cipher;
+	RB_GC_GUARD(obj);
     }
 }
 
@@ -83,6 +84,7 @@ ossl_cipher_new(const EVP_CIPHER *cipher)
 	ossl_raise(eCipherError, NULL);
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -98,6 +100,7 @@ static VALUE
 ossl_cipher_alloc(VALUE klass)
 {
     return NewCipher(klass);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -128,6 +131,8 @@ ossl_cipher_initialize(VALUE self, VALUE str)
 	ossl_raise(eCipherError, NULL);
 
     return self;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -147,6 +152,8 @@ ossl_cipher_copy(VALUE self, VALUE other)
 	ossl_raise(eCipherError, NULL);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -154,6 +161,7 @@ add_cipher_name_to_ary(const OBJ_NAME *name, void *arg)
 {
     VALUE ary = (VALUE)arg;
     rb_ary_push(ary, rb_str_new2(name->name));
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -173,6 +181,8 @@ ossl_s_ciphers(VALUE self)
                     (void*)ary);
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -194,6 +204,7 @@ ossl_cipher_reset(VALUE self)
 	ossl_raise(eCipherError, NULL);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -229,6 +240,7 @@ ossl_cipher_init(int argc, VALUE *argv, VALUE self, int mode)
 		       (unsigned char *)RSTRING_PTR(pass), RSTRING_LENINT(pass), 1, key, NULL);
 	p_key = key;
 	p_iv = iv;
+    RB_GC_GUARD(cname);
     }
     else {
 	GetCipher(self, ctx);
@@ -240,6 +252,9 @@ ossl_cipher_init(int argc, VALUE *argv, VALUE self, int mode)
     rb_ivar_set(self, id_key_set, p_key ? Qtrue : Qfalse);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(init_v);
+    RB_GC_GUARD(pass);
 }
 
 /*
@@ -258,6 +273,7 @@ static VALUE
 ossl_cipher_encrypt(int argc, VALUE *argv, VALUE self)
 {
     return ossl_cipher_init(argc, argv, self, 1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -276,6 +292,7 @@ static VALUE
 ossl_cipher_decrypt(int argc, VALUE *argv, VALUE self)
 {
     return ossl_cipher_init(argc, argv, self, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -330,6 +347,11 @@ ossl_cipher_pkcs5_keyivgen(int argc, VALUE *argv, VALUE self)
     rb_ivar_set(self, id_key_set, Qtrue);
 
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vdigest);
+    RB_GC_GUARD(viter);
+    RB_GC_GUARD(vsalt);
+    RB_GC_GUARD(vpass);
 }
 
 static int
@@ -420,6 +442,9 @@ ossl_cipher_update(int argc, VALUE *argv, VALUE self)
     rb_str_set_len(str, out_len);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -451,6 +476,8 @@ ossl_cipher_final(VALUE self)
     rb_str_set_len(str, out_len);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -468,6 +495,7 @@ ossl_cipher_name(VALUE self)
     GetCipher(self, ctx);
 
     return rb_str_new2(EVP_CIPHER_name(EVP_CIPHER_CTX_cipher(ctx)));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -500,6 +528,8 @@ ossl_cipher_set_key(VALUE self, VALUE key)
     rb_ivar_set(self, id_key_set, Qtrue);
 
     return key;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -534,6 +564,8 @@ ossl_cipher_set_iv(VALUE self, VALUE iv)
 	ossl_raise(eCipherError, NULL);
 
     return iv;
+    RB_GC_GUARD(iv);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -551,6 +583,7 @@ ossl_cipher_is_authenticated(VALUE self)
     GetCipher(self, ctx);
 
     return (EVP_CIPHER_flags(EVP_CIPHER_CTX_cipher(ctx)) & EVP_CIPH_FLAG_AEAD_CIPHER) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -591,6 +624,8 @@ ossl_cipher_set_auth_data(VALUE self, VALUE data)
         ossl_raise(eCipherError, "couldn't set additional authenticated data");
 
     return data;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -631,6 +666,9 @@ ossl_cipher_get_auth_tag(int argc, VALUE *argv, VALUE self)
 	ossl_raise(eCipherError, "retrieving the authentication tag failed");
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(vtag_len);
 }
 
 /*
@@ -665,6 +703,8 @@ ossl_cipher_set_auth_tag(VALUE self, VALUE vtag)
 	ossl_raise(eCipherError, "unable to set AEAD tag");
 
     return vtag;
+    RB_GC_GUARD(vtag);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -695,6 +735,8 @@ ossl_cipher_set_auth_tag_len(VALUE self, VALUE vlen)
     rb_ivar_set(self, id_auth_tag_len, INT2NUM(tag_len));
 
     return vlen;
+    RB_GC_GUARD(vlen);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -725,6 +767,8 @@ ossl_cipher_set_iv_length(VALUE self, VALUE iv_length)
     EVP_CIPHER_CTX_set_app_data(ctx, (void *)(VALUE)len);
 
     return iv_length;
+    RB_GC_GUARD(iv_length);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -750,6 +794,8 @@ ossl_cipher_set_key_length(VALUE self, VALUE key_length)
         ossl_raise(eCipherError, NULL);
 
     return key_length;
+    RB_GC_GUARD(key_length);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -772,6 +818,8 @@ ossl_cipher_set_padding(VALUE self, VALUE padding)
     if (EVP_CIPHER_CTX_set_padding(ctx, pad) != 1)
 	ossl_raise(eCipherError, NULL);
     return padding;
+    RB_GC_GUARD(padding);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -788,6 +836,7 @@ ossl_cipher_key_length(VALUE self)
     GetCipher(self, ctx);
 
     return INT2NUM(EVP_CIPHER_CTX_key_length(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -809,6 +858,7 @@ ossl_cipher_iv_length(VALUE self)
 	len = EVP_CIPHER_CTX_iv_length(ctx);
 
     return INT2NUM(len);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -825,6 +875,7 @@ ossl_cipher_block_size(VALUE self)
     GetCipher(self, ctx);
 
     return INT2NUM(EVP_CIPHER_CTX_block_size(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -850,6 +901,8 @@ ossl_cipher_set_ccm_data_len(VALUE self, VALUE data_len)
         ossl_raise(eCipherError, NULL);
 
     return data_len;
+    RB_GC_GUARD(data_len);
+    RB_GC_GUARD(self);
 }
 
 /*

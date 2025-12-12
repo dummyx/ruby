@@ -27,6 +27,7 @@ tracepoint_track_objspace_events_i(VALUE tpval, void *data)
                 track->objects[track->objects_count++] = obj;
             track->newobj_count++;
             break;
+      RB_GC_GUARD(obj);
         }
       case RUBY_INTERNAL_EVENT_FREEOBJ:
         {
@@ -51,6 +52,7 @@ tracepoint_track_objspace_events_i(VALUE tpval, void *data)
       default:
         rb_raise(rb_eRuntimeError, "unknown event");
     }
+        RB_GC_GUARD(tpval);
 }
 
 static VALUE
@@ -74,6 +76,9 @@ tracepoint_track_objspace_events(VALUE self)
     rb_ary_cat(result, track.objects, track.objects_count);
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
@@ -82,6 +87,8 @@ tracepoint_specify_normal_and_internal_events(VALUE self)
     VALUE tpval = rb_tracepoint_new(0, RUBY_INTERNAL_EVENT_NEWOBJ | RUBY_EVENT_CALL, 0, 0);
     rb_tracepoint_enable(tpval);
     return Qnil; /* should not be reached */
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(tpval);
 }
 
 void Init_gc_hook(VALUE);
@@ -93,4 +100,5 @@ Init_tracepoint(void)
     Init_gc_hook(mBug);
     rb_define_module_function(mBug, "tracepoint_track_objspace_events", tracepoint_track_objspace_events, 0);
     rb_define_module_function(mBug, "tracepoint_specify_normal_and_internal_events", tracepoint_specify_normal_and_internal_events, 0);
+    RB_GC_GUARD(mBug);
 }

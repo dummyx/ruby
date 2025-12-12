@@ -8,6 +8,7 @@ static VALUE
 my_integer_s_new(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &my_integer_type, 0);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -17,4 +18,5 @@ Init_my_integer(VALUE klass)
 
     cMyInteger = rb_define_class_under(klass, "MyInteger", rb_cInteger);
     rb_define_singleton_method(cMyInteger, "new", my_integer_s_new, 0);
+    RB_GC_GUARD(cMyInteger);
 }

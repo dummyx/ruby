@@ -42,6 +42,7 @@ inetsock_cleanup(VALUE v)
         arg->io = Qnil;
     }
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -151,6 +152,8 @@ init_inetsock_internal(VALUE v)
         }
 
         rsock_syserr_fail_host_port(error, syscall, host, port);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
     }
 
     // Don't close the socket in `inetsock_cleanup` if we are returning it:
@@ -167,6 +170,9 @@ init_inetsock_internal(VALUE v)
 
     /* create new instance */
     return io;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(connect_timeout);
 }
 
 #if FAST_FALLBACK_INIT_INETSOCK_IMPL == 0
@@ -626,6 +632,7 @@ init_fast_fallback_inetsock_internal(VALUE v)
                     VALUE rb_test_delay_ms = rb_hash_aref(test_delay_setting, ID2SYM(rb_intern(family_sym)));
                     long test_delay_ms = NIL_P(rb_test_delay_ms) ? 0 : rb_test_delay_ms;
                     arg->getaddrinfo_entries[i]->test_sleep_ms = test_delay_ms;
+                RB_GC_GUARD(rb_test_delay_ms);
                 }
 
                 VALUE test_error_setting = rb_hash_aref(test_mode_settings, ID2SYM(rb_intern("error")));
@@ -633,7 +640,10 @@ init_fast_fallback_inetsock_internal(VALUE v)
                     VALUE rb_test_ecode = rb_hash_aref(test_error_setting, ID2SYM(rb_intern(family_sym)));
                     if (!NIL_P(rb_test_ecode)) {
                         arg->getaddrinfo_entries[i]->test_ecode = NUM2INT(rb_test_ecode);
+            RB_GC_GUARD(rb_test_ecode);
                     }
+            RB_GC_GUARD(test_delay_setting);
+            RB_GC_GUARD(test_error_setting);
                 }
             }
 
@@ -779,6 +789,7 @@ init_fast_fallback_inetsock_internal(VALUE v)
                         Qnil : tv_to_seconds(user_specified_connect_timeout_at);
                     io = arg->io = rsock_init_sock(arg->self, fd);
                     status = rsock_connect(io, remote_ai->ai_addr, remote_ai->ai_addrlen, 0, timeout);
+                RB_GC_GUARD(timeout);
                 }
 
                 if (status == 0) {
@@ -1125,6 +1136,8 @@ init_fast_fallback_inetsock_internal(VALUE v)
                 VALUE errno_module = rb_const_get(rb_cObject, rb_intern("Errno"));
                 VALUE etimedout_error = rb_const_get(errno_module, rb_intern("ETIMEDOUT"));
                 rb_raise(etimedout_error, "user specified timeout");
+    RB_GC_GUARD(etimedout_error);
+    RB_GC_GUARD(errno_module);
             }
         }
     }
@@ -1135,6 +1148,13 @@ init_fast_fallback_inetsock_internal(VALUE v)
     }
 
     return arg->io;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(serv);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(test_mode_settings);
+    RB_GC_GUARD(connect_timeout);
+    RB_GC_GUARD(resolv_timeout);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
@@ -1211,6 +1231,7 @@ fast_fallback_inetsock_cleanup(VALUE v)
     }
 
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 VALUE
@@ -1310,6 +1331,15 @@ rsock_init_inetsock(VALUE self, VALUE remote_host, VALUE remote_serv, VALUE loca
 
     return rb_ensure(init_inetsock_internal, (VALUE)&arg,
                      inetsock_cleanup, (VALUE)&arg);
+                     RB_GC_GUARD(test_mode_settings);
+                     RB_GC_GUARD(fast_fallback);
+                     RB_GC_GUARD(connect_timeout);
+                     RB_GC_GUARD(resolv_timeout);
+                     RB_GC_GUARD(local_serv);
+                     RB_GC_GUARD(local_host);
+                     RB_GC_GUARD(remote_serv);
+                     RB_GC_GUARD(remote_host);
+                     RB_GC_GUARD(self);
 }
 
 #endif
@@ -1334,6 +1364,7 @@ rsock_revlookup_flag(VALUE revlookup, int *norevlookup)
         rb_raise(rb_eArgError, "invalid reverse_lookup flag: :%s", rb_id2name(id));
     }
     return 0;
+    RB_GC_GUARD(revlookup);
 #undef return_norevlookup
 }
 
@@ -1370,8 +1401,11 @@ ip_inspect(VALUE sock)
             rb_str_cat_cstr(str, pbuf);
         }
         if (last) rb_str_cat(str, &last, 1);
+    RB_GC_GUARD(family);
     }
     return str;
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1409,6 +1443,7 @@ ip_addr(int argc, VALUE *argv, VALUE sock)
     if (getsockname(rb_io_descriptor(sock), &addr.addr, &len) < 0)
         rb_sys_fail("getsockname(2)");
     return rsock_ipaddr(&addr.addr, len, norevlookup);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -1447,6 +1482,7 @@ ip_peeraddr(int argc, VALUE *argv, VALUE sock)
     if (getpeername(rb_io_descriptor(sock), &addr.addr, &len) < 0)
         rb_sys_fail("getpeername(2)");
     return rsock_ipaddr(&addr.addr, len, norevlookup);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -1474,6 +1510,7 @@ static VALUE
 ip_recvfrom(int argc, VALUE *argv, VALUE sock)
 {
     return rsock_s_recvfrom(sock, argc, argv, RECV_IP);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -1500,6 +1537,8 @@ ip_s_getaddress(VALUE obj, VALUE host)
     rb_freeaddrinfo(res);
 
     return rsock_make_ipaddr(&addr.addr, len);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(obj);
 }
 
 void

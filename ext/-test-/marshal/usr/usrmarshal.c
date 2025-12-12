@@ -18,6 +18,7 @@ usr_alloc(VALUE klass)
 {
     int *p;
     return TypedData_Make_Struct(klass, int, &usrmarshal_type, p);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -26,6 +27,8 @@ usr_init(VALUE self, VALUE val)
     int *ptr = Check_TypedStruct(self, &usrmarshal_type);
     *ptr = NUM2INT(val);
     return self;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -34,6 +37,7 @@ usr_value(VALUE self)
     int *ptr = Check_TypedStruct(self, &usrmarshal_type);
     int val = *ptr;
     return INT2NUM(val);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -47,4 +51,6 @@ Init_usr(void)
     rb_define_method(newclass, "value", usr_value, 0);
     rb_define_method(newclass, "marshal_load", usr_init, 1);
     rb_define_method(newclass, "marshal_dump", usr_value, 0);
+    RB_GC_GUARD(mMarshal);
+    RB_GC_GUARD(newclass);
 }

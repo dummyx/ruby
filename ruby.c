@@ -492,12 +492,14 @@ ruby_push_include(const char *path, VALUE (*filter)(VALUE))
         rb_ary_push(load_path, (*filter)(rubylib_path_new(p, len)));
         p = s;
     }
+        RB_GC_GUARD(load_path);
 }
 
 static VALUE
 identical_path(VALUE path)
 {
     return path;
+    RB_GC_GUARD(path);
 }
 
 static VALUE
@@ -505,6 +507,7 @@ locale_path(VALUE path)
 {
     rb_enc_associate(path, rb_locale_encoding());
     return path;
+    RB_GC_GUARD(path);
 }
 
 void
@@ -522,6 +525,7 @@ expand_include_path(VALUE path)
     if (*p == '.' && p[1] == '/')
         return path;
     return rb_file_expand_path(path, Qnil);
+    RB_GC_GUARD(path);
 }
 
 void
@@ -763,9 +767,12 @@ ruby_init_loadpath(void)
         rb_ivar_set(path, id_initial_load_path_mark, path);
         rb_ary_push(load_path, path);
         paths += len + 1;
+    RB_GC_GUARD(path);
     }
 
     rb_const_set(rb_cObject, rb_intern_const("TMP_RUBY_PREFIX"), ruby_prefix_path);
+    RB_GC_GUARD(load_path);
+    RB_GC_GUARD(archlibdir);
 }
 
 
@@ -780,6 +787,8 @@ add_modules(VALUE *req_list, const char *mod)
     }
     feature = rb_str_cat_cstr(rb_str_tmp_new(0), mod);
     rb_ary_push(list, feature);
+    RB_GC_GUARD(list);
+    RB_GC_GUARD(feature);
 }
 
 static void
@@ -797,8 +806,11 @@ require_libraries(VALUE *req_list)
         RBASIC_SET_CLASS_RAW(feature, rb_cString);
         OBJ_FREEZE(feature);
         rb_funcallv(self, require, 1, &feature);
+    RB_GC_GUARD(feature);
     }
     *req_list = 0;
+    RB_GC_GUARD(list);
+    RB_GC_GUARD(self);
 }
 
 static const struct rb_block*
@@ -862,12 +874,14 @@ process_sflag(int sflag)
                 }
             }
             rb_gv_set(s, v);
+        RB_GC_GUARD(v);
         }
         n = RARRAY_LEN(argv) - n;
         while (n--) {
             rb_ary_shift(argv);
         }
         return -1;
+    RB_GC_GUARD(argv);
     }
     return sflag;
 }
@@ -952,6 +966,11 @@ moreswitches(const char *s, ruby_cmdline_options_t *opt, int envopt)
     /* get rid of GC */
     rb_str_resize(argary, 0);
     rb_str_resize(argstr, 0);
+    RB_GC_GUARD(argstr);
+    RB_GC_GUARD(int_enc_name);
+    RB_GC_GUARD(ext_enc_name);
+    RB_GC_GUARD(src_enc_name);
+    RB_GC_GUARD(argary);
 }
 
 static int
@@ -1169,6 +1188,7 @@ set_option_encoding_once(const char *type, VALUE *name, const char *e, long elen
                  "%s already set to %"PRIsVALUE, type, *name);
     }
     *name = ename;
+    RB_GC_GUARD(ename);
 }
 
 #define set_internal_encoding_once(opt, e, elen) \
@@ -1841,6 +1861,7 @@ opt_enc_index(VALUE enc_name)
         rb_raise(rb_eRuntimeError, "dummy encoding is not acceptable - %s ", s);
     }
     return i;
+    RB_GC_GUARD(enc_name);
 }
 
 #define rb_progname      (GET_VM()->progname)
@@ -1874,6 +1895,7 @@ uscore_get(void)
                  NIL_P(line) ? "nil" : rb_obj_classname(line));
     }
     return line;
+    RB_GC_GUARD(line);
 }
 
 /*
@@ -1892,6 +1914,8 @@ rb_f_sub(int argc, VALUE *argv, VALUE _)
     VALUE str = rb_funcall_passing_block(uscore_get(), rb_intern("sub"), argc, argv);
     rb_lastline_set(str);
     return str;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1911,6 +1935,8 @@ rb_f_gsub(int argc, VALUE *argv, VALUE _)
     VALUE str = rb_funcall_passing_block(uscore_get(), rb_intern("gsub"), argc, argv);
     rb_lastline_set(str);
     return str;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1929,6 +1955,8 @@ rb_f_chop(VALUE _)
     VALUE str = rb_funcall_passing_block(uscore_get(), rb_intern("chop"), 0, 0);
     rb_lastline_set(str);
     return str;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(str);
 }
 
 
@@ -1949,6 +1977,8 @@ rb_f_chomp(int argc, VALUE *argv, VALUE _)
     VALUE str = rb_funcall_passing_block(uscore_get(), rb_intern("chomp"), argc, argv);
     rb_lastline_set(str);
     return str;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -1986,6 +2016,7 @@ copy_str(VALUE str, rb_encoding *enc, bool intern)
         return rb_enc_associate(rb_str_dup(str), enc);
     }
     return rb_enc_interned_str(RSTRING_PTR(str), RSTRING_LEN(str), enc);
+    RB_GC_GUARD(str);
 }
 
 #if USE_YJIT
@@ -2043,6 +2074,7 @@ show_help(const char *progname, int help)
                     kill(SIGTERM, pid);
                     rb_waitpid(pid, 0, 0);
                 }
+                    RB_GC_GUARD(pager);
             }
 #else
             setup_pager_env();
@@ -2092,6 +2124,7 @@ process_script(ruby_cmdline_options_t *opt)
         rb_parser_set_options(parser, opt->do_print, opt->do_loop,
                               opt->do_line, opt->do_split);
         ast_value = rb_parser_compile_string(parser, opt->script, opt->e_script, 1);
+    RB_GC_GUARD(progname);
     }
     else {
         VALUE f;
@@ -2100,6 +2133,7 @@ process_script(ruby_cmdline_options_t *opt)
         opt->xflag = xflag != 0;
         rb_parser_set_context(parser, 0, f == rb_stdin);
         ast_value = load_file(parser, opt->script_name, f, 1, opt);
+    RB_GC_GUARD(f);
     }
     ast = rb_ruby_ast_data_get(ast_value);
     if (!ast->body.root) {
@@ -2107,6 +2141,8 @@ process_script(ruby_cmdline_options_t *opt)
         return Qnil;
     }
     return ast_value;
+    RB_GC_GUARD(parser);
+    RB_GC_GUARD(ast_value);
 }
 
 static uint8_t
@@ -2237,6 +2273,8 @@ prism_script(ruby_cmdline_options_t *opt, pm_parse_result_t *result)
 
             rb_funcall(file, rb_intern_const("seek"), 2, SIZET2NUM(offset), INT2FIX(SEEK_SET));
             rb_define_global_const("DATA", file);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(script_name);
         }
     }
 
@@ -2244,6 +2282,7 @@ prism_script(ruby_cmdline_options_t *opt, pm_parse_result_t *result)
         pm_parse_result_free(result);
         rb_exc_raise(error);
     }
+        RB_GC_GUARD(error);
 }
 
 static VALUE
@@ -2255,6 +2294,7 @@ prism_dump_tree(pm_parse_result_t *result)
     VALUE tree = rb_str_new(output_buffer.value, output_buffer.length);
     pm_buffer_free(&output_buffer);
     return tree;
+    RB_GC_GUARD(tree);
 }
 
 static void
@@ -2287,6 +2327,7 @@ process_options_global_setup(const ruby_cmdline_options_t *opt, const rb_iseq_t 
     rb_execution_context_t *ec = GET_EC();
     VALUE script = (opt->e_script ? opt->e_script : Qnil);
     rb_exec_event_hook_script_compiled(ec, iseq, script);
+    RB_GC_GUARD(script);
 }
 
 static VALUE
@@ -2473,9 +2514,11 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
                 modifiable = TRUE;
             }
             RARRAY_ASET(load_path, i, path);
+        RB_GC_GUARD(path);
         }
         if (modifiable) {
             rb_ary_replace(vm->load_path_snapshot, load_path);
+    RB_GC_GUARD(load_path);
         }
     }
     {
@@ -2489,9 +2532,11 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
                 modified = true;
             }
             RARRAY_ASET(loaded_features, i, path);
+        RB_GC_GUARD(path);
         }
         if (modified) {
             rb_ary_replace(vm->loaded_features_snapshot, loaded_features);
+    RB_GC_GUARD(loaded_features);
         }
     }
 
@@ -2506,6 +2551,7 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
         }
         SET_COMPILE_OPTION(option, opt, debug_frozen_string_literal);
         rb_funcallv(rb_cISeq, rb_intern_const("compile_option="), 1, &option);
+        RB_GC_GUARD(option);
 #undef SET_COMPILE_OPTION
     }
     ruby_set_argv(argc, argv);
@@ -2587,6 +2633,7 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
         if (!dump) {
             dispose_result();
             return Qtrue;
+    RB_GC_GUARD(tree);
         }
     }
 
@@ -2626,6 +2673,7 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
             rb_ast_t *ast = result.ast;
             iseq = rb_iseq_new_main(ast_value, opt->script_name, path, parent, optimize);
             rb_ast_dispose(ast);
+    RB_GC_GUARD(path);
         }
     }
 
@@ -2639,6 +2687,7 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
 
     process_options_global_setup(opt, iseq);
     return (VALUE)iseq;
+    RB_GC_GUARD(ast_value);
 }
 
 #ifndef DOSISH
@@ -2755,6 +2804,8 @@ load_file_internal(VALUE argp_v)
         }
         rb_reset_argf_lineno(0);
         ruby_opt_init(opt);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(c);
     }
     if (opt->src.enc.index >= 0) {
         enc = rb_enc_from_index(opt->src.enc.index);
@@ -2795,6 +2846,11 @@ load_file_internal(VALUE argp_v)
         argp->f = Qnil;
     }
     return ast_value;
+    RB_GC_GUARD(argp_v);
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(orig_fname);
+    RB_GC_GUARD(parser);
 }
 
 /* disabling O_NONBLOCK, and returns 0 on success, otherwise errno */
@@ -2889,6 +2945,8 @@ open_load_file(VALUE fname_v, int *xflag)
         }
     }
     return f;
+    RB_GC_GUARD(fname_v);
+    RB_GC_GUARD(f);
 }
 
 static VALUE
@@ -2901,6 +2959,8 @@ restore_load_file(VALUE arg)
         rb_io_close(f);
     }
     return Qnil;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(f);
 }
 
 static VALUE
@@ -2914,6 +2974,9 @@ load_file(VALUE parser, VALUE fname, VALUE f, int script, ruby_cmdline_options_t
     arg.f = f;
     return rb_ensure(load_file_internal, (VALUE)&arg,
                               restore_load_file, (VALUE)&arg);
+                              RB_GC_GUARD(f);
+                              RB_GC_GUARD(fname);
+                              RB_GC_GUARD(parser);
 }
 
 void *
@@ -2921,6 +2984,7 @@ rb_load_file(const char *fname)
 {
     VALUE fname_v = rb_str_new_cstr(fname);
     return rb_load_file_str(fname_v);
+    RB_GC_GUARD(fname_v);
 }
 
 void *
@@ -2929,6 +2993,8 @@ rb_load_file_str(VALUE fname_v)
     VALUE ast_value;
     ast_value = rb_parser_load_file(rb_parser_new(), fname_v);
     return (void *)rb_ruby_ast_data_get(ast_value);
+    RB_GC_GUARD(fname_v);
+    RB_GC_GUARD(ast_value);
 }
 
 VALUE
@@ -2939,6 +3005,9 @@ rb_parser_load_file(VALUE parser, VALUE fname_v)
     VALUE f = open_load_file(fname_v, &xflag);
     cmdline_options_init(&opt)->xflag = xflag != 0;
     return load_file(parser, fname_v, f, 0, &opt);
+    RB_GC_GUARD(fname_v);
+    RB_GC_GUARD(parser);
+    RB_GC_GUARD(f);
 }
 
 /*
@@ -2956,6 +3025,7 @@ static VALUE
 proc_argv0(VALUE process)
 {
     return rb_orig_progname;
+    RB_GC_GUARD(process);
 }
 
 static VALUE ruby_setproctitle(VALUE title);
@@ -2981,6 +3051,8 @@ static VALUE
 proc_setproctitle(VALUE process, VALUE title)
 {
     return ruby_setproctitle(title);
+    RB_GC_GUARD(title);
+    RB_GC_GUARD(process);
 }
 
 static VALUE
@@ -2989,6 +3061,7 @@ ruby_setproctitle(VALUE title)
     const char *ptr = StringValueCStr(title);
     setproctitle("%.*s", RSTRING_LENINT(title), ptr);
     return title;
+    RB_GC_GUARD(title);
 }
 
 static void
@@ -2998,6 +3071,7 @@ set_arg0(VALUE val, ID id, VALUE *_)
         rb_raise(rb_eRuntimeError, "$0 not initialized");
 
     rb_progname = rb_str_new_frozen(ruby_setproctitle(val));
+    RB_GC_GUARD(val);
 }
 
 static inline VALUE
@@ -3017,6 +3091,7 @@ set_progname(VALUE name)
 {
     rb_orig_progname = rb_progname = name;
     rb_vm_set_progname(rb_progname);
+    RB_GC_GUARD(name);
 }
 
 void
@@ -3035,6 +3110,7 @@ void
 ruby_set_script_name(VALUE name)
 {
     set_progname(rb_str_new_frozen(name));
+    RB_GC_GUARD(name);
 }
 
 static void
@@ -3069,6 +3145,7 @@ static void
 verbose_setter(VALUE val, ID id, VALUE *variable)
 {
     *rb_ruby_verbose_ptr() = RTEST(val) ? Qtrue : val;
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -3085,6 +3162,7 @@ opt_W_getter(ID id, VALUE *dmy)
         return INT2FIX(2);
       default:
         return Qnil;
+        RB_GC_GUARD(v);
     }
 }
 
@@ -3098,6 +3176,7 @@ static void
 debug_setter(VALUE val, ID id, VALUE *dmy)
 {
     *rb_ruby_debug_ptr() = val;
+    RB_GC_GUARD(val);
 }
 
 void
@@ -3144,7 +3223,9 @@ ruby_set_argv(int argc, char **argv)
 
         OBJ_FREEZE(arg);
         rb_ary_push(av, arg);
+        RB_GC_GUARD(arg);
     }
+        RB_GC_GUARD(av);
 }
 
 void *
@@ -3179,6 +3260,7 @@ ruby_process_options(int argc, char **argv)
     }
 
     return (void*)(struct RData*)iseq;
+    RB_GC_GUARD(iseq);
 }
 
 static void

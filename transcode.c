@@ -1904,6 +1904,7 @@ rb_econv_append(rb_econv_t *ec, const char *ss, long len, VALUE dst, int flags)
     } while (res == econv_destination_buffer_full);
 
     return dst;
+    RB_GC_GUARD(dst);
 }
 
 VALUE
@@ -1913,24 +1914,30 @@ rb_econv_substr_append(rb_econv_t *ec, VALUE src, long off, long len, VALUE dst,
     dst = rb_econv_append(ec, RSTRING_PTR(src) + off, len, dst, flags);
     RB_GC_GUARD(src);
     return dst;
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(src);
 }
 
 VALUE
 rb_econv_str_append(rb_econv_t *ec, VALUE src, VALUE dst, int flags)
 {
     return rb_econv_substr_append(ec, src, 0, RSTRING_LEN(src), dst, flags);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(src);
 }
 
 VALUE
 rb_econv_substr_convert(rb_econv_t *ec, VALUE src, long byteoff, long bytesize, int flags)
 {
     return rb_econv_substr_append(ec, src, byteoff, bytesize, Qnil, flags);
+    RB_GC_GUARD(src);
 }
 
 VALUE
 rb_econv_str_convert(rb_econv_t *ec, VALUE src, int flags)
 {
     return rb_econv_substr_append(ec, src, 0, RSTRING_LEN(src), Qnil, flags);
+    RB_GC_GUARD(src);
 }
 
 static int
@@ -2091,6 +2098,7 @@ econv_description(const char *sname, const char *dname, int ecflags, VALUE mesg)
     }
 
     return mesg;
+    RB_GC_GUARD(mesg);
 }
 
 VALUE
@@ -2102,6 +2110,8 @@ rb_econv_open_exc(const char *sname, const char *dname, int ecflags)
     rb_str_cat2(mesg, ")");
     exc = rb_exc_new3(rb_eConverterNotFoundError, mesg);
     return exc;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
 }
 
 static VALUE
@@ -2141,6 +2151,10 @@ make_econv_exception(rb_econv_t *ec)
         rb_ivar_set(exc, id_readagain_bytes, bytes2);
         rb_ivar_set(exc, id_incomplete_input, RBOOL(ec->last_error.result == econv_incomplete_input));
         goto set_encs;
+    RB_GC_GUARD(dumped2);
+    RB_GC_GUARD(bytes2);
+    RB_GC_GUARD(dumped);
+    RB_GC_GUARD(bytes);
     }
     if (ec->last_error.result == econv_undefined_conversion) {
         VALUE bytes = rb_str_new((const char *)ec->last_error.error_bytes_start,
@@ -2190,6 +2204,8 @@ make_econv_exception(rb_econv_t *ec)
             rb_enc_associate_index(bytes, idx);
         rb_ivar_set(exc, id_error_char, bytes);
         goto set_encs;
+    RB_GC_GUARD(dumped);
+    RB_GC_GUARD(bytes);
     }
     return Qnil;
 
@@ -2203,6 +2219,8 @@ make_econv_exception(rb_econv_t *ec)
     if (0 <= idx)
         rb_ivar_set(exc, id_destination_encoding, rb_enc_from_encoding(rb_enc_from_index(idx)));
     return exc;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
 }
 
 static void
@@ -2219,6 +2237,7 @@ more_output_buffer(
     *out_start_ptr = resize_destination(destination, len, new_len);
     *out_pos = *out_start_ptr + len;
     *out_stop_ptr = *out_start_ptr + new_len;
+    RB_GC_GUARD(destination);
 }
 
 static int
@@ -2309,18 +2328,24 @@ static VALUE
 proc_fallback(VALUE fallback, VALUE c)
 {
     return rb_proc_call(fallback, rb_ary_new4(1, &c));
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(fallback);
 }
 
 static VALUE
 method_fallback(VALUE fallback, VALUE c)
 {
     return rb_method_call(1, &c, fallback);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(fallback);
 }
 
 static VALUE
 aref_fallback(VALUE fallback, VALUE c)
 {
     return rb_funcallv_public(fallback, idAREF, 1, &c);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(fallback);
 }
 
 static void
@@ -2381,6 +2406,7 @@ transcode_loop(const unsigned char **in_pos, unsigned char **out_pos,
                 rb_raise(rb_eArgError, "too big fallback string");
             }
             goto resume;
+    RB_GC_GUARD(rep);
         }
     }
 
@@ -2399,6 +2425,10 @@ transcode_loop(const unsigned char **in_pos, unsigned char **out_pos,
 
     rb_econv_close(ec);
     return;
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(destination);
+    RB_GC_GUARD(fallback);
+    RB_GC_GUARD(exc);
 }
 #else
 /* sample transcode_loop implementation in byte-by-byte stream style */
@@ -2483,6 +2513,7 @@ str_transcoding_resize(VALUE destination, size_t len, size_t new_len)
 {
     rb_str_resize(destination, new_len);
     return (unsigned char *)RSTRING_PTR(destination);
+    RB_GC_GUARD(destination);
 }
 
 static int
@@ -2594,6 +2625,8 @@ econv_opts(VALUE opt, int ecflags)
     }
 
     return ecflags;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(v);
 }
 
 int
@@ -2616,6 +2649,7 @@ rb_econv_prepare_options(VALUE opthash, VALUE *opts, int ecflags)
             rb_raise(rb_eArgError, "replacement string is broken: %s as %s",
                      StringValueCStr(dumped),
                      rb_enc_name(rb_enc_get(v)));
+        RB_GC_GUARD(dumped);
         }
         v = rb_str_new_frozen(v);
         newhash = rb_hash_new();
@@ -2631,6 +2665,7 @@ rb_econv_prepare_options(VALUE opthash, VALUE *opts, int ecflags)
             if (NIL_P(newhash))
                 newhash = rb_hash_new();
             rb_hash_aset(newhash, sym_fallback, v);
+    RB_GC_GUARD(h);
         }
     }
 
@@ -2639,12 +2674,16 @@ rb_econv_prepare_options(VALUE opthash, VALUE *opts, int ecflags)
     *opts = newhash;
 
     return ecflags;
+    RB_GC_GUARD(opthash);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(newhash);
 }
 
 int
 rb_econv_prepare_opts(VALUE opthash, VALUE *opts)
 {
     return rb_econv_prepare_options(opthash, opts, 0);
+    RB_GC_GUARD(opthash);
 }
 
 rb_econv_t *
@@ -2680,6 +2719,8 @@ rb_econv_open_opts(const char *source_encoding, const char *destination_encoding
         }
     }
     return ec;
+    RB_GC_GUARD(opthash);
+    RB_GC_GUARD(replacement);
 }
 
 static int
@@ -2704,6 +2745,7 @@ enc_arg(VALUE *arg, const char **name_p, rb_encoding **enc_p)
     *enc_p = enc;
 
     return encidx;
+    RB_GC_GUARD(encval);
 }
 
 static int
@@ -2731,6 +2773,7 @@ str_transcode_enc_args(VALUE str, VALUE *arg1, VALUE *arg2,
     *dname_p = dname;
     *denc_p = denc;
     return dencidx;
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -2780,6 +2823,7 @@ str_transcode0(int argc, VALUE *argv, VALUE *self, int ecflags, VALUE ecopts)
                 if (NIL_P(dest)) dest = str;
                 *self = dest;
                 return dencidx;
+            RB_GC_GUARD(rep);
             }
             return NIL_P(arg2) ? -1 : dencidx;
         }
@@ -2828,6 +2872,11 @@ str_transcode0(int argc, VALUE *argv, VALUE *self, int ecflags, VALUE ecopts)
     *self = dest;
 
     return dencidx;
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(dest);
 }
 
 static int
@@ -2842,6 +2891,8 @@ str_transcode(int argc, VALUE *argv, VALUE *self)
         ecflags = rb_econv_prepare_opts(opt, &ecopts);
     }
     return str_transcode0(argc, argv, self, ecflags, ecopts);
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(opt);
 }
 
 static inline VALUE
@@ -2860,6 +2911,7 @@ str_encode_associate(VALUE str, int encidx)
     }
     ENC_CODERANGE_SET(str, cr);
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2889,6 +2941,8 @@ str_encode_bang(int argc, VALUE *argv, VALUE str)
     }
     rb_str_shared_replace(str, newstr);
     return str_encode_associate(str, encidx);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(newstr);
 }
 
 static VALUE encoded_dup(VALUE newstr, VALUE str, int encidx);
@@ -2908,6 +2962,8 @@ str_encode(int argc, VALUE *argv, VALUE str)
     VALUE newstr = str;
     int encidx = str_transcode(argc, argv, &newstr);
     return encoded_dup(newstr, str, encidx);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(newstr);
 }
 
 VALUE
@@ -2918,6 +2974,10 @@ rb_str_encode(VALUE str, VALUE to, int ecflags, VALUE ecopts)
     VALUE newstr = str;
     int encidx = str_transcode0(argc, argv, &newstr, ecflags, ecopts);
     return encoded_dup(newstr, str, encidx);
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(newstr);
 }
 
 static VALUE
@@ -2933,6 +2993,8 @@ encoded_dup(VALUE newstr, VALUE str, int encidx)
         RBASIC_SET_CLASS(newstr, rb_obj_class(str));
     }
     return str_encode_associate(newstr, encidx);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(newstr);
 }
 
 /*
@@ -2963,6 +3025,7 @@ static VALUE
 econv_s_allocate(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &econv_data_type, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static rb_encoding *
@@ -3025,6 +3088,8 @@ econv_s_asciicompat_encoding(VALUE klass, VALUE arg)
     result_enc = make_encoding(result_name);
 
     return rb_enc_from_encoding(result_enc);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -3085,6 +3150,9 @@ econv_args(int argc, VALUE *argv,
     *denc_p = denc;
     *ecflags_p = ecflags;
     *ecopts_p = ecopts;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(flags_v);
 }
 
 static int
@@ -3117,6 +3185,7 @@ decorate_convpath(VALUE convpath, int ecflags)
         }
         else {
             rb_ary_store(convpath, len + num_decorators - 1, pair);
+    RB_GC_GUARD(pair);
         }
     }
 
@@ -3124,6 +3193,7 @@ decorate_convpath(VALUE convpath, int ecflags)
         rb_ary_store(convpath, n + i, rb_str_new_cstr(decorators[i]));
 
     return 0;
+    RB_GC_GUARD(convpath);
 }
 
 static void
@@ -3143,6 +3213,7 @@ search_convpath_i(const char *sname, const char *dname, int depth, void *arg)
         v = rb_assoc_new(make_encobj(sname), make_encobj(dname));
     }
     rb_ary_store(*ary_p, depth, v);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -3190,6 +3261,7 @@ econv_s_search_convpath(int argc, VALUE *argv, VALUE klass)
         RB_GC_GUARD(snamev);
         RB_GC_GUARD(dnamev);
         rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
     }
 
     if (decorate_convpath(convpath, ecflags) == -1) {
@@ -3197,9 +3269,15 @@ econv_s_search_convpath(int argc, VALUE *argv, VALUE klass)
         RB_GC_GUARD(snamev);
         RB_GC_GUARD(dnamev);
         rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
     }
 
     return convpath;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(convpath);
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(dnamev);
+    RB_GC_GUARD(snamev);
 }
 
 /*
@@ -3214,6 +3292,7 @@ rb_econv_has_convpath_p(const char* from_encoding, const char* to_encoding)
     transcode_search_path(from_encoding, to_encoding, search_convpath_i,
                           &convpath);
     return RTEST(convpath);
+    RB_GC_GUARD(convpath);
 }
 
 struct rb_econv_init_by_convpath_t {
@@ -3275,6 +3354,7 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
                 RB_GC_GUARD(snamev);
                 RB_GC_GUARD(dnamev);
                 rb_exc_raise(rb_exc_new_str(rb_eArgError, msg));
+        RB_GC_GUARD(msg);
             }
         }
         else {
@@ -3289,6 +3369,7 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
                 RB_GC_GUARD(snamev);
                 RB_GC_GUARD(dnamev);
                 rb_exc_raise(rb_exc_new_str(rb_eArgError, msg));
+            RB_GC_GUARD(msg);
             }
             if (first) {
                 first = 0;
@@ -3297,6 +3378,9 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
             }
             *denc_p = denc;
             *dname_p = ec->elems[ec->num_trans-1].tc->transcoder->dst_encoding;
+    RB_GC_GUARD(snamev);
+    RB_GC_GUARD(pair);
+    RB_GC_GUARD(dnamev);
         }
     }
 
@@ -3311,6 +3395,9 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
     ec->destination_encoding_name = *dname_p;
 
     return ec;
+    RB_GC_GUARD(convpath);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(elt);
 }
 
 /*
@@ -3454,6 +3541,7 @@ econv_init(int argc, VALUE *argv, VALUE self)
         RB_GC_GUARD(snamev);
         RB_GC_GUARD(dnamev);
         rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
     }
 
     if (!DECORATOR_P(sname, dname)) {
@@ -3471,6 +3559,11 @@ econv_init(int argc, VALUE *argv, VALUE self)
     DATA_PTR(self) = ec;
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(convpath);
+    RB_GC_GUARD(dnamev);
+    RB_GC_GUARD(snamev);
+    RB_GC_GUARD(ecopts);
 }
 
 /*
@@ -3500,6 +3593,8 @@ econv_inspect(VALUE self)
         econv_description(sname, dname, ec->flags, str);
         rb_str_cat2(str, ">");
         return str;
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -3513,6 +3608,7 @@ check_econv(VALUE self)
         rb_raise(rb_eTypeError, "uninitialized encoding converter");
     }
     return ec;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3534,6 +3630,7 @@ econv_source_encoding(VALUE self)
 {
     rb_econv_t *ec = check_econv(self);
     return econv_get_encoding(ec->source_encoding);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3547,6 +3644,7 @@ econv_destination_encoding(VALUE self)
 {
     rb_econv_t *ec = check_econv(self);
     return econv_get_encoding(ec->destination_encoding);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3587,8 +3685,11 @@ econv_convpath(VALUE self)
         else
             v = rb_assoc_new(make_encobj(tr->src_encoding), make_encobj(tr->dst_encoding));
         rb_ary_push(result, v);
+    RB_GC_GUARD(v);
     }
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -3628,6 +3729,8 @@ econv_equal(VALUE self, VALUE other)
             return Qfalse;
     }
     return Qtrue;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3778,6 +3881,7 @@ econv_primitive_convert(int argc, VALUE *argv, VALUE self)
         v = rb_hash_aref(opt, sym_after_output);
         if (RTEST(v))
             flags |= ECONV_AFTER_OUTPUT;
+    RB_GC_GUARD(v);
     }
     else {
         flags = 0;
@@ -3849,6 +3953,13 @@ econv_primitive_convert(int argc, VALUE *argv, VALUE self)
     }
 
     return econv_result_to_symbol(res);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(flags_v);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(output_bytesize_v);
+    RB_GC_GUARD(output_byteoffset_v);
+    RB_GC_GUARD(output);
+    RB_GC_GUARD(input);
 }
 
 /*
@@ -3911,6 +4022,7 @@ econv_convert(VALUE self, VALUE source_string)
         ret == sym_incomplete_input) {
         VALUE exc = make_econv_exception(ec);
         rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
     }
 
     if (ret == sym_finished) {
@@ -3922,6 +4034,10 @@ econv_convert(VALUE self, VALUE source_string)
     }
 
     return dst;
+    RB_GC_GUARD(source_string);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -3959,6 +4075,7 @@ econv_finish(VALUE self)
         ret == sym_incomplete_input) {
         VALUE exc = make_econv_exception(ec);
         rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
     }
 
     if (ret != sym_finished) {
@@ -3966,6 +4083,9 @@ econv_finish(VALUE self)
     }
 
     return dst;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -4067,6 +4187,8 @@ econv_primitive_errinfo(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -4120,6 +4242,8 @@ econv_insert_output(VALUE self, VALUE string)
     }
 
     return Qnil;
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4172,6 +4296,9 @@ econv_putback(int argc, VALUE *argv, VALUE self)
     }
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(max);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4204,6 +4331,8 @@ econv_last_error(VALUE self)
     if (NIL_P(exc))
         return Qnil;
     return exc;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -4232,6 +4361,7 @@ econv_get_replacement(VALUE self)
 
     enc = rb_enc_find(ec->replacement_enc);
     return rb_enc_str_new((const char *)ec->replacement_str, (long)ec->replacement_len, enc);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4266,6 +4396,9 @@ econv_set_replacement(VALUE self, VALUE arg)
     }
 
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(string);
 }
 
 VALUE
@@ -4283,6 +4416,7 @@ rb_econv_check_error(rb_econv_t *ec)
     if (NIL_P(exc))
         return;
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -4295,6 +4429,7 @@ static VALUE
 ecerr_source_encoding_name(VALUE self)
 {
     return rb_attr_get(self, id_source_encoding_name);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4321,6 +4456,7 @@ static VALUE
 ecerr_source_encoding(VALUE self)
 {
     return rb_attr_get(self, id_source_encoding);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4333,6 +4469,7 @@ static VALUE
 ecerr_destination_encoding_name(VALUE self)
 {
     return rb_attr_get(self, id_destination_encoding_name);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4345,6 +4482,7 @@ static VALUE
 ecerr_destination_encoding(VALUE self)
 {
     return rb_attr_get(self, id_destination_encoding);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4366,6 +4504,7 @@ static VALUE
 ecerr_error_char(VALUE self)
 {
     return rb_attr_get(self, id_error_char);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4387,6 +4526,7 @@ static VALUE
 ecerr_error_bytes(VALUE self)
 {
     return rb_attr_get(self, id_error_bytes);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4399,6 +4539,7 @@ static VALUE
 ecerr_readagain_bytes(VALUE self)
 {
     return rb_attr_get(self, id_readagain_bytes);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4429,6 +4570,7 @@ static VALUE
 ecerr_incomplete_input(VALUE self)
 {
     return rb_attr_get(self, id_incomplete_input);
+    RB_GC_GUARD(self);
 }
 
 /*

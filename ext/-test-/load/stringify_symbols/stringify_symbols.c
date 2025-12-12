@@ -19,6 +19,9 @@ stringify_symbol(VALUE klass, VALUE fname, VALUE sname)
     }
     uintptr_t uintptr = (uintptr_t)ptr;
     return UINTPTR2NUM(uintptr);
+    RB_GC_GUARD(sname);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -26,4 +29,5 @@ Init_stringify_symbols(void)
 {
     VALUE mod = rb_define_module("StringifySymbols");
     rb_define_singleton_method(mod, "stringify_symbol", stringify_symbol, 2);
+    RB_GC_GUARD(mod);
 }

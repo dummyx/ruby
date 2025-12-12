@@ -5,18 +5,24 @@ static VALUE
 printf_test_s(VALUE self, VALUE obj)
 {
     return rb_enc_sprintf(rb_usascii_encoding(), "<%"PRIsVALUE">", obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 printf_test_v(VALUE self, VALUE obj)
 {
     return rb_enc_sprintf(rb_usascii_encoding(), "{%+"PRIsVALUE"}", obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 printf_test_q(VALUE self, VALUE obj)
 {
     return rb_enc_sprintf(rb_usascii_encoding(), "[% "PRIsVALUE"]", obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static char *
@@ -77,6 +83,7 @@ printf_test_call(int argc, VALUE *argv, VALUE self)
             *p++ = '.';
             if (FIXNUM_P(v))
                 p = uint_to_str(p, format + sizeof(format), NUM2UINT(v));
+    RB_GC_GUARD(v);
         }
     }
     *p++ = cnv;
@@ -88,6 +95,11 @@ printf_test_call(int argc, VALUE *argv, VALUE self)
         result = rb_enc_sprintf(rb_usascii_encoding(), format, n);
     }
     return rb_assoc_new(result, rb_usascii_str_new_cstr(format));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(opt);
 }
 
 static VALUE
@@ -95,6 +107,8 @@ snprintf_count(VALUE self, VALUE str)
 {
     int n = ruby_snprintf(NULL, 0, "%s", StringValueCStr(str));
     return INT2FIX(n);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -106,4 +120,5 @@ Init_printf(void)
     rb_define_singleton_method(m, "q", printf_test_q, 1);
     rb_define_singleton_method(m, "call", printf_test_call, -1);
     rb_define_singleton_method(m, "sncount", snprintf_count, 1);
+    RB_GC_GUARD(m);
 }

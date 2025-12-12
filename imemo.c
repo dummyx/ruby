@@ -47,6 +47,8 @@ rb_imemo_new(enum imemo_type type, VALUE v0)
     NEWOBJ_OF(obj, void, v0, flags, size, 0);
 
     return (VALUE)obj;
+    RB_GC_GUARD(v0);
+    RB_GC_GUARD(flags);
 }
 
 static rb_imemo_tmpbuf_t *
@@ -57,6 +59,7 @@ rb_imemo_tmpbuf_new(void)
     NEWOBJ_OF(obj, struct rb_imemo_tmpbuf_struct, 0, flags, size, 0);
 
     return obj;
+    RB_GC_GUARD(flags);
 }
 
 void *
@@ -172,6 +175,7 @@ rb_imemo_memsize(VALUE obj)
     }
 
     return size;
+    RB_GC_GUARD(obj);
 }
 
 /* =========================================================================
@@ -205,6 +209,7 @@ cc_table_mark_i(VALUE ccs_ptr, void *data)
             rb_gc_mark_movable((VALUE)ccs->entries[i].cc);
         }
         return ID_TABLE_CONTINUE;
+        RB_GC_GUARD(ccs_ptr);
     }
 }
 
@@ -215,12 +220,14 @@ rb_cc_table_mark(VALUE klass)
     if (cc_tbl) {
         rb_id_table_foreach_values(cc_tbl, cc_table_mark_i, (void *)klass);
     }
+        RB_GC_GUARD(klass);
 }
 
 static bool
 moved_or_living_object_strictly_p(VALUE obj)
 {
     return obj && (!rb_objspace_garbage_object_p(obj) || BUILTIN_TYPE(obj) == T_MOVED);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -432,6 +439,7 @@ rb_imemo_mark_and_move(VALUE obj, bool reference_updating)
       default:
         rb_bug("unreachable");
     }
+        RB_GC_GUARD(obj);
 }
 
 /* =========================================================================
@@ -444,6 +452,7 @@ free_const_entry_i(VALUE value, void *data)
     rb_const_entry_t *ce = (rb_const_entry_t *)value;
     xfree(ce);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 void
@@ -479,6 +488,7 @@ vm_ccs_free(struct rb_class_cc_entries *ccs, int alive, VALUE klass)
         ruby_xfree(ccs->entries);
     }
     ruby_xfree(ccs);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -498,6 +508,8 @@ cc_table_free_i(VALUE ccs_ptr, void *data)
     vm_ccs_free(ccs, false, klass);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(ccs_ptr);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -509,6 +521,7 @@ rb_cc_table_free(VALUE klass)
         rb_id_table_foreach_values(cc_tbl, cc_table_free_i, (void *)klass);
         rb_id_table_free(cc_tbl);
     }
+        RB_GC_GUARD(klass);
 }
 
 void
@@ -587,4 +600,5 @@ rb_imemo_free(VALUE obj)
       default:
         rb_bug("unreachable");
     }
+        RB_GC_GUARD(obj);
 }

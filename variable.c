@@ -88,6 +88,7 @@ rb_namespace_p(VALUE obj)
       default: break;
     }
     return false;
+    RB_GC_GUARD(obj);
 }
 
 /**
@@ -111,12 +112,15 @@ classname(VALUE klass, bool *permanent)
     *permanent = RCLASS_EXT(klass)->permanent_classpath;
 
     return classpath;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(classpath);
 }
 
 VALUE
 rb_mod_name0(VALUE klass, bool *permanent)
 {
     return classname(klass, permanent);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -132,6 +136,7 @@ rb_mod_name(VALUE mod)
     // YJIT needs this function to not allocate.
     bool permanent;
     return classname(mod, &permanent);
+    RB_GC_GUARD(mod);
 }
 
 // Similar to logic in rb_mod_const_get().
@@ -164,6 +169,7 @@ is_constant_path(VALUE name)
     }
 
     return true;
+    RB_GC_GUARD(name);
 }
 
 struct sub_temporary_name_args {
@@ -186,6 +192,9 @@ set_sub_temporary_name_recursive(VALUE mod, VALUE data, int recursive)
     }
     set_sub_temporary_name_foreach(mod, args, name);
     return Qtrue;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(name);
 }
 
 static VALUE
@@ -200,6 +209,9 @@ set_sub_temporary_name_topmost(VALUE mod, VALUE data, int recursive)
     }
     set_sub_temporary_name_foreach(mod, args, name);
     return Qtrue;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(name);
 }
 
 static enum rb_id_table_iterator_result
@@ -211,8 +223,10 @@ set_sub_temporary_name_i(ID id, VALUE val, void *data)
         struct sub_temporary_name_args *args = data;
         args->last = id;
         rb_exec_recursive_paired(set_sub_temporary_name_recursive, val, arg, arg);
+    RB_GC_GUARD(arg);
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -230,6 +244,8 @@ set_sub_temporary_name_foreach(VALUE mod, struct sub_temporary_name_args *args, 
         rb_id_table_foreach(tbl, set_sub_temporary_name_i, args);
         rb_ary_set_len(args->names, names_len);
     }
+        RB_GC_GUARD(mod);
+        RB_GC_GUARD(name);
 }
 
 static void
@@ -238,6 +254,9 @@ set_sub_temporary_name(VALUE mod, VALUE name)
     struct sub_temporary_name_args args = {name};
     VALUE arg = (VALUE)&args;
     rb_exec_recursive_paired(set_sub_temporary_name_topmost, mod, arg, arg);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -323,6 +342,8 @@ rb_mod_set_temporary_name(VALUE mod, VALUE name)
     }
 
     return mod;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
@@ -342,6 +363,9 @@ make_temporary_path(VALUE obj, VALUE klass)
     }
     OBJ_FREEZE(path);
     return path;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(path);
 }
 
 typedef VALUE (*fallback_func)(VALUE obj, VALUE name);
@@ -367,6 +391,8 @@ rb_tmp_class_path(VALUE klass, bool *permanent, fallback_func fallback)
 
     *permanent = false;
     return fallback(klass, path);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
 }
 
 VALUE
@@ -376,18 +402,23 @@ rb_class_path(VALUE klass)
     VALUE path = rb_tmp_class_path(klass, &permanent, make_temporary_path);
     if (!NIL_P(path)) path = rb_str_dup(path);
     return path;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
 }
 
 VALUE
 rb_class_path_cached(VALUE klass)
 {
     return rb_mod_name(klass);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 no_fallback(VALUE obj, VALUE name)
 {
     return name;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -395,6 +426,7 @@ rb_search_class_path(VALUE klass)
 {
     bool permanent;
     return rb_tmp_class_path(klass, &permanent, no_fallback);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -404,12 +436,16 @@ build_const_pathname(VALUE head, VALUE tail)
     rb_str_cat2(path, "::");
     rb_str_append(path, tail);
     return rb_fstring(path);
+    RB_GC_GUARD(tail);
+    RB_GC_GUARD(head);
+    RB_GC_GUARD(path);
 }
 
 static VALUE
 build_const_path(VALUE head, ID tail)
 {
     return build_const_pathname(head, rb_id2str(tail));
+    RB_GC_GUARD(head);
 }
 
 void
@@ -427,6 +463,10 @@ rb_set_class_path_string(VALUE klass, VALUE under, VALUE name)
     }
 
     RCLASS_SET_CLASSPATH(klass, str, permanent);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(under);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -435,6 +475,9 @@ rb_set_class_path(VALUE klass, VALUE under, const char *name)
     VALUE str = rb_str_new2(name);
     OBJ_FREEZE(str);
     rb_set_class_path_string(klass, under, str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(under);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -480,6 +523,8 @@ rb_path_to_class(VALUE pathname)
     rb_raise(rb_eArgError, "undefined class/module % "PRIsVALUE,
              rb_str_subseq(pathname, 0, p-path));
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(pathname);
 }
 
 VALUE
@@ -492,6 +537,7 @@ VALUE
 rb_class_name(VALUE klass)
 {
     return rb_class_path(rb_class_real(klass));
+    RB_GC_GUARD(klass);
 }
 
 const char *
@@ -501,12 +547,15 @@ rb_class2name(VALUE klass)
     VALUE path = rb_tmp_class_path(rb_class_real(klass), &permanent, make_temporary_path);
     if (NIL_P(path)) return NULL;
     return RSTRING_PTR(path);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
 }
 
 const char *
 rb_obj_classname(VALUE obj)
 {
     return rb_class2name(CLASS_OF(obj));
+    RB_GC_GUARD(obj);
 }
 
 struct trace_var {
@@ -557,6 +606,7 @@ free_global_entry_i(VALUE val, void *arg)
     }
     ruby_xfree(entry);
     return ID_TABLE_DELETE;
+    RB_GC_GUARD(val);
 }
 
 void
@@ -591,6 +641,7 @@ rb_find_global_entry(ID id)
     }
 
     return entry;
+    RB_GC_GUARD(data);
 }
 
 void
@@ -649,8 +700,10 @@ rb_gvar_val_compactor(void *_var)
         VALUE new = rb_gc_location(obj);
         if (new != obj) {
             var->data = (void*)new;
+            RB_GC_GUARD(new);
         }
     }
+            RB_GC_GUARD(obj);
 }
 
 void
@@ -663,6 +716,7 @@ rb_gvar_undef_setter(VALUE val, ID id, VALUE *_)
     var->compactor = rb_gvar_val_compactor;
 
     var->data = (void*)val;
+    RB_GC_GUARD(val);
 }
 
 void
@@ -681,6 +735,7 @@ rb_gvar_val_setter(VALUE val, ID id, VALUE *_)
 {
     struct rb_global_variable *var = rb_global_entry(id)->var;
     var->data = (void*)val;
+    RB_GC_GUARD(val);
 }
 
 void
@@ -688,6 +743,7 @@ rb_gvar_val_marker(VALUE *var)
 {
     VALUE data = (VALUE)var;
     if (data) rb_gc_mark_movable(data);
+    RB_GC_GUARD(data);
 }
 
 VALUE
@@ -701,6 +757,7 @@ void
 rb_gvar_var_setter(VALUE val, ID id, VALUE *data)
 {
     *data = val;
+    RB_GC_GUARD(val);
 }
 
 void
@@ -713,6 +770,7 @@ void
 rb_gvar_readonly_setter(VALUE v, ID id, VALUE *_)
 {
     rb_name_error(id, "%"PRIsVALUE" is a read-only variable", QUOTE_ID(id));
+    RB_GC_GUARD(v);
 }
 
 static enum rb_id_table_iterator_result
@@ -729,6 +787,7 @@ mark_global_entry(VALUE v, void *ignored)
         trace = trace->next;
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(v);
 }
 
 #define gc_mark_table(task) \
@@ -748,6 +807,7 @@ update_global_entry(VALUE v, void *ignored)
 
     (*var->compactor)(var);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(v);
 }
 
 void
@@ -770,6 +830,7 @@ global_id(const char *name)
         memcpy(buf+1, name, len);
         id = rb_intern2(buf, len+1);
         ALLOCV_END(vbuf);
+    RB_GC_GUARD(vbuf);
     }
     return id;
 }
@@ -790,6 +851,7 @@ find_global_id(const char *name)
         memcpy(buf+1, name, len);
         id = rb_check_id_cstr(buf, len+1, NULL);
         ALLOCV_END(vbuf);
+    RB_GC_GUARD(vbuf);
     }
 
     return id;
@@ -841,6 +903,8 @@ static void
 rb_trace_eval(VALUE cmd, VALUE val)
 {
     rb_eval_cmd_kw(cmd, rb_ary_new3(1, val), RB_NO_KEYWORDS);
+    RB_GC_GUARD(cmd);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -865,6 +929,8 @@ rb_f_trace_var(int argc, const VALUE *argv)
     entry->var->trace = trace;
 
     return Qnil;
+    RB_GC_GUARD(cmd);
+    RB_GC_GUARD(var);
 }
 
 static void
@@ -919,6 +985,7 @@ rb_f_untrace_var(int argc, const VALUE *argv)
 
         if (!entry->var->block_trace) remove_trace(entry->var);
         return ary;
+    RB_GC_GUARD(ary);
     }
     else {
         while (trace) {
@@ -931,6 +998,8 @@ rb_f_untrace_var(int argc, const VALUE *argv)
         }
     }
     return Qnil;
+    RB_GC_GUARD(cmd);
+    RB_GC_GUARD(var);
 }
 
 struct trace_data {
@@ -950,6 +1019,7 @@ trace_ev(VALUE v)
     }
 
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -959,6 +1029,7 @@ trace_en(VALUE v)
     var->block_trace = 0;
     remove_trace(var);
     return Qnil;		/* not reached */
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -976,6 +1047,7 @@ rb_gvar_set_entry(struct rb_global_entry *entry, VALUE val)
         rb_ensure(trace_ev, (VALUE)&trace, trace_en, (VALUE)var);
     }
     return val;
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -985,12 +1057,14 @@ rb_gvar_set(ID id, VALUE val)
     entry = rb_global_entry(id);
 
     return rb_gvar_set_entry(entry, val);
+    RB_GC_GUARD(val);
 }
 
 VALUE
 rb_gv_set(const char *name, VALUE val)
 {
     return rb_gvar_set(global_id(name), val);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -1041,6 +1115,8 @@ gvar_i(ID key, VALUE val, void *a)
     VALUE ary = (VALUE)a;
     rb_ary_push(ary, ID2SYM(key));
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -1073,6 +1149,9 @@ rb_f_global_variables(void)
         }
     }
     return ary;
+    RB_GC_GUARD(backref);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -1107,6 +1186,7 @@ rb_alias_variable(ID name1, ID name2)
     }
     entry2->var->counter++;
     entry1->var = entry2->var;
+    RB_GC_GUARD(data1);
 }
 
 static void
@@ -1137,12 +1217,14 @@ generic_ivtbl(VALUE obj, ID id, bool force_check_ractor)
         rb_raise(rb_eRactorIsolationError, "can not access instance variables of shareable objects from non-main Ractors");
     }
     return generic_iv_tbl_;
+    RB_GC_GUARD(obj);
 }
 
 static inline struct st_table *
 generic_ivtbl_no_ractor_check(VALUE obj)
 {
     return generic_ivtbl(obj, 0, false);
+    RB_GC_GUARD(obj);
 }
 
 struct st_table *
@@ -1169,12 +1251,14 @@ rb_gen_ivtbl_get(VALUE obj, ID id, struct gen_ivtbl **ivtbl)
     RB_VM_LOCK_LEAVE();
 
     return r;
+    RB_GC_GUARD(obj);
 }
 
 int
 rb_ivar_generic_ivtbl_lookup(VALUE obj, struct gen_ivtbl **ivtbl)
 {
     return rb_gen_ivtbl_get(obj, 0, ivtbl);
+    RB_GC_GUARD(obj);
 }
 
 static size_t
@@ -1198,6 +1282,7 @@ rb_mark_generic_ivar(VALUE obj)
             }
         }
     }
+                RB_GC_GUARD(obj);
 }
 
 void
@@ -1215,6 +1300,7 @@ rb_ref_update_generic_ivar(VALUE obj)
             }
         }
     }
+                RB_GC_GUARD(obj);
 }
 
 void
@@ -1225,6 +1311,8 @@ rb_mv_generic_ivar(VALUE rsrc, VALUE dst)
 
     if (st_delete(generic_ivtbl_no_ractor_check(rsrc), &key, &ivtbl))
         st_insert(generic_ivtbl_no_ractor_check(dst), (st_data_t)dst, ivtbl);
+        RB_GC_GUARD(rsrc);
+        RB_GC_GUARD(dst);
 }
 
 void
@@ -1243,6 +1331,7 @@ rb_free_generic_ivar(VALUE obj)
 
         xfree(ivtbl);
     }
+        RB_GC_GUARD(obj);
 }
 
 size_t
@@ -1259,6 +1348,7 @@ rb_generic_ivar_memsize(VALUE obj)
         }
     }
     return 0;
+    RB_GC_GUARD(obj);
 }
 
 #if !SHAPE_IN_BASIC_FLAGS
@@ -1303,6 +1393,7 @@ gen_ivtbl_count(VALUE obj, const struct gen_ivtbl *ivtbl)
     }
 
     return n;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1366,6 +1457,7 @@ rb_ivar_lookup(VALUE obj, ID id, VALUE undef)
                         "can not get unshareable values from instance variables of classes/modules from non-main Ractors");
             }
             return val;
+      RB_GC_GUARD(val);
         }
       case T_OBJECT:
         {
@@ -1380,6 +1472,7 @@ rb_ivar_lookup(VALUE obj, ID id, VALUE undef)
                 }
                 else {
                     return undef;
+            RB_GC_GUARD(val);
                 }
             }
 
@@ -1399,6 +1492,7 @@ rb_ivar_lookup(VALUE obj, ID id, VALUE undef)
                 }
                 else {
                     return undef;
+                    RB_GC_GUARD(val);
                 }
             }
 
@@ -1420,6 +1514,8 @@ rb_ivar_lookup(VALUE obj, ID id, VALUE undef)
     }
 
     return undef;
+    RB_GC_GUARD(undef);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1428,12 +1524,15 @@ rb_ivar_get(VALUE obj, ID id)
     VALUE iv = rb_ivar_lookup(obj, id, Qnil);
     RB_DEBUG_COUNTER_INC(ivar_get_base);
     return iv;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(iv);
 }
 
 VALUE
 rb_attr_get(VALUE obj, ID id)
 {
     return rb_ivar_lookup(obj, id, Qnil);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1481,12 +1580,16 @@ rb_ivar_delete(VALUE obj, ID id, VALUE undef)
     }
 
     return val;
+    RB_GC_GUARD(undef);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(val);
 }
 
 VALUE
 rb_attr_delete(VALUE obj, ID id)
 {
     return rb_ivar_delete(obj, id, Qnil);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1545,6 +1648,7 @@ rb_obj_convert_to_too_complex(VALUE obj, st_table *table)
     }
 
     xfree(old_ivptr);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1559,6 +1663,7 @@ rb_evict_ivars_to_hash(VALUE obj)
     rb_obj_convert_to_too_complex(obj, table);
 
     RUBY_ASSERT(rb_shape_obj_too_complex(obj));
+    RB_GC_GUARD(obj);
 }
 
 struct general_ivar_set_result {
@@ -1625,6 +1730,8 @@ too_complex:
         RB_OBJ_WRITTEN(obj, Qundef, val);
     }
     return result;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 
 struct gen_ivar_lookup_ensure_size {
@@ -1690,6 +1797,7 @@ generic_ivar_set_shape_ivptr(VALUE obj, void *data)
     FL_SET_RAW(obj, FL_EXIVAR);
 
     return ivar_lookup->ivtbl->as.shape.ivptr;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1698,6 +1806,7 @@ generic_ivar_set_shape_resize_ivptr(VALUE obj, attr_index_t _old_capa, attr_inde
     struct gen_ivar_lookup_ensure_size *ivar_lookup = data;
 
     ivar_lookup->resize = true;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1706,6 +1815,7 @@ generic_ivar_set_set_shape(VALUE obj, rb_shape_t *shape, void *data)
     struct gen_ivar_lookup_ensure_size *ivar_lookup = data;
 
     ivar_lookup->shape = shape;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1713,6 +1823,7 @@ generic_ivar_set_transition_too_complex(VALUE obj, void *_data)
 {
     rb_evict_ivars_to_hash(obj);
     FL_SET_RAW(obj, FL_EXIVAR);
+    RB_GC_GUARD(obj);
 }
 
 static st_table *
@@ -1740,6 +1851,7 @@ generic_ivar_set_too_complex_table(VALUE obj, void *data)
     RUBY_ASSERT(rb_shape_obj_too_complex(obj));
 
     return ivtbl->as.complex.table;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1758,6 +1870,8 @@ generic_ivar_set(VALUE obj, ID id, VALUE val)
                      generic_ivar_set_set_shape,
                      generic_ivar_set_transition_too_complex,
                      generic_ivar_set_too_complex_table);
+                     RB_GC_GUARD(obj);
+                     RB_GC_GUARD(val);
 }
 
 void
@@ -1775,6 +1889,7 @@ rb_ensure_iv_list_size(VALUE obj, uint32_t current_capacity, uint32_t new_capaci
     else {
         REALLOC_N(ROBJECT(obj)->as.heap.ivptr, VALUE, new_capacity);
     }
+        RB_GC_GUARD(obj);
 }
 
 static int
@@ -1784,12 +1899,14 @@ rb_obj_copy_ivs_to_hash_table_i(ID key, VALUE val, st_data_t arg)
 
     st_add_direct((st_table *)arg, (st_data_t)key, (st_data_t)val);
     return ST_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 void
 rb_obj_copy_ivs_to_hash_table(VALUE obj, st_table *table)
 {
     rb_ivar_foreach(obj, rb_obj_copy_ivs_to_hash_table_i, (st_data_t)table);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE *
@@ -1798,24 +1915,28 @@ obj_ivar_set_shape_ivptr(VALUE obj, void *_data)
     RUBY_ASSERT(!rb_shape_obj_too_complex(obj));
 
     return ROBJECT_IVPTR(obj);
+    RB_GC_GUARD(obj);
 }
 
 static void
 obj_ivar_set_shape_resize_ivptr(VALUE obj, attr_index_t old_capa, attr_index_t new_capa, void *_data)
 {
     rb_ensure_iv_list_size(obj, old_capa, new_capa);
+    RB_GC_GUARD(obj);
 }
 
 static void
 obj_ivar_set_set_shape(VALUE obj, rb_shape_t *shape, void *_data)
 {
     rb_shape_set_shape(obj, shape);
+    RB_GC_GUARD(obj);
 }
 
 static void
 obj_ivar_set_transition_too_complex(VALUE obj, void *_data)
 {
     rb_evict_ivars_to_hash(obj);
+    RB_GC_GUARD(obj);
 }
 
 static st_table *
@@ -1824,6 +1945,7 @@ obj_ivar_set_too_complex_table(VALUE obj, void *_data)
     RUBY_ASSERT(rb_shape_obj_too_complex(obj));
 
     return ROBJECT_IV_HASH(obj);
+    RB_GC_GUARD(obj);
 }
 
 attr_index_t
@@ -1835,6 +1957,8 @@ rb_obj_ivar_set(VALUE obj, ID id, VALUE val)
                             obj_ivar_set_set_shape,
                             obj_ivar_set_transition_too_complex,
                             obj_ivar_set_too_complex_table).index;
+                            RB_GC_GUARD(val);
+                            RB_GC_GUARD(obj);
 }
 
 /* Set the instance variable +val+ on object +obj+ at ivar name +id+.
@@ -1847,6 +1971,8 @@ rb_vm_set_ivar_id(VALUE obj, ID id, VALUE val)
     rb_check_frozen(obj);
     rb_obj_ivar_set(obj, id, val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 
 bool
@@ -1887,6 +2013,7 @@ rb_shape_set_shape_id(VALUE obj, shape_id_t shape_id)
 #endif
 
     return true;
+    RB_GC_GUARD(obj);
 }
 
 void rb_obj_freeze_inline(VALUE x)
@@ -1910,6 +2037,7 @@ void rb_obj_freeze_inline(VALUE x)
             rb_freeze_singleton_class(x);
         }
     }
+            RB_GC_GUARD(x);
 }
 
 static void
@@ -1933,6 +2061,8 @@ ivar_set(VALUE obj, ID id, VALUE val)
         generic_ivar_set(obj, id, val);
         break;
     }
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(val);
 }
 
 VALUE
@@ -1941,6 +2071,8 @@ rb_ivar_set(VALUE obj, ID id, VALUE val)
     rb_check_frozen(obj);
     ivar_set(obj, id, val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1950,6 +2082,8 @@ rb_ivar_set_internal(VALUE obj, ID id, VALUE val)
     VM_ASSERT(!rb_is_instance_id(id));
 
     ivar_set(obj, id, val);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -1985,9 +2119,11 @@ rb_ivar_defined(VALUE obj, ID id)
         }
 
         return Qtrue;
+    RB_GC_GUARD(idx);
     }
     else {
         return RBOOL(rb_shape_get_iv_index(rb_shape_get_shape(obj), id, &index));
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -2047,6 +2183,7 @@ iterate_over_shapes_with_callback(rb_shape_t *shape, rb_ivar_foreach_callback_fu
       case SHAPE_OBJ_TOO_COMPLEX:
       default:
         rb_bug("Unreachable");
+        RB_GC_GUARD(val);
     }
 }
 
@@ -2072,6 +2209,7 @@ obj_ivar_each(VALUE obj, rb_ivar_foreach_callback_func *func, st_data_t arg)
     else {
         iterate_over_shapes_with_callback(shape, func, &itr_data);
     }
+        RB_GC_GUARD(obj);
 }
 
 static void
@@ -2092,6 +2230,7 @@ gen_ivar_each(VALUE obj, rb_ivar_foreach_callback_func *func, st_data_t arg)
     else {
         iterate_over_shapes_with_callback(shape, func, &itr_data);
     }
+        RB_GC_GUARD(obj);
 }
 
 static void
@@ -2110,6 +2249,7 @@ class_ivar_each(VALUE obj, rb_ivar_foreach_callback_func *func, st_data_t arg)
     else {
         iterate_over_shapes_with_callback(shape, func, &itr_data);
     }
+        RB_GC_GUARD(obj);
 }
 
 void
@@ -2171,6 +2311,8 @@ rb_copy_generic_ivar(VALUE clone, VALUE obj)
         rb_free_generic_ivar(clone);
         FL_UNSET(clone, FL_EXIVAR);
     }
+        RB_GC_GUARD(clone);
+        RB_GC_GUARD(obj);
 }
 
 void
@@ -2192,6 +2334,8 @@ rb_replace_generic_ivar(VALUE clone, VALUE obj)
     RB_VM_LOCK_LEAVE();
 
     FL_SET(clone, FL_EXIVAR);
+    RB_GC_GUARD(clone);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -2217,6 +2361,7 @@ rb_ivar_foreach(VALUE obj, rb_ivar_foreach_callback_func *func, st_data_t arg)
         }
         break;
     }
+        RB_GC_GUARD(obj);
 }
 
 st_index_t
@@ -2241,6 +2386,7 @@ rb_ivar_count(VALUE obj)
         break;
     }
     return 0;
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -2252,6 +2398,8 @@ ivar_i(ID key, VALUE v, st_data_t a)
         rb_ary_push(ary, ID2SYM(key));
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2279,6 +2427,8 @@ rb_obj_instance_variables(VALUE obj)
     ary = rb_ary_new();
     rb_ivar_foreach(obj, ivar_i, ary);
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 #define rb_is_constant_id rb_is_const_id
@@ -2300,6 +2450,8 @@ check_id_type(VALUE obj, VALUE *pname,
                               obj, name);
     }
     return id;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(name);
 }
 
 /*
@@ -2338,11 +2490,14 @@ rb_obj_remove_instance_variable(VALUE obj, VALUE name)
         VALUE val = rb_ivar_delete(obj, id, Qundef);
 
         if (!UNDEF_P(val)) return val;
+    RB_GC_GUARD(val);
     }
 
     rb_name_err_raise("instance variable %1$s not defined",
                       obj, name);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(name);
 }
 
 NORETURN(static void uninitialized_constant(VALUE, VALUE));
@@ -2355,6 +2510,8 @@ uninitialized_constant(VALUE klass, VALUE name)
     else
         rb_name_err_raise("uninitialized constant %1$s",
                           klass, name);
+                          RB_GC_GUARD(klass);
+                          RB_GC_GUARD(name);
 }
 
 VALUE
@@ -2363,6 +2520,9 @@ rb_const_missing(VALUE klass, VALUE name)
     VALUE value = rb_funcallv(klass, idConst_missing, 1, &name);
     rb_vm_inc_const_missing_count();
     return value;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(value);
 }
 
 
@@ -2419,6 +2579,9 @@ rb_mod_const_missing(VALUE klass, VALUE name)
     uninitialized_constant(klass, name);
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(ref);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -2482,6 +2645,8 @@ autoload_data(VALUE mod, ID id)
     }
 
     return (VALUE)val;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(tbl_value);
 }
 
 // Every autoload constant has exactly one instance of autoload_const, stored in `autoload_features`. Since multiple autoload constants can refer to the same file, every `autoload_const` refers to a de-duplicated `autoload_data`.
@@ -2627,6 +2792,8 @@ get_autoload_data(VALUE autoload_const_value, struct autoload_const **autoload_c
     if (autoload_const_pointer) *autoload_const_pointer = autoload_const;
 
     return autoload_data;
+    RB_GC_GUARD(autoload_const_value);
+    RB_GC_GUARD(autoload_data_value);
 }
 
 void
@@ -2637,6 +2804,7 @@ rb_autoload(VALUE module, ID name, const char *feature)
     }
 
     rb_autoload_str(module, name, rb_fstring_cstr(feature));
+    RB_GC_GUARD(module);
 }
 
 static void const_set(VALUE klass, ID id, VALUE val);
@@ -2673,6 +2841,8 @@ autoload_feature_lookup_or_create(VALUE feature, struct autoload_data **autoload
 
     RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
     return autoload_data_value;
+    RB_GC_GUARD(feature);
+    RB_GC_GUARD(autoload_data_value);
 }
 
 static VALUE
@@ -2687,6 +2857,8 @@ autoload_table_lookup_or_create(VALUE module)
         rb_class_ivar_set(module, autoload, autoload_table_value);
         RTYPEDDATA_DATA(autoload_table_value) = st_init_numtable();
         return autoload_table_value;
+        RB_GC_GUARD(autoload_table_value);
+        RB_GC_GUARD(module);
     }
 }
 
@@ -2723,9 +2895,14 @@ autoload_synchronized(VALUE _arguments)
         ccan_list_add_tail(&autoload_data->constants, &autoload_const->cnode);
         st_insert(autoload_table, (st_data_t)arguments->name, (st_data_t)autoload_const_value);
         RB_OBJ_WRITTEN(autoload_table_value, Qundef, autoload_const_value);
+    RB_GC_GUARD(autoload_const_value);
     }
 
     return Qtrue;
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(autoload_data_value);
+    RB_GC_GUARD(feature);
+    RB_GC_GUARD(autoload_table_value);
 }
 
 void
@@ -2751,6 +2928,9 @@ rb_autoload_str(VALUE module, ID name, VALUE feature)
     if (result == Qtrue) {
         const_added(module, name);
     }
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(feature);
+        RB_GC_GUARD(module);
 }
 
 static void
@@ -2796,6 +2976,8 @@ autoload_delete(VALUE module, ID name)
     }
 
     RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
+    RB_GC_GUARD(table_value);
+    RB_GC_GUARD(module);
 }
 
 static int
@@ -2839,6 +3021,9 @@ check_autoload_required(VALUE mod, ID id, const char **loadingpath)
     }
 
     return 0;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(feature);
+    RB_GC_GUARD(autoload_const_value);
 }
 
 static struct autoload_const *autoloading_const_entry(VALUE mod, ID id);
@@ -2858,6 +3043,7 @@ rb_autoloading_value(VALUE mod, ID id, VALUE* value, rb_const_flag_t *flag)
     }
 
     return TRUE;
+    RB_GC_GUARD(mod);
 }
 
 static int
@@ -2890,6 +3076,8 @@ autoloading_const_entry(VALUE mod, ID id)
     }
 
     return 0;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(load);
 }
 
 static int
@@ -2905,6 +3093,7 @@ autoload_defined_p(VALUE mod, ID id)
 
     // Otherwise check if there is an autoload in flight right now:
     return !rb_autoloading_value(mod, id, NULL, NULL);
+    RB_GC_GUARD(mod);
 }
 
 static void const_tbl_update(struct autoload_const *, int);
@@ -2976,6 +3165,8 @@ autoload_load_needed(VALUE _arguments)
     arguments->autoload_const = autoload_const;
 
     return autoload_const_value;
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(autoload_const_value);
 }
 
 static VALUE
@@ -3002,6 +3193,7 @@ autoload_apply_constants(VALUE _arguments)
     RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
 
     return Qtrue;
+    RB_GC_GUARD(_arguments);
 }
 
 static VALUE
@@ -3021,6 +3213,8 @@ autoload_feature_require(VALUE _arguments)
     }
 
     return result;
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -3060,6 +3254,8 @@ autoload_try_load(VALUE _arguments)
     }
 
     return result;
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -3098,12 +3294,16 @@ rb_autoload_load(VALUE module, ID name)
     RB_GC_GUARD(autoload_const_value);
 
     return result;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(autoload_const_value);
 }
 
 VALUE
 rb_autoload_p(VALUE mod, ID id)
 {
     return rb_autoload_at_p(mod, id, TRUE);
+    RB_GC_GUARD(mod);
 }
 
 VALUE
@@ -3120,6 +3320,8 @@ rb_autoload_at_p(VALUE mod, ID id, int recur)
     load = check_autoload_required(mod, id, 0);
     if (!load) return Qnil;
     return (ele = get_autoload_data(load, 0)) ? ele->feature : Qnil;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(load);
 }
 
 void
@@ -3135,6 +3337,7 @@ rb_const_warn_if_deprecated(const rb_const_entry_t *ce, VALUE klass, ID id)
                     rb_class_name(klass), QUOTE_ID(id));
         }
     }
+                    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -3150,6 +3353,8 @@ rb_const_get_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
         return c;
     }
     return rb_const_missing(klass, ID2SYM(id));
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(c);
 }
 
 static VALUE
@@ -3200,11 +3405,16 @@ rb_const_search_from(VALUE klass, ID id, int exclude, int recurse, int visibilit
             return value;
         }
         if (!recurse) break;
+  RB_GC_GUARD(am);
+  RB_GC_GUARD(tmp);
     }
 
   not_found:
     GET_EC()->private_const_reference = 0;
     return Qundef;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(current);
+    RB_GC_GUARD(value);
 }
 
 static VALUE
@@ -3219,36 +3429,43 @@ rb_const_search(VALUE klass, ID id, int exclude, int recurse, int visibility)
     if (BUILTIN_TYPE(klass) != T_MODULE) return value;
     /* search global const too, if klass is a module */
     return rb_const_search_from(rb_cObject, id, FALSE, recurse, visibility);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(value);
 }
 
 VALUE
 rb_const_get_from(VALUE klass, ID id)
 {
     return rb_const_get_0(klass, id, TRUE, TRUE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_const_get(VALUE klass, ID id)
 {
     return rb_const_get_0(klass, id, FALSE, TRUE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_const_get_at(VALUE klass, ID id)
 {
     return rb_const_get_0(klass, id, TRUE, FALSE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_public_const_get_from(VALUE klass, ID id)
 {
     return rb_const_get_0(klass, id, TRUE, TRUE, TRUE);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_public_const_get_at(VALUE klass, ID id)
 {
     return rb_const_get_0(klass, id, TRUE, FALSE, TRUE);
+    RB_GC_GUARD(klass);
 }
 
 NORETURN(static void undefined_constant(VALUE mod, VALUE name));
@@ -3257,6 +3474,8 @@ undefined_constant(VALUE mod, VALUE name)
 {
     rb_name_err_raise("constant %2$s::%1$s not defined",
                       mod, name);
+                      RB_GC_GUARD(mod);
+                      RB_GC_GUARD(name);
 }
 
 static VALUE
@@ -3282,6 +3501,7 @@ rb_const_location_from(VALUE klass, ID id, int exclude, int recurse, int visibil
                     if (!UNDEF_P(autoload_const->value) && RTEST(rb_mutex_owned_p(autoload_data->mutex))) {
                         return rb_assoc_new(autoload_const->file, INT2NUM(autoload_const->line));
                     }
+            RB_GC_GUARD(autoload_const_value);
                 }
             }
 
@@ -3294,6 +3514,7 @@ rb_const_location_from(VALUE klass, ID id, int exclude, int recurse, int visibil
 
   not_found:
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -3308,18 +3529,22 @@ rb_const_location(VALUE klass, ID id, int exclude, int recurse, int visibility)
     if (BUILTIN_TYPE(klass) != T_MODULE) return loc;
     /* search global const too, if klass is a module */
     return rb_const_location_from(rb_cObject, id, FALSE, recurse, visibility);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(loc);
 }
 
 VALUE
 rb_const_source_location(VALUE klass, ID id)
 {
     return rb_const_location(klass, id, FALSE, TRUE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_const_source_location_at(VALUE klass, ID id)
 {
     return rb_const_location(klass, id, TRUE, FALSE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3341,6 +3566,8 @@ rb_mod_remove_const(VALUE mod, VALUE name)
         undefined_constant(mod, name);
     }
     return rb_const_remove(mod, id);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(mod);
 }
 
 VALUE
@@ -3373,6 +3600,8 @@ rb_const_remove(VALUE mod, ID id)
     ruby_xfree(ce);
 
     return val;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -3393,6 +3622,7 @@ sv_i(ID key, VALUE v, void *a)
         st_update(tbl, (st_data_t)key, cv_i_update, (st_data_t)ce);
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(v);
 }
 
 static enum rb_id_table_iterator_result
@@ -3402,6 +3632,7 @@ rb_local_constants_i(ID const_name, VALUE const_value, void *ary)
         rb_ary_push((VALUE)ary, ID2SYM(const_name));
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(const_value);
 }
 
 static VALUE
@@ -3420,6 +3651,8 @@ rb_local_constants(VALUE mod)
     RB_VM_LOCK_LEAVE();
 
     return ary;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(ary);
 }
 
 void*
@@ -3437,6 +3670,7 @@ rb_mod_const_at(VALUE mod, void *data)
         RB_VM_LOCK_LEAVE();
     }
     return tbl;
+    RB_GC_GUARD(mod);
 }
 
 void*
@@ -3450,6 +3684,8 @@ rb_mod_const_of(VALUE mod, void *data)
         if (tmp == rb_cObject && mod != rb_cObject) break;
     }
     return data;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(tmp);
 }
 
 static int
@@ -3459,6 +3695,7 @@ list_i(st_data_t key, st_data_t value, VALUE ary)
     rb_const_entry_t *ce = (rb_const_entry_t *)value;
     if (RB_CONST_PUBLIC_P(ce)) rb_ary_push(ary, ID2SYM(sym));
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -3473,6 +3710,7 @@ rb_const_list(void *data)
     st_free_table(tbl);
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3505,6 +3743,7 @@ rb_mod_constants(int argc, const VALUE *argv, VALUE mod)
     }
     else {
         return rb_local_constants(mod);
+        RB_GC_GUARD(mod);
     }
 }
 
@@ -3541,36 +3780,44 @@ rb_const_defined_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
         goto retry;
     }
     return (int)Qfalse;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(tmp);
 }
 
 int
 rb_const_defined_from(VALUE klass, ID id)
 {
     return rb_const_defined_0(klass, id, TRUE, TRUE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 int
 rb_const_defined(VALUE klass, ID id)
 {
     return rb_const_defined_0(klass, id, FALSE, TRUE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 int
 rb_const_defined_at(VALUE klass, ID id)
 {
     return rb_const_defined_0(klass, id, TRUE, FALSE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 int
 rb_public_const_defined_from(VALUE klass, ID id)
 {
     return rb_const_defined_0(klass, id, TRUE, TRUE, TRUE);
+    RB_GC_GUARD(klass);
 }
 
 static void
 check_before_mod_set(VALUE klass, ID id, VALUE val, const char *dest)
 {
     rb_check_frozen(klass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 static void set_namespace_path(VALUE named_namespace, VALUE name);
@@ -3597,6 +3844,9 @@ set_namespace_path_i(ID id, VALUE v, void *payload)
     }
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(parental_path);
+    RB_GC_GUARD(value);
 }
 
 /*
@@ -3618,6 +3868,8 @@ set_namespace_path(VALUE named_namespace, VALUE namespace_path)
         }
     }
     RB_VM_LOCK_LEAVE();
+    RB_GC_GUARD(named_namespace);
+    RB_GC_GUARD(namespace_path);
 }
 
 static void
@@ -3626,7 +3878,9 @@ const_added(VALUE klass, ID const_name)
     if (GET_VM()->running) {
         VALUE name = ID2SYM(const_name);
         rb_funcallv(klass, idConst_added, 1, &name);
+        RB_GC_GUARD(name);
     }
+        RB_GC_GUARD(klass);
 }
 
 static void
@@ -3690,13 +3944,17 @@ const_set(VALUE klass, ID id, VALUE val)
                 }
                 else if (!parental_path_permanent && NIL_P(val_path)) {
                     RCLASS_SET_CLASSPATH(val, build_const_path(parental_path, id), false);
+    RB_GC_GUARD(parental_path);
                 }
             }
+    RB_GC_GUARD(val_path);
         }
     }
     if (klass == rb_cObject && id == idRuby) {
         rb_warn_reserved_name_at(3.5, "::Ruby");
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(val);
 }
 
 void
@@ -3704,6 +3962,8 @@ rb_const_set(VALUE klass, ID id, VALUE val)
 {
     const_set(klass, id, val);
     const_added(klass, id);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 static struct autoload_data *
@@ -3721,6 +3981,8 @@ autoload_data_for_named_constant(VALUE module, ID name, struct autoload_const **
     }
 
     return 0;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(autoload_data_value);
 }
 
 static void
@@ -3758,6 +4020,7 @@ const_tbl_update(struct autoload_const *ac, int autoload_force)
             }
             RUBY_ASSERT_CRITICAL_SECTION_LEAVE();
             return;
+        RB_GC_GUARD(file);
         }
         else {
             VALUE name = QUOTE_ID(id);
@@ -3770,6 +4033,7 @@ const_tbl_update(struct autoload_const *ac, int autoload_force)
             if (!NIL_P(ce->file) && ce->line) {
                 rb_compile_warn(RSTRING_PTR(ce->file), ce->line,
                                 "previous definition of %"PRIsVALUE" was here", name);
+        RB_GC_GUARD(name);
             }
         }
         rb_clear_constant_cache_for_id(id);
@@ -3782,6 +4046,9 @@ const_tbl_update(struct autoload_const *ac, int autoload_force)
         rb_id_table_insert(tbl, id, (VALUE)ce);
         setup_const_entry(ce, klass, val, visibility);
     }
+        RB_GC_GUARD(value);
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(klass);
 }
 
 static void
@@ -3791,6 +4058,8 @@ setup_const_entry(rb_const_entry_t *ce, VALUE klass, VALUE val,
     ce->flag = visibility;
     RB_OBJ_WRITE(klass, &ce->value, val);
     RB_OBJ_WRITE(klass, &ce->file, rb_source_location(&ce->line));
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 void
@@ -3805,12 +4074,15 @@ rb_define_const(VALUE klass, const char *name, VALUE val)
         rb_vm_register_global_object(val);
     }
     rb_const_set(klass, id, val);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 void
 rb_define_global_const(const char *name, VALUE val)
 {
     rb_define_const(rb_cObject, name, val);
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -3851,8 +4123,10 @@ set_const_visibility(VALUE mod, int argc, const VALUE *argv,
         }
         else {
             undefined_constant(mod, ID2SYM(id));
+            RB_GC_GUARD(val);
         }
     }
+            RB_GC_GUARD(mod);
 }
 
 void
@@ -3870,6 +4144,7 @@ rb_deprecate_constant(VALUE mod, const char *name)
         undefined_constant(mod, ID2SYM(id));
     }
     ce->flag |= CONST_DEPRECATED;
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -3884,6 +4159,7 @@ rb_mod_private_constant(int argc, const VALUE *argv, VALUE obj)
 {
     set_const_visibility(obj, argc, argv, CONST_PRIVATE, CONST_VISIBILITY_MASK);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3898,6 +4174,7 @@ rb_mod_public_constant(int argc, const VALUE *argv, VALUE obj)
 {
     set_const_visibility(obj, argc, argv, CONST_PUBLIC, CONST_VISIBILITY_MASK);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3924,6 +4201,7 @@ rb_mod_deprecate_constant(int argc, const VALUE *argv, VALUE obj)
 {
     set_const_visibility(obj, argc, argv, CONST_DEPRECATED, CONST_DEPRECATED);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3932,6 +4210,7 @@ original_module(VALUE c)
     if (RB_TYPE_P(c, T_ICLASS))
         return RBASIC(c)->klass;
     return c;
+    RB_GC_GUARD(c);
 }
 
 static int
@@ -3952,6 +4231,8 @@ cvar_lookup_at(VALUE klass, ID id, st_data_t *v)
 
     if (v) *v = n;
     return 1;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(n);
 }
 
 static VALUE
@@ -3961,9 +4242,11 @@ cvar_front_klass(VALUE klass)
         VALUE obj = RCLASS_ATTACHED_OBJECT(klass);
         if (rb_namespace_p(obj)) {
             return obj;
+    RB_GC_GUARD(obj);
         }
     }
     return RCLASS_SUPER(klass);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -3980,6 +4263,8 @@ cvar_overtaken(VALUE front, VALUE target, ID id)
             rb_ivar_delete(front, id, Qundef);
         }
     }
+            RB_GC_GUARD(front);
+            RB_GC_GUARD(target);
 }
 
 #define CVAR_FOREACH_ANCESTORS(klass, v, r) \
@@ -4007,6 +4292,8 @@ find_cvar(VALUE klass, VALUE * front, VALUE * target, ID id)
     });
 
     return v;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -4020,6 +4307,8 @@ check_for_cvar_table(VALUE subclass, VALUE key)
     }
 
     rb_class_foreach_subclass(subclass, check_for_cvar_table, key);
+    RB_GC_GUARD(subclass);
+    RB_GC_GUARD(key);
 }
 
 void
@@ -4075,6 +4364,12 @@ rb_cvar_set(VALUE klass, ID id, VALUE val)
             }
         }
     }
+                RB_GC_GUARD(tmp);
+                RB_GC_GUARD(val);
+                RB_GC_GUARD(klass);
+                RB_GC_GUARD(ent_data);
+                RB_GC_GUARD(target);
+                RB_GC_GUARD(front);
 }
 
 VALUE
@@ -4090,6 +4385,9 @@ rb_cvar_find(VALUE klass, ID id, VALUE *front)
     }
     cvar_overtaken(*front, target, id);
     return (VALUE)value;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(target);
 }
 
 VALUE
@@ -4097,6 +4395,8 @@ rb_cvar_get(VALUE klass, ID id)
 {
     VALUE front = 0;
     return rb_cvar_find(klass, id, &front);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(front);
 }
 
 VALUE
@@ -4105,6 +4405,7 @@ rb_cvar_defined(VALUE klass, ID id)
     if (!klass) return Qfalse;
     CVAR_LOOKUP(0,return Qtrue);
     return Qfalse;
+    RB_GC_GUARD(klass);
 }
 
 static ID
@@ -4116,6 +4417,7 @@ cv_intern(VALUE klass, const char *name)
                           klass, rb_str_new_cstr(name));
     }
     return id;
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -4123,6 +4425,8 @@ rb_cv_set(VALUE klass, const char *name, VALUE val)
 {
     ID id = cv_intern(klass, name);
     rb_cvar_set(klass, id, val);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -4130,12 +4434,15 @@ rb_cv_get(VALUE klass, const char *name)
 {
     ID id = cv_intern(klass, name);
     return rb_cvar_get(klass, id);
+    RB_GC_GUARD(klass);
 }
 
 void
 rb_define_class_variable(VALUE klass, const char *name, VALUE val)
 {
     rb_cv_set(klass, name, val);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -4147,6 +4454,7 @@ cv_i(ID key, VALUE v, st_data_t a)
         st_update(tbl, (st_data_t)key, cv_i_update, 0);
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(v);
 }
 
 static void*
@@ -4160,6 +4468,7 @@ mod_cvar_at(VALUE mod, void *data)
 
     rb_ivar_foreach(mod, cv_i, (st_data_t)tbl);
     return tbl;
+    RB_GC_GUARD(mod);
 }
 
 static void*
@@ -4178,6 +4487,8 @@ mod_cvar_of(VALUE mod, void *data)
         if (!tmp) break;
     }
     return data;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(tmp);
 }
 
 static int
@@ -4186,6 +4497,7 @@ cv_list_i(st_data_t key, st_data_t value, VALUE ary)
     ID sym = (ID)key;
     rb_ary_push(ary, ID2SYM(sym));
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -4200,6 +4512,7 @@ cvar_list(void *data)
     st_free_table(tbl);
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -4236,6 +4549,7 @@ rb_mod_class_variables(int argc, const VALUE *argv, VALUE mod)
         tbl = mod_cvar_at(mod, 0);
     }
     return cvar_list(tbl);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -4278,6 +4592,8 @@ rb_mod_remove_cvar(VALUE mod, VALUE name)
     rb_name_err_raise("class variable %1$s not defined for %2$s",
                       mod, name);
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(name);
 }
 
 VALUE
@@ -4289,6 +4605,7 @@ rb_iv_get(VALUE obj, const char *name)
         return Qnil;
     }
     return rb_ivar_get(obj, id);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -4297,6 +4614,8 @@ rb_iv_set(VALUE obj, const char *name, VALUE val)
     ID id = rb_intern(name);
 
     return rb_ivar_set(obj, id, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE *
@@ -4305,24 +4624,28 @@ class_ivar_set_shape_ivptr(VALUE obj, void *_data)
     RUBY_ASSERT(!rb_shape_obj_too_complex(obj));
 
     return RCLASS_IVPTR(obj);
+    RB_GC_GUARD(obj);
 }
 
 static void
 class_ivar_set_shape_resize_ivptr(VALUE obj, attr_index_t _old_capa, attr_index_t new_capa, void *_data)
 {
     REALLOC_N(RCLASS_IVPTR(obj), VALUE, new_capa);
+    RB_GC_GUARD(obj);
 }
 
 static void
 class_ivar_set_set_shape(VALUE obj, rb_shape_t *shape, void *_data)
 {
     rb_shape_set_shape(obj, shape);
+    RB_GC_GUARD(obj);
 }
 
 static void
 class_ivar_set_transition_too_complex(VALUE obj, void *_data)
 {
     rb_evict_ivars_to_hash(obj);
+    RB_GC_GUARD(obj);
 }
 
 static st_table *
@@ -4331,6 +4654,7 @@ class_ivar_set_too_complex_table(VALUE obj, void *_data)
     RUBY_ASSERT(rb_shape_obj_too_complex(obj));
 
     return RCLASS_IV_HASH(obj);
+    RB_GC_GUARD(obj);
 }
 
 int
@@ -4352,6 +4676,8 @@ rb_class_ivar_set(VALUE obj, ID id, VALUE val)
     RB_VM_LOCK_LEAVE();
 
     return existing;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -4360,6 +4686,7 @@ tbl_copy_i(ID key, VALUE val, st_data_t dest)
     rb_class_ivar_set((VALUE)dest, key, val);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 void
@@ -4372,6 +4699,8 @@ rb_iv_tbl_copy(VALUE dst, VALUE src)
     RUBY_ASSERT(!RCLASS_IVPTR(dst));
 
     rb_ivar_foreach(src, tbl_copy_i, dst);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(src);
 }
 
 rb_const_entry_t *
@@ -4389,6 +4718,8 @@ rb_const_lookup(VALUE klass, ID id)
         RB_VM_LOCK_LEAVE();
 
         if (r) return (rb_const_entry_t *)val;
+    RB_GC_GUARD(val);
     }
     return NULL;
+    RB_GC_GUARD(klass);
 }

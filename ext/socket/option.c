@@ -38,6 +38,7 @@ sockopt_pack_byte(VALUE value)
 {
     char i = NUM2CHR(rb_to_int(value));
     return pack_var(i);
+    RB_GC_GUARD(value);
 }
 
 static VALUE
@@ -45,6 +46,7 @@ sockopt_pack_int(VALUE value)
 {
     int i = NUM2INT(rb_to_int(value));
     return pack_var(i);
+    RB_GC_GUARD(value);
 }
 
 static VALUE
@@ -101,6 +103,11 @@ sockopt_initialize(VALUE self, VALUE vfamily, VALUE vlevel, VALUE voptname, VALU
     rb_ivar_set(self, rb_intern("optname"), INT2NUM(optname));
     rb_ivar_set(self, rb_intern("data"), data);
     return self;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(voptname);
+    RB_GC_GUARD(vlevel);
+    RB_GC_GUARD(vfamily);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -110,6 +117,8 @@ rsock_sockopt_new(int family, int level, int optname, VALUE data)
     StringValue(data);
     sockopt_initialize(obj, INT2NUM(family), INT2NUM(level), INT2NUM(optname), data);
     return (VALUE)obj;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -125,12 +134,14 @@ static VALUE
 sockopt_family_m(VALUE self)
 {
     return rb_attr_get(self, rb_intern("family"));
+    RB_GC_GUARD(self);
 }
 
 static int
 sockopt_level(VALUE self)
 {
     return NUM2INT(rb_attr_get(self, rb_intern("level")));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -146,12 +157,14 @@ static VALUE
 sockopt_level_m(VALUE self)
 {
     return INT2NUM(sockopt_level(self));
+    RB_GC_GUARD(self);
 }
 
 static int
 sockopt_optname(VALUE self)
 {
     return NUM2INT(rb_attr_get(self, rb_intern("optname")));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -167,6 +180,7 @@ static VALUE
 sockopt_optname_m(VALUE self)
 {
     return INT2NUM(sockopt_optname(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -185,6 +199,8 @@ sockopt_data(VALUE self)
     VALUE v = rb_attr_get(self, rb_intern("data"));
     StringValue(v);
     return v;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -203,6 +219,11 @@ sockopt_s_byte(VALUE klass, VALUE vfamily, VALUE vlevel, VALUE voptname, VALUE v
     int level = rsock_level_arg(family, vlevel);
     int optname = rsock_optname_arg(family, level, voptname);
     return rsock_sockopt_new(family, level, optname, sockopt_pack_byte(vint));
+    RB_GC_GUARD(vint);
+    RB_GC_GUARD(voptname);
+    RB_GC_GUARD(vlevel);
+    RB_GC_GUARD(vfamily);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -221,6 +242,8 @@ sockopt_byte(VALUE self)
     StringValue(data);
     check_size(RSTRING_LEN(data), sizeof(char));
     return CHR2FIX(*RSTRING_PTR(data));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -241,6 +264,11 @@ sockopt_s_int(VALUE klass, VALUE vfamily, VALUE vlevel, VALUE voptname, VALUE vi
     int level = rsock_level_arg(family, vlevel);
     int optname = rsock_optname_arg(family, level, voptname);
     return rsock_sockopt_new(family, level, optname, sockopt_pack_int(vint));
+    RB_GC_GUARD(vint);
+    RB_GC_GUARD(voptname);
+    RB_GC_GUARD(vlevel);
+    RB_GC_GUARD(vfamily);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -263,6 +291,8 @@ sockopt_int(VALUE self)
     check_size(RSTRING_LEN(data), sizeof(int));
     memcpy((char*)&i, RSTRING_PTR(data), sizeof(int));
     return INT2NUM(i);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -289,6 +319,11 @@ sockopt_s_bool(VALUE klass, VALUE vfamily, VALUE vlevel, VALUE voptname, VALUE v
     int optname = rsock_optname_arg(family, level, voptname);
     int i = RTEST(vbool) ? 1 : 0;
     return rsock_sockopt_new(family, level, optname, pack_var(i));
+    RB_GC_GUARD(vbool);
+    RB_GC_GUARD(voptname);
+    RB_GC_GUARD(vlevel);
+    RB_GC_GUARD(vfamily);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -314,6 +349,8 @@ sockopt_bool(VALUE self)
     check_size(len, sizeof(int));
     memcpy((char*)&i, RSTRING_PTR(data), len);
     return i == 0 ? Qfalse : Qtrue;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -342,6 +379,10 @@ sockopt_s_linger(VALUE klass, VALUE vonoff, VALUE vsecs)
         l.l_onoff = RTEST(vonoff) ? 1 : 0;
     l.l_linger = NUM2INT(vsecs);
     return rsock_sockopt_new(AF_UNSPEC, SOL_SOCKET, SO_LINGER, pack_var(l));
+    RB_GC_GUARD(vsecs);
+    RB_GC_GUARD(vonoff);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -373,6 +414,10 @@ sockopt_linger(VALUE self)
     }
     vsecs = INT2NUM(l.l_linger);
     return rb_assoc_new(vonoff, vsecs);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vsecs);
+    RB_GC_GUARD(vonoff);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -397,6 +442,9 @@ sockopt_s_ipv4_multicast_loop(VALUE klass, VALUE value)
 #if defined(IPPROTO_IP) && defined(IP_MULTICAST_LOOP)
     VALUE o = XCAT(sockopt_pack_,TYPE_IP_MULTICAST_LOOP)(value);
     return rsock_sockopt_new(AF_INET, IPPROTO_IP, IP_MULTICAST_LOOP, o);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(o);
 #else
 # error IPPROTO_IP or IP_MULTICAST_LOOP is not implemented
 #endif
@@ -425,6 +473,7 @@ sockopt_ipv4_multicast_loop(VALUE self)
 #endif
     rb_raise(rb_eTypeError, "ipv4_multicast_loop socket option expected");
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(self);
 }
 
 #define inspect_ipv4_multicast_loop(a,b,c,d) \
@@ -448,6 +497,9 @@ sockopt_s_ipv4_multicast_ttl(VALUE klass, VALUE value)
 #if defined(IPPROTO_IP) && defined(IP_MULTICAST_TTL)
     VALUE o = XCAT(sockopt_pack_,TYPE_IP_MULTICAST_TTL)(value);
     return rsock_sockopt_new(AF_INET, IPPROTO_IP, IP_MULTICAST_TTL, o);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(o);
 #else
 # error IPPROTO_IP or IP_MULTICAST_TTL is not implemented
 #endif
@@ -476,6 +528,7 @@ sockopt_ipv4_multicast_ttl(VALUE self)
 #endif
     rb_raise(rb_eTypeError, "ipv4_multicast_ttl socket option expected");
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(self);
 }
 
 #define inspect_ipv4_multicast_ttl(a,b,c,d) \
@@ -492,6 +545,8 @@ inspect_int(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 
@@ -522,6 +577,8 @@ inspect_errno(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 
@@ -537,6 +594,8 @@ inspect_uint(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -558,6 +617,8 @@ inspect_linger(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -579,6 +640,8 @@ inspect_socktype(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -594,6 +657,8 @@ inspect_timeval_as_interval(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 
@@ -702,6 +767,8 @@ inspect_ipv4_mreq(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -728,6 +795,8 @@ inspect_ipv4_mreqn(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -744,6 +813,8 @@ inspect_ipv4_add_drop_membership(int level, int optname, VALUE data, VALUE ret)
 # endif
     else
         return 0;
+        RB_GC_GUARD(ret);
+        RB_GC_GUARD(data);
 }
 #endif
 
@@ -766,6 +837,8 @@ inspect_ipv4_multicast_if(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -784,6 +857,8 @@ inspect_ipv6_multicast_if(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -806,6 +881,8 @@ inspect_ipv6_mreq(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -920,12 +997,14 @@ inspect_tcpi_options(VALUE ret, uint8_t options)
     if (options || sep == '=') {
         rb_str_catf(ret, "%c%u", sep, options);
     }
+        RB_GC_GUARD(ret);
 }
 
 static void
 inspect_tcpi_usec(VALUE ret, const char *prefix, uint32_t t)
 {
     rb_str_catf(ret, "%s%u.%06us", prefix, t / 1000000, t % 1000000);
+    RB_GC_GUARD(ret);
 }
 
 #if !defined __FreeBSD__ && ( \
@@ -938,6 +1017,7 @@ static void
 inspect_tcpi_msec(VALUE ret, const char *prefix, uint32_t t)
 {
     rb_str_catf(ret, "%s%u.%03us", prefix, t / 1000, t % 1000);
+    RB_GC_GUARD(ret);
 }
 #endif
 
@@ -1133,6 +1213,8 @@ inspect_tcp_info(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -1156,6 +1238,8 @@ inspect_peercred(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -1416,6 +1500,10 @@ sockopt_inspect(VALUE self)
     rb_str_cat2(ret, ">");
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -1432,6 +1520,8 @@ static VALUE
 sockopt_unpack(VALUE self, VALUE template)
 {
     return rb_funcall(sockopt_data(self), rb_intern("unpack"), 1, template);
+    RB_GC_GUARD(template);
+    RB_GC_GUARD(self);
 }
 
 void

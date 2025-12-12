@@ -295,6 +295,7 @@ get_rnd(VALUE obj)
     if (RTYPEDDATA_TYPE(obj) == &random_mt_type)
         return rand_start((rb_random_mt_t *)ptr);
     return ptr;
+    RB_GC_GUARD(obj);
 }
 
 static rb_random_mt_t *
@@ -303,6 +304,7 @@ get_rnd_mt(VALUE obj)
     rb_random_mt_t *ptr;
     TypedData_Get_Struct(obj, rb_random_mt_t, &random_mt_type, ptr);
     return ptr;
+    RB_GC_GUARD(obj);
 }
 
 static rb_random_t *
@@ -320,6 +322,7 @@ try_get_rnd(VALUE obj)
                  RTYPEDDATA_TYPE(obj)->wrap_struct_name);
     }
     return rnd;
+    RB_GC_GUARD(obj);
 }
 
 static const rb_random_interface_t *
@@ -329,6 +332,7 @@ try_rand_if(VALUE obj, rb_random_t *rnd)
         return &random_mt_if;
     }
     return rb_rand_if(obj);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -346,6 +350,8 @@ random_alloc(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, rb_random_mt_t, &random_mt_type, rnd);
     rb_random_base_init(&rnd->base);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -361,6 +367,8 @@ rand_init_default(const rb_random_interface_t *rng, rb_random_t *rnd)
     explicit_bzero(buf, len * sizeof(*buf));
     ALLOCV_END(buf0);
     return seed;
+    RB_GC_GUARD(buf0);
+    RB_GC_GUARD(seed);
 }
 
 static VALUE
@@ -389,6 +397,8 @@ rand_init(const rb_random_interface_t *rng, rb_random_t *rnd, VALUE seed)
     explicit_bzero(buf, len * sizeof(*buf));
     ALLOCV_END(buf0);
     return seed;
+    RB_GC_GUARD(seed);
+    RB_GC_GUARD(buf0);
 }
 
 /*
@@ -428,6 +438,7 @@ random_init(int argc, VALUE *argv, VALUE obj)
         rnd->seed = rand_init(rng, rnd, rb_to_int(argv[0]));
     }
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 #define DEFAULT_SEED_LEN (DEFAULT_SEED_CNT * (int)sizeof(int32_t))
@@ -746,6 +757,7 @@ make_seed_value(uint32_t *ptr, size_t len)
         INTEGER_PACK_LSWORD_FIRST|INTEGER_PACK_NATIVE_BYTE_ORDER);
 
     return seed;
+    RB_GC_GUARD(seed);
 }
 
 #define with_random_seed(size, add, try_bytes) \
@@ -768,6 +780,8 @@ random_seed(VALUE _)
         v = make_seed_value(seedbuf, DEFAULT_SEED_CNT);
     }
     return v;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -795,6 +809,9 @@ random_raw_seed(VALUE self, VALUE size)
     if (fill_random_bytes(RSTRING_PTR(buf), n, TRUE))
         rb_raise(rb_eRuntimeError, "failed to get urandom");
     return buf;
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(buf);
 }
 
 /*
@@ -815,6 +832,7 @@ static VALUE
 random_get_seed(VALUE obj)
 {
     return get_rnd(obj)->seed;
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -833,6 +851,8 @@ rand_mt_copy(VALUE obj, VALUE orig)
     *rnd1 = *rnd2;
     mt->next = mt->state + numberof(mt->state) - mt->left + 1;
     return obj;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -849,6 +869,7 @@ rand_mt_state(VALUE obj)
 {
     rb_random_mt_t *rnd = get_rnd_mt(obj);
     return mt_state(&rnd->mt);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -856,6 +877,7 @@ static VALUE
 random_s_state(VALUE klass)
 {
     return mt_state(&default_rand()->mt);
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -864,6 +886,7 @@ rand_mt_left(VALUE obj)
 {
     rb_random_mt_t *rnd = get_rnd_mt(obj);
     return INT2FIX(rnd->mt.left);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -871,6 +894,7 @@ static VALUE
 random_s_left(VALUE klass)
 {
     return INT2FIX(default_rand()->mt.left);
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -885,6 +909,8 @@ rand_mt_dump(VALUE obj)
     rb_ary_push(dump, rnd->base.seed);
 
     return dump;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dump);
 }
 
 /* :nodoc: */
@@ -921,6 +947,11 @@ rand_mt_load(VALUE obj, VALUE dump)
     rnd->base.seed = rb_to_int(seed);
 
     return obj;
+    RB_GC_GUARD(dump);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(seed);
+    RB_GC_GUARD(left);
+    RB_GC_GUARD(state);
 }
 
 static void
@@ -990,6 +1021,9 @@ rb_f_srand(int argc, VALUE *argv, VALUE obj)
     r->base.seed = seed;
 
     return old;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(old);
+    RB_GC_GUARD(seed);
 }
 
 static unsigned long
@@ -1082,6 +1116,9 @@ limited_big_rand(const rb_random_interface_t *rng, rb_random_t *rnd, VALUE limit
     ALLOCV_END(vtmp);
 
     return val;
+    RB_GC_GUARD(limit);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(vtmp);
 }
 
 /*
@@ -1111,6 +1148,9 @@ obj_random_bytes(VALUE obj, void *p, long n)
         rb_raise(rb_eRangeError, "random data too long %ld", l);
     if (p) memcpy(p, RSTRING_PTR(v), n);
     return v;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(len);
 }
 
 static unsigned int
@@ -1129,6 +1169,7 @@ rb_random_int32(VALUE obj)
         return (unsigned int)x;
     }
     return random_int32(try_rand_if(obj, rnd), rnd);
+    RB_GC_GUARD(obj);
 }
 
 static double
@@ -1149,6 +1190,7 @@ random_real(VALUE obj, rb_random_t *rnd, int excl)
         b = random_int32(rng, rnd);
     }
     return rb_int_pair_to_real(a, b, excl);
+    RB_GC_GUARD(obj);
 }
 
 double
@@ -1176,8 +1218,10 @@ rb_random_real(VALUE obj)
             rb_raise(rb_eRangeError, "random number too big %g", d);
         }
         return d;
+    RB_GC_GUARD(v);
     }
     return random_real(obj, rnd, TRUE);
+    RB_GC_GUARD(obj);
 }
 
 static inline VALUE
@@ -1220,6 +1264,7 @@ random_ulong_limited(VALUE obj, rb_random_t *rnd, unsigned long limit)
         return val;
     }
     return limited_rand(try_rand_if(obj, rnd), rnd, limit);
+    RB_GC_GUARD(obj);
 }
 
 unsigned long
@@ -1237,8 +1282,11 @@ rb_random_ulong_limited(VALUE obj, unsigned long limit)
             rb_raise(rb_eRangeError, "random number too big %ld", r);
         }
         return r;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(lim);
     }
     return limited_rand(try_rand_if(obj, rnd), rnd, limit);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1266,8 +1314,12 @@ random_ulong_limited_big(VALUE obj, rb_random_t *rnd, VALUE vmax)
         v = rb_integer_unpack(rnd_array, len, sizeof(uint32_t), 0, flag);
         ALLOCV_END(vtmp);
         return v;
+    RB_GC_GUARD(vtmp);
+    RB_GC_GUARD(v);
     }
     return limited_big_rand(try_rand_if(obj, rnd), rnd, vmax);
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1280,6 +1332,7 @@ rand_bytes(const rb_random_interface_t *rng, rb_random_t *rnd, long n)
     ptr = RSTRING_PTR(bytes);
     rng->get_bytes(rnd, ptr, n);
     return bytes;
+    RB_GC_GUARD(bytes);
 }
 
 /*
@@ -1295,6 +1348,8 @@ random_bytes(VALUE obj, VALUE len)
 {
     rb_random_t *rnd = try_get_rnd(obj);
     return rand_bytes(rb_rand_if(obj), rnd, NUM2LONG(rb_to_int(len)));
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1328,6 +1383,7 @@ rb_random_bytes(VALUE obj, long n)
         return obj_random_bytes(obj, NULL, n);
     }
     return rand_bytes(try_rand_if(obj, rnd), rnd, n);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1341,6 +1397,8 @@ random_s_bytes(VALUE obj, VALUE len)
 {
     rb_random_t *rnd = rand_start(default_rand());
     return rand_bytes(&random_mt_if, rnd, NUM2LONG(rb_to_int(len)));
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1363,6 +1421,7 @@ random_s_seed(VALUE obj)
 {
     rb_random_mt_t *rnd = rand_mt_start(default_rand());
     return rnd->base.seed;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1376,6 +1435,9 @@ range_values(VALUE vmax, VALUE *begp, VALUE *endp, int *exclp)
     if (endp) *endp = end;
     if (NIL_P(end)) return Qnil;
     return rb_check_funcall_default(end, id_minus, 1, begp, Qfalse);
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static VALUE
@@ -1411,6 +1473,9 @@ rand_int(VALUE obj, rb_random_t *rnd, VALUE vmax, int restrictive)
         ret = random_ulong_limited_big(obj, rnd, vmax);
         RB_GC_GUARD(vmax);
         return ret;
+        RB_GC_GUARD(ret);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(vmax);
     }
 }
 
@@ -1419,6 +1484,7 @@ domain_error(void)
 {
     VALUE error = INT2FIX(EDOM);
     rb_exc_raise(rb_class_new_instance(1, &error, rb_eSystemCallError));
+    RB_GC_GUARD(error);
 }
 
 NORETURN(static void invalid_argument(VALUE));
@@ -1426,6 +1492,7 @@ static void
 invalid_argument(VALUE arg0)
 {
     rb_raise(rb_eArgError, "invalid argument - %"PRIsVALUE, arg0);
+    RB_GC_GUARD(arg0);
 }
 
 static VALUE
@@ -1439,6 +1506,7 @@ check_random_number(VALUE v, const VALUE *argv)
         invalid_argument(argv[0]);
     }
     return v;
+    RB_GC_GUARD(v);
 }
 
 static inline double
@@ -1449,6 +1517,7 @@ float_value(VALUE v)
         domain_error();
     }
     return x;
+    RB_GC_GUARD(v);
 }
 
 static inline VALUE
@@ -1519,6 +1588,7 @@ rand_range(VALUE obj, rb_random_t* rnd, VALUE range)
         VALUE f = rb_check_to_float(beg);
         if (!NIL_P(f)) {
             return DBL2NUM(RFLOAT_VALUE(v) + RFLOAT_VALUE(f));
+      RB_GC_GUARD(f);
         }
       }
       default:
@@ -1526,6 +1596,12 @@ rand_range(VALUE obj, rb_random_t* rnd, VALUE range)
     }
 
     return v;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static VALUE rand_random(int argc, VALUE *argv, VALUE obj, rb_random_t *rnd);
@@ -1566,6 +1642,8 @@ random_rand(int argc, VALUE *argv, VALUE obj)
     VALUE v = rand_random(argc, argv, obj, try_get_rnd(obj));
     check_random_number(v, argv);
     return v;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1595,6 +1673,9 @@ rand_random(int argc, VALUE *argv, VALUE obj, rb_random_t *rnd)
         }
     }
     return rand_range(obj, rnd, vmax);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(vmax);
 }
 
 /*
@@ -1617,6 +1698,8 @@ rand_random_number(int argc, VALUE *argv, VALUE obj)
     if (NIL_P(v)) v = rand_random(0, 0, obj, rnd);
     else if (!v) invalid_argument(argv[0]);
     return v;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -1654,6 +1737,8 @@ rand_mt_equal(VALUE self, VALUE other)
     if ((r1->mt.next - r1->mt.state) != (r2->mt.next - r2->mt.state)) return Qfalse;
     if (r1->mt.left != r2->mt.left) return Qfalse;
     return rb_equal(r1->base.seed, r2->base.seed);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1700,9 +1785,12 @@ rb_f_rand(int argc, VALUE *argv, VALUE obj)
         if (vmax != INT2FIX(0)) {
             v = rand_int(obj, rnd, vmax, 0);
             if (!NIL_P(v)) return v;
+    RB_GC_GUARD(v);
         }
     }
     return DBL2NUM(random_real(obj, rnd, TRUE));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(vmax);
 }
 
 /*
@@ -1721,6 +1809,8 @@ random_s_rand(int argc, VALUE *argv, VALUE obj)
     VALUE v = rand_random(argc, argv, Qnil, rand_start(default_rand()));
     check_random_number(v, argv);
     return v;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
 }
 
 #define SIP_HASH_STREAMING 0
@@ -1894,9 +1984,11 @@ InitVM_Random(void)
         rb_extend_object(base, m);
         rb_define_method(m, "random_number", rand_random_number, -1);
         rb_define_method(m, "rand", rand_random_number, -1);
+    RB_GC_GUARD(m);
     }
 
     default_rand_key = rb_ractor_local_storage_ptr_newkey(&default_rand_key_storage_type);
+    RB_GC_GUARD(base);
 }
 
 #undef rb_intern

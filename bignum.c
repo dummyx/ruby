@@ -1587,6 +1587,9 @@ rb_big_mul_normal(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 /* efficient squaring (2 times faster than normal multiplication)
@@ -1655,6 +1658,8 @@ rb_big_sq_fast(VALUE x)
     bary_sq_fast(BDIGITS(z), zn, BDIGITS(x), xn);
     RB_GC_GUARD(x);
     return z;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static inline size_t
@@ -1728,6 +1733,7 @@ bary_mul_balance_with_mulfunc(BDIGIT *const zds, const size_t zn,
 
     if (work)
         ALLOCV_END(work);
+        RB_GC_GUARD(work);
 }
 
 VALUE
@@ -1739,6 +1745,9 @@ rb_big_mul_balance(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 /* multiplication by karatsuba method */
@@ -1909,6 +1918,7 @@ bary_mul_karatsuba(BDIGIT *zds, size_t zn, const BDIGIT *xds, size_t xn, const B
 
     if (work)
         ALLOCV_END(work);
+        RB_GC_GUARD(work);
 }
 
 VALUE
@@ -1922,6 +1932,9 @@ rb_big_mul_karatsuba(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static void
@@ -2306,6 +2319,7 @@ bary_mul_toom3(BDIGIT *zds, size_t zn, const BDIGIT *xds, size_t xn, const BDIGI
 
     if (work)
         ALLOCV_END(work);
+        RB_GC_GUARD(work);
 }
 
 VALUE
@@ -2319,6 +2333,9 @@ rb_big_mul_toom3(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 #if USE_GMP
@@ -2371,6 +2388,9 @@ rb_big_mul_gmp(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 #endif
 
@@ -2770,6 +2790,7 @@ bary_divmod_normal(BDIGIT *qds, size_t qn, BDIGIT *rds, size_t rn, const BDIGIT 
 
     if (tmpyz)
         ALLOCV_END(tmpyz);
+        RB_GC_GUARD(tmpyz);
 }
 
 VALUE
@@ -2804,6 +2825,10 @@ rb_big_divrem_normal(VALUE x, VALUE y)
     RB_GC_GUARD(y);
 
     return rb_assoc_new(q, r);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(q);
 }
 
 #if USE_GMP
@@ -2884,6 +2909,10 @@ rb_big_divrem_gmp(VALUE x, VALUE y)
     RB_GC_GUARD(y);
 
     return rb_assoc_new(q, r);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(q);
 }
 #endif
 
@@ -2953,12 +2982,14 @@ static int
 bigzero_p(VALUE x)
 {
     return bary_zero_p(BDIGITS(x), BIGNUM_LEN(x));
+    RB_GC_GUARD(x);
 }
 
 int
 rb_bigzero_p(VALUE x)
 {
     return BIGZEROP(x);
+    RB_GC_GUARD(x);
 }
 
 int
@@ -2981,6 +3012,9 @@ rb_cmpint(VALUE val, VALUE a, VALUE b)
     if (RTEST(rb_funcall(val, '>', 1, INT2FIX(0)))) return 1;
     if (RTEST(rb_funcall(val, '<', 1, INT2FIX(0)))) return -1;
     return 0;
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(val);
 }
 
 #define BIGNUM_SET_LEN(b,l) \
@@ -3023,6 +3057,7 @@ rb_big_realloc(VALUE big, size_t len)
             }
         }
     }
+                RB_GC_GUARD(big);
 }
 
 void
@@ -3030,6 +3065,7 @@ rb_big_resize(VALUE big, size_t len)
 {
     rb_big_realloc(big, len);
     BIGNUM_SET_LEN(big, len);
+    RB_GC_GUARD(big);
 }
 
 static VALUE
@@ -3050,6 +3086,8 @@ bignew_1(VALUE klass, size_t len, int sign)
     }
     OBJ_FREEZE(bigv);
     return bigv;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(bigv);
 }
 
 VALUE
@@ -3066,6 +3104,8 @@ rb_big_clone(VALUE x)
 
     MEMCPY(BDIGITS(z), BDIGITS(x), BDIGIT, len);
     return z;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static void
@@ -3073,6 +3113,7 @@ big_extend_carry(VALUE x)
 {
     rb_big_resize(x, BIGNUM_LEN(x)+1);
     BDIGITS(x)[BIGNUM_LEN(x)-1] = 1;
+    RB_GC_GUARD(x);
 }
 
 /* modify a bignum by 2's complement */
@@ -3085,12 +3126,14 @@ get2comp(VALUE x)
     if (bary_2comp(ds, i)) {
         big_extend_carry(x);
     }
+        RB_GC_GUARD(x);
 }
 
 void
 rb_big_2comp(VALUE x)			/* get 2's complement */
 {
     get2comp(x);
+    RB_GC_GUARD(x);
 }
 
 static BDIGIT
@@ -3109,9 +3152,11 @@ abs2twocomp(VALUE *xp, long *n_ret)
         bary_2comp(BDIGITS(z), n);
         hibits = BDIGMAX;
         *xp = z;
+    RB_GC_GUARD(z);
     }
     *n_ret = n;
     return hibits;
+    RB_GC_GUARD(x);
 }
 
 static void
@@ -3121,6 +3166,7 @@ twocomp2abs_bang(VALUE x, int hibits)
     if (hibits) {
         get2comp(x);
     }
+        RB_GC_GUARD(x);
 }
 
 static inline VALUE
@@ -3135,6 +3181,7 @@ bigtrunc(VALUE x)
         rb_big_resize(x, len+1);
     }
     return x;
+    RB_GC_GUARD(x);
 }
 
 static inline VALUE
@@ -3179,6 +3226,7 @@ bigfixize(VALUE x)
   return_big:
     rb_big_resize(x, n);
     return x;
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -3188,12 +3236,14 @@ bignorm(VALUE x)
         x = bigfixize(x);
     }
     return x;
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_big_norm(VALUE x)
 {
     return bignorm(x);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -3216,6 +3266,7 @@ rb_uint2big(uintptr_t n)
     while (--i && !digits[i]) ;
     BIGNUM_SET_LEN(big, i+1);
     return big;
+    RB_GC_GUARD(big);
 }
 
 VALUE
@@ -3237,6 +3288,8 @@ rb_int2big(intptr_t n)
         BIGNUM_SET_NEGATIVE_SIGN(big);
     }
     return big;
+    RB_GC_GUARD(big);
+    RB_GC_GUARD(u);
 }
 
 VALUE
@@ -3259,6 +3312,7 @@ rb_big_pack(VALUE val, unsigned long *buf, long num_longs)
     rb_integer_pack(val, buf, num_longs, sizeof(long), 0,
             INTEGER_PACK_LSWORD_FIRST|INTEGER_PACK_NATIVE_BYTE_ORDER|
             INTEGER_PACK_2COMP);
+            RB_GC_GUARD(val);
 }
 
 VALUE
@@ -3330,6 +3384,7 @@ rb_absint_size(VALUE val, int *nlz_bits_ret)
     if (nlz_bits_ret)
         *nlz_bits_ret = num_leading_zeros % CHAR_BIT;
     return (de - dp) * SIZEOF_BDIGIT - num_leading_zeros / CHAR_BIT;
+    RB_GC_GUARD(val);
 }
 
 static size_t
@@ -3453,6 +3508,7 @@ rb_absint_numwords(VALUE val, size_t word_numbits, size_t *nlz_bits_ret)
         *nlz_bits_ret = nlz_bits;
 
     return numwords;
+    RB_GC_GUARD(val);
 }
 
 /* Test abs(val) consists only a bit or not.
@@ -3526,6 +3582,7 @@ rb_absint_singlebit_p(VALUE val)
         return 0;
     d = *dp;
     return POW2_P(d);
+    RB_GC_GUARD(val);
 }
 
 
@@ -3624,6 +3681,7 @@ rb_integer_pack(VALUE val, void *words, size_t numwords, size_t wordsize, size_t
     }
 
     return bary_pack(sign, ds, num_bdigits, words, numwords, wordsize, nails, flags);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -3740,6 +3798,7 @@ rb_integer_unpack(const void *words, size_t numwords, size_t wordsize, size_t na
     if (flags & INTEGER_PACK_FORCE_BIGNUM)
         return bigtrunc(val);
     return bignorm(val);
+    RB_GC_GUARD(val);
 }
 
 #define conv_digit(c) (ruby_digit36_to_number_table[(unsigned char)(c)])
@@ -3763,6 +3822,7 @@ static inline void
 invalid_integer(VALUE s)
 {
     rb_raise(rb_eArgError, "invalid value for Integer(): %+"PRIsVALUE, s);
+    RB_GC_GUARD(s);
 }
 
 static int
@@ -3857,6 +3917,7 @@ str2big_poweroftwo(
     RUBY_ASSERT((size_t)(dp - BDIGITS(z)) == num_bdigits);
 
     return z;
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -3901,6 +3962,7 @@ str2big_normal(
     }
 
     return z;
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -3984,6 +4046,9 @@ str2big_karatsuba(
         ALLOCV_END(tmpuv);
 
     return z;
+    RB_GC_GUARD(z);
+    RB_GC_GUARD(tmpuv);
+    RB_GC_GUARD(powerv);
 }
 
 #if USE_GMP
@@ -4026,6 +4091,8 @@ str2big_gmp(
         ALLOCV_END(tmps);
 
     return z;
+    RB_GC_GUARD(z);
+    RB_GC_GUARD(tmps);
 }
 #endif
 
@@ -4057,6 +4124,7 @@ rb_cstr_to_inum(const char *str, int base, int badcheck)
         ret = INT2FIX(0);
     }
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -4230,6 +4298,7 @@ rb_int_parse_cstr(const char *str, ssize_t len, char **endp, size_t *ndigits,
             VALUE big = rb_uint2big(val);
             BIGNUM_SET_SIGN(big, sign);
             return bignorm(big);
+  RB_GC_GUARD(big);
         }
     }
 
@@ -4273,6 +4342,7 @@ rb_int_parse_cstr(const char *str, ssize_t len, char **endp, size_t *ndigits,
     if (endp) *endp = (char *)str;
     if (ndigits) *ndigits = num_digits;
     return z;
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -4302,12 +4372,15 @@ rb_str_convert_to_inum(VALUE str, int base, int badcheck, int raise_exception)
         ret = INT2FIX(0);
     }
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ret);
 }
 
 VALUE
 rb_str_to_inum(VALUE str, int base, int badcheck)
 {
     return rb_str_convert_to_inum(str, base, badcheck, TRUE);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -4344,6 +4417,8 @@ rb_str2big_poweroftwo(VALUE arg, int base, int badcheck)
     RB_GC_GUARD(arg);
 
     return bignorm(z);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -4386,6 +4461,8 @@ rb_str2big_normal(VALUE arg, int base, int badcheck)
     RB_GC_GUARD(arg);
 
     return bignorm(z);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -4428,6 +4505,8 @@ rb_str2big_karatsuba(VALUE arg, int base, int badcheck)
     RB_GC_GUARD(arg);
 
     return bignorm(z);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(z);
 }
 
 #if USE_GMP
@@ -4470,6 +4549,8 @@ rb_str2big_gmp(VALUE arg, int base, int badcheck)
     RB_GC_GUARD(arg);
 
     return bignorm(z);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(z);
 }
 #endif
 
@@ -4495,6 +4576,7 @@ rb_ull2big(unsigned LONG_LONG n)
     while (i-- && !digits[i]) ;
     BIGNUM_SET_LEN(big, i+1);
     return big;
+    RB_GC_GUARD(big);
 }
 
 static VALUE
@@ -4516,6 +4598,7 @@ rb_ll2big(LONG_LONG n)
         BIGNUM_SET_NEGATIVE_SIGN(big);
     }
     return big;
+    RB_GC_GUARD(big);
 }
 
 VALUE
@@ -4550,6 +4633,7 @@ rb_uint128t2big(uint128_t n)
     while (i-- && !digits[i]) ;
     BIGNUM_SET_LEN(big, i+1);
     return big;
+    RB_GC_GUARD(big);
 }
 
 VALUE
@@ -4571,6 +4655,7 @@ rb_int128t2big(int128_t n)
         BIGNUM_SET_NEGATIVE_SIGN(big);
     }
     return big;
+    RB_GC_GUARD(big);
 }
 #endif
 
@@ -4584,6 +4669,7 @@ VALUE
 rb_str2inum(VALUE str, int base)
 {
     return rb_str_to_inum(str, base, base==0);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -4636,6 +4722,8 @@ big_shift3(VALUE x, int lshift_p, size_t shift_numdigits, int shift_numbits)
     }
     RB_GC_GUARD(x);
     return z;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -4669,6 +4757,8 @@ big_shift2(VALUE x, int lshift_p, VALUE y)
     shift_numdigits = (lens[0] >> bit_length(BITSPERDIG-1)) |
       (lens[1] << (CHAR_BIT*SIZEOF_SIZE_T - bit_length(BITSPERDIG-1)));
     return big_shift3(x, lshift_p, shift_numdigits, shift_numbits);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4677,6 +4767,7 @@ big_lshift(VALUE x, unsigned long shift)
     long s1 = shift/BITSPERDIG;
     int s2 = (int)(shift%BITSPERDIG);
     return big_shift3(x, 1, s1, s2);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4685,6 +4776,7 @@ big_rshift(VALUE x, unsigned long shift)
     long s1 = shift/BITSPERDIG;
     int s2 = (int)(shift%BITSPERDIG);
     return big_shift3(x, 0, s1, s2);
+    RB_GC_GUARD(x);
 }
 
 #define MAX_BASE36_POWER_TABLE_ENTRIES (SIZEOF_SIZE_T * CHAR_BIT + 1)
@@ -4739,6 +4831,7 @@ power_cache_get_power(int base, int power_level, size_t *numdigits_ret)
     if (numdigits_ret)
         *numdigits_ret = base36_numdigits_cache[base - 2][power_level];
     return power;
+    RB_GC_GUARD(power);
 }
 
 struct big2str_struct {
@@ -4921,6 +5014,7 @@ big2str_karatsuba(struct big2str_struct *b2s, BDIGIT *xds, size_t xn, size_t wn,
         BARY_TRUNC(rds, rn);
         big2str_karatsuba(b2s, rds, rn, xn+wn - rn, lower_power_level, taillen);
     }
+        RB_GC_GUARD(b);
 }
 
 static VALUE
@@ -4952,12 +5046,15 @@ big2str_base_poweroftwo(VALUE x, int base)
         numwords--;
     }
     return result;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(result);
 }
 
 VALUE
 rb_big2str_poweroftwo(VALUE x, int base)
 {
     return big2str_base_poweroftwo(x, base);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5027,6 +5124,7 @@ big2str_generic(VALUE x, int base)
         big2str_karatsuba(&b2s_data, wds, xn, wn, power_level, 0);
         if (tmpw)
             ALLOCV_END(tmpw);
+    RB_GC_GUARD(tmpw);
     }
     RB_GC_GUARD(x);
 
@@ -5035,12 +5133,15 @@ big2str_generic(VALUE x, int base)
 
     RB_GC_GUARD(x);
     return b2s_data.result;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(power);
 }
 
 VALUE
 rb_big2str_generic(VALUE x, int base)
 {
     return big2str_generic(x, base);
+    RB_GC_GUARD(x);
 }
 
 #if USE_GMP
@@ -5074,12 +5175,15 @@ big2str_gmp(VALUE x, int base)
 
     RB_GC_GUARD(x);
     return str;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_big2str_gmp(VALUE x, int base)
 {
     return big2str_gmp(x, base);
+    RB_GC_GUARD(x);
 }
 #endif
 
@@ -5121,12 +5225,14 @@ rb_big2str1(VALUE x, int base)
 #endif
 
     return big2str_generic(x, base);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_big2str(VALUE x, int base)
 {
     return rb_big2str1(x, base);
+    RB_GC_GUARD(x);
 }
 
 static unsigned long
@@ -5155,6 +5261,7 @@ big2ulong(VALUE x, const char *type)
     }
 #endif
     return num;
+    RB_GC_GUARD(x);
 }
 
 unsigned long
@@ -5170,6 +5277,7 @@ rb_big2ulong(VALUE x)
             return -(long)(num-1)-1;
     }
     rb_raise(rb_eRangeError, "bignum out of range of unsigned long");
+    RB_GC_GUARD(x);
 }
 
 long
@@ -5186,6 +5294,7 @@ rb_big2long(VALUE x)
             return -(long)(num-1)-1;
     }
     rb_raise(rb_eRangeError, "bignum too big to convert into 'long'");
+    RB_GC_GUARD(x);
 }
 
 #if HAVE_LONG_LONG
@@ -5214,6 +5323,7 @@ big2ull(VALUE x, const char *type)
     }
 #endif
     return num;
+    RB_GC_GUARD(x);
 }
 
 unsigned LONG_LONG
@@ -5229,6 +5339,7 @@ rb_big2ull(VALUE x)
             return -(LONG_LONG)(num-1)-1;
     }
     rb_raise(rb_eRangeError, "bignum out of range of unsigned long long");
+    RB_GC_GUARD(x);
 }
 
 LONG_LONG
@@ -5245,6 +5356,7 @@ rb_big2ll(VALUE x)
             return -(LONG_LONG)(num-1)-1;
     }
     rb_raise(rb_eRangeError, "bignum too big to convert into 'long long'");
+    RB_GC_GUARD(x);
 }
 
 #endif  /* HAVE_LONG_LONG */
@@ -5279,6 +5391,7 @@ dbl2big(double d)
     }
 
     return z;
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -5340,6 +5453,7 @@ big2dbl(VALUE x)
     }
     if (BIGNUM_NEGATIVE_P(x)) d = -d;
     return d;
+    RB_GC_GUARD(x);
 }
 
 double
@@ -5355,6 +5469,7 @@ rb_big2dbl(VALUE x)
             d = HUGE_VAL;
     }
     return d;
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -5405,6 +5520,9 @@ rb_integer_float_cmp(VALUE x, VALUE y)
     if (yf < 0.0)
         return INT2FIX(1);
     return INT2FIX(-1);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(rel);
 }
 
 #if SIZEOF_LONG * CHAR_BIT >= DBL_MANT_DIG /* assume FLT_RADIX == 2 */
@@ -5442,6 +5560,8 @@ rb_integer_float_eq(VALUE x, VALUE y)
     }
     y = rb_dbl2big(yi);
     return rb_big_eq(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 
@@ -5471,6 +5591,8 @@ rb_big_cmp(VALUE x, VALUE y)
         return rb_num_coerce_cmp(x, y, idCmp);
     }
     return INT2FIX(BIGNUM_SIGN(x) ? 1 : -1);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 enum big_op_t {
@@ -5513,30 +5635,41 @@ big_op(VALUE x, VALUE y, enum big_op_t op)
       case big_op_le: return RBOOL(n <= 0);
     }
     return Qundef;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(rel);
 }
 
 VALUE
 rb_big_gt(VALUE x, VALUE y)
 {
     return big_op(x, y, big_op_gt);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_big_ge(VALUE x, VALUE y)
 {
     return big_op(x, y, big_op_ge);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_big_lt(VALUE x, VALUE y)
 {
     return big_op(x, y, big_op_lt);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_big_le(VALUE x, VALUE y)
 {
     return big_op(x, y, big_op_le);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -5567,6 +5700,8 @@ rb_big_eq(VALUE x, VALUE y)
     if (BIGNUM_SIGN(x) != BIGNUM_SIGN(y)) return Qfalse;
     if (BIGNUM_LEN(x) != BIGNUM_LEN(y)) return Qfalse;
     return RBOOL(MEMCMP(BDIGITS(x),BDIGITS(y),BDIGIT,BIGNUM_LEN(y)) == 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -5576,6 +5711,8 @@ rb_big_eql(VALUE x, VALUE y)
     if (BIGNUM_SIGN(x) != BIGNUM_SIGN(y)) return Qfalse;
     if (BIGNUM_LEN(x) != BIGNUM_LEN(y)) return Qfalse;
     return RBOOL(MEMCMP(BDIGITS(x),BDIGITS(y),BDIGIT,BIGNUM_LEN(y)) == 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -5586,6 +5723,8 @@ rb_big_uminus(VALUE x)
     BIGNUM_NEGATE(z);
 
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -5612,6 +5751,8 @@ rb_big_comp(VALUE x)
     }
 
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -5637,6 +5778,9 @@ bigsub(VALUE x, VALUE y)
     }
 
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE bigadd_int(VALUE x, long y);
@@ -5736,6 +5880,8 @@ bigsub_int(VALUE x, long y0)
     }
     RB_GC_GUARD(x);
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -5819,6 +5965,8 @@ bigadd_int(VALUE x, long y)
   finish:
     RB_GC_GUARD(x);
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -5846,6 +5994,9 @@ bigadd(VALUE x, VALUE y, int sign)
              BDIGITS(y), BIGNUM_LEN(y));
 
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -5874,6 +6025,8 @@ rb_big_plus(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '+');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -5903,6 +6056,8 @@ rb_big_minus(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '-');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -5930,6 +6085,8 @@ bigsq(VALUE x)
 
     RB_GC_GUARD(x);
     return z;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -5959,6 +6116,9 @@ bigmul0(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -5977,6 +6137,8 @@ rb_big_mul(VALUE x, VALUE y)
     }
 
     return bignorm(bigmul0(x, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -6070,6 +6232,11 @@ bigdivrem(VALUE x, VALUE y, volatile VALUE *divp, volatile VALUE *modp)
     }
 
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(q);
+    RB_GC_GUARD(z);
 }
 
 static void
@@ -6085,6 +6252,9 @@ bigdivmod(VALUE x, VALUE y, volatile VALUE *divp, volatile VALUE *modp)
     else if (modp) {
         *modp = mod;
     }
+        RB_GC_GUARD(mod);
+        RB_GC_GUARD(y);
+        RB_GC_GUARD(x);
 }
 
 
@@ -6109,6 +6279,7 @@ rb_big_divide(VALUE x, VALUE y, ID op)
             if (dy == 0.0) rb_num_zerodiv();
             v = rb_big_divide(x, y, '/');
             return rb_dbl2big(RFLOAT_VALUE(v));
+    RB_GC_GUARD(v);
         }
     }
     else {
@@ -6117,18 +6288,25 @@ rb_big_divide(VALUE x, VALUE y, ID op)
     bigdivmod(x, y, &z, 0);
 
     return bignorm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
 rb_big_div(VALUE x, VALUE y)
 {
     return rb_big_divide(x, y, '/');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_big_idiv(VALUE x, VALUE y)
 {
     return rb_big_divide(x, y, idDiv);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -6145,6 +6323,9 @@ rb_big_modulo(VALUE x, VALUE y)
     bigdivmod(x, y, 0, &z);
 
     return bignorm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -6161,6 +6342,9 @@ rb_big_remainder(VALUE x, VALUE y)
     bigdivrem(x, y, 0, &z);
 
     return bignorm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -6177,6 +6361,10 @@ rb_big_divmod(VALUE x, VALUE y)
     bigdivmod(x, y, &div, &mod);
 
     return rb_assoc_new(bignorm(div), bignorm(mod));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(div);
 }
 
 static VALUE
@@ -6187,6 +6375,7 @@ big_shift(VALUE x, long n)
     else if (n > 0)
         return big_rshift(x, (unsigned long)n);
     return x;
+    RB_GC_GUARD(x);
 }
 
 enum {DBL_BIGDIG = ((DBL_MANT_DIG + BITSPERDIG) / BITSPERDIG)};
@@ -6215,6 +6404,9 @@ big_fdiv(VALUE x, VALUE y, long ey)
     }
 #endif
     return ldexp(big2dbl(z), (int)l);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static double
@@ -6227,6 +6419,8 @@ big_fdiv_int(VALUE x, VALUE y)
     ey -= DBL_BIGDIG * BITSPERDIG;
     if (ey) y = big_shift(y, ey);
     return big_fdiv(x, y, ey);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static double
@@ -6235,6 +6429,8 @@ big_fdiv_float(VALUE x, VALUE y)
     int i;
     y = dbl2big(ldexp(frexp(RFLOAT_VALUE(y), &i), DBL_MANT_DIG));
     return big_fdiv(x, y, i - DBL_MANT_DIG);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 double
@@ -6264,12 +6460,17 @@ rb_big_fdiv_double(VALUE x, VALUE y)
     }
     v = rb_flo_div_flo(DBL2NUM(dx), DBL2NUM(dy));
     return NUM2DBL(v);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(v);
 }
 
 VALUE
 rb_big_fdiv(VALUE x, VALUE y)
 {
     return DBL2NUM(rb_big_fdiv_double(x, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -6327,6 +6528,7 @@ rb_big_pow(VALUE x, VALUE y)
                     }
                 }
                 return bignorm(z);
+    RB_GC_GUARD(z);
             }
         }
     }
@@ -6334,6 +6536,8 @@ rb_big_pow(VALUE x, VALUE y)
         return rb_num_coerce_bin(x, y, idPow);
     }
     return DBL2NUM(pow(rb_big2dbl(x), d));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -6389,6 +6593,8 @@ bigand_int(VALUE x, long xn, BDIGIT hibitsx, long y)
     twocomp2abs_bang(z, hibitsx && hibitsy);
     RB_GC_GUARD(x);
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -6440,6 +6646,10 @@ rb_big_and(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return bignorm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(tmpv);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -6508,6 +6718,8 @@ bigor_int(VALUE x, long xn, BDIGIT hibitsx, long y)
     twocomp2abs_bang(z, hibitsx || hibitsy);
     RB_GC_GUARD(x);
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -6559,6 +6771,10 @@ rb_big_or(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return bignorm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(tmpv);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -6602,6 +6818,8 @@ bigxor_int(VALUE x, long xn, BDIGIT hibitsx, long y)
     twocomp2abs_bang(z, (hibitsx ^ hibitsy) != 0);
     RB_GC_GUARD(x);
     return bignorm(z);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -6650,6 +6868,10 @@ rb_big_xor(VALUE x, VALUE y)
     RB_GC_GUARD(x);
     RB_GC_GUARD(y);
     return bignorm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(tmpv);
+    RB_GC_GUARD(z);
 }
 
 VALUE
@@ -6679,6 +6901,8 @@ rb_big_lshift(VALUE x, VALUE y)
             return bignorm(big_shift2(x, 1, y));
         }
         y = rb_to_int(y);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -6709,6 +6933,8 @@ rb_big_rshift(VALUE x, VALUE y)
             return bignorm(big_shift2(x, 0, y));
         }
         y = rb_to_int(y);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -6755,6 +6981,8 @@ rb_big_aref(VALUE x, VALUE y)
         if (xds[i])
             return (xds[s1] & bit) ? INT2FIX(0) : INT2FIX(1);
     return (xds[s1] & bit) ? INT2FIX(1) : INT2FIX(0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -6764,6 +6992,7 @@ rb_big_hash(VALUE x)
 
     hash = rb_memhash(BDIGITS(x), sizeof(BDIGIT)*BIGNUM_LEN(x)) ^ BIGNUM_SIGN(x);
     return ST2FIX(hash);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -6791,6 +7020,8 @@ rb_int_coerce(VALUE x, VALUE y)
         x = rb_Float(x);
         y = rb_Float(y);
         return rb_assoc_new(y, x);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -6802,24 +7033,28 @@ rb_big_abs(VALUE x)
         BIGNUM_SET_POSITIVE_SIGN(x);
     }
     return x;
+    RB_GC_GUARD(x);
 }
 
 int
 rb_big_sign(VALUE x)
 {
     return BIGNUM_SIGN(x);
+    RB_GC_GUARD(x);
 }
 
 size_t
 rb_big_size(VALUE big)
 {
     return BIGSIZE(big);
+    RB_GC_GUARD(big);
 }
 
 VALUE
 rb_big_size_m(VALUE big)
 {
     return SIZET2NUM(rb_big_size(big));
+    RB_GC_GUARD(big);
 }
 
 VALUE
@@ -6861,12 +7096,14 @@ rb_big_bit_length(VALUE big)
 
     return rb_integer_unpack(result_bary, numberof(result_bary), sizeof(BDIGIT), 0,
             INTEGER_PACK_LSWORD_FIRST|INTEGER_PACK_NATIVE_BYTE_ORDER);
+            RB_GC_GUARD(big);
 }
 
 VALUE
 rb_big_odd_p(VALUE num)
 {
     return RBOOL(BIGNUM_LEN(num) != 0 && BDIGITS(num)[0] & 1);
+    RB_GC_GUARD(num);
 }
 
 VALUE
@@ -6876,6 +7113,7 @@ rb_big_even_p(VALUE num)
         return Qfalse;
     }
     return Qtrue;
+    RB_GC_GUARD(num);
 }
 
 unsigned long rb_ulong_isqrt(unsigned long);
@@ -6917,6 +7155,10 @@ rb_big_isqrt(VALUE n)
             x = rb_int_minus(x, INT2FIX(1));
         }
         return x;
+        RB_GC_GUARD(xx);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(n2);
+        RB_GC_GUARD(n);
     }
 }
 
@@ -6970,6 +7212,10 @@ int_pow_tmp3(VALUE x, VALUE y, VALUE m, int nega_flg)
     RB_GC_GUARD(y);
     RB_GC_GUARD(m);
     return rb_big_norm(z);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 #else
     VALUE tmp = LONG2FIX(1L);
     long yy;
@@ -7026,6 +7272,8 @@ int_pow_tmp1(VALUE x, VALUE y, long mm, int nega_flg)
         tmp -= mm;
     }
     return LONG2FIX(tmp);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -7067,6 +7315,8 @@ int_pow_tmp2(VALUE x, VALUE y, long mm, int nega_flg)
         tmp -= mm;
     }
     return LONG2FIX(tmp);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -7124,6 +7374,7 @@ rb_int_powm(int const argc, VALUE * const argv, VALUE const num)
             if (rb_bigzero_p(m)) rb_num_zerodiv();
             if (bignorm(m) == INT2FIX(1)) return INT2FIX(0);
             return int_pow_tmp3(rb_int_modulo(a, m), b, m, nega_flg);
+    RB_GC_GUARD(m);
         }
     }
     UNREACHABLE_RETURN(Qnil);

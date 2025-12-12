@@ -108,6 +108,7 @@ VALUE
 rb_hash_freeze(VALUE hash)
 {
     return rb_obj_freeze(hash);
+    RB_GC_GUARD(hash);
 }
 
 VALUE rb_cHash;
@@ -124,6 +125,8 @@ rb_hash_set_ifnone(VALUE hash, VALUE ifnone)
 {
     RB_OBJ_WRITE(hash, (&RHASH(hash)->ifnone), ifnone);
     return hash;
+    RB_GC_GUARD(ifnone);
+    RB_GC_GUARD(hash);
 }
 
 int
@@ -140,6 +143,8 @@ rb_any_cmp(VALUE a, VALUE b)
     }
 
     return !rb_eql(a, b);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 static VALUE
@@ -147,6 +152,8 @@ hash_recursive(VALUE obj, VALUE arg, int recurse)
 {
     if (recurse) return INT2FIX(0);
     return rb_funcallv(obj, id_hash, 0, 0);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
 }
 
 static long rb_objid_hash(st_index_t index);
@@ -211,6 +218,8 @@ any_hash(VALUE a, st_index_t (*other_func)(VALUE))
     else
         hnum |= FIXNUM_MIN;
     return (long)hnum;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(hval);
 }
 
 VALUE rb_obj_hash(VALUE obj);
@@ -255,18 +264,23 @@ obj_any_hash(VALUE obj)
     }
 
     return FIX2LONG(hval);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(hval);
 }
 
 st_index_t
 rb_any_hash(VALUE a)
 {
     return any_hash(a, obj_any_hash);
+    RB_GC_GUARD(a);
 }
 
 VALUE
 rb_hash(VALUE obj)
 {
     return LONG2FIX(any_hash(obj, obj_any_hash));
+    RB_GC_GUARD(obj);
 }
 
 
@@ -320,6 +334,8 @@ objid_hash(VALUE obj)
 
 #if SIZEOF_LONG == SIZEOF_VOIDP
     return (st_index_t)st_index_hash((st_index_t)NUM2LONG(object_id));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(object_id);
 #elif SIZEOF_LONG_LONG == SIZEOF_VOIDP
     return (st_index_t)st_index_hash((st_index_t)NUM2LL(object_id));
 #endif
@@ -365,6 +381,7 @@ rb_obj_hash(VALUE obj)
 {
     long hnum = any_hash(obj, objid_hash);
     return ST2FIX(hnum);
+    RB_GC_GUARD(obj);
 }
 
 static const struct st_hash_type objhash = {
@@ -431,18 +448,21 @@ static inline ar_hint_t
 ar_hint(VALUE hash, unsigned int index)
 {
     return RHASH_AR_TABLE(hash)->ar_hint.ary[index];
+    RB_GC_GUARD(hash);
 }
 
 static inline void
 ar_hint_set_hint(VALUE hash, unsigned int index, ar_hint_t hint)
 {
     RHASH_AR_TABLE(hash)->ar_hint.ary[index] = hint;
+    RB_GC_GUARD(hash);
 }
 
 static inline void
 ar_hint_set(VALUE hash, unsigned int index, st_hash_t hash_value)
 {
     ar_hint_set_hint(hash, index, ar_do_hash_hint(hash_value));
+    RB_GC_GUARD(hash);
 }
 
 static inline void
@@ -451,6 +471,7 @@ ar_clear_entry(VALUE hash, unsigned int index)
     ar_table_pair *pair = RHASH_AR_TABLE_REF(hash, index);
     pair->key = Qundef;
     ar_hint_set_hint(hash, index, RHASH_AR_CLEARED_HINT);
+    RB_GC_GUARD(hash);
 }
 
 static inline int
@@ -465,6 +486,7 @@ ar_cleared_entry(VALUE hash, unsigned int index)
     }
     else {
         return FALSE;
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -475,6 +497,7 @@ ar_set_entry(VALUE hash, unsigned int index, st_data_t key, st_data_t val, st_ha
     pair->key = key;
     pair->val = val;
     ar_hint_set(hash, index, hash_value);
+    RB_GC_GUARD(hash);
 }
 
 #define RHASH_AR_TABLE_SIZE(h) (HASH_ASSERT(RHASH_AR_TABLE_P(h)), \
@@ -496,6 +519,7 @@ RHASH_AR_TABLE_BOUND(VALUE h)
     const unsigned int bound = RHASH_AR_TABLE_BOUND_RAW(h);
     HASH_ASSERT(bound <= RHASH_AR_TABLE_MAX_SIZE);
     return bound;
+    RB_GC_GUARD(h);
 }
 
 #if HASH_DEBUG
@@ -572,6 +596,7 @@ static inline int
 RHASH_TABLE_EMPTY_P(VALUE hash)
 {
     return RHASH_SIZE(hash) == 0;
+    RB_GC_GUARD(hash);
 }
 
 #define RHASH_SET_ST_FLAG(h)          FL_SET_RAW(h, RHASH_ST_TABLE_FLAG)
@@ -582,6 +607,7 @@ hash_st_table_init(VALUE hash, const struct st_hash_type *type, st_index_t size)
 {
     st_init_existing_table_with_size(RHASH_ST_TABLE(hash), type, size);
     RHASH_SET_ST_FLAG(hash);
+    RB_GC_GUARD(hash);
 }
 
 void
@@ -591,6 +617,7 @@ rb_hash_st_table_set(VALUE hash, st_table *st)
     RHASH_SET_ST_FLAG(hash);
 
     *RHASH_ST_TABLE(hash) = *st;
+    RB_GC_GUARD(hash);
 }
 
 static inline void
@@ -601,6 +628,7 @@ RHASH_AR_TABLE_BOUND_SET(VALUE h, st_index_t n)
 
     RBASIC(h)->flags &= ~RHASH_AR_TABLE_BOUND_MASK;
     RBASIC(h)->flags |= n << RHASH_AR_TABLE_BOUND_SHIFT;
+    RB_GC_GUARD(h);
 }
 
 static inline void
@@ -611,6 +639,7 @@ RHASH_AR_TABLE_SIZE_SET(VALUE h, st_index_t n)
 
     RBASIC(h)->flags &= ~RHASH_AR_TABLE_SIZE_MASK;
     RBASIC(h)->flags |= n << RHASH_AR_TABLE_SIZE_SHIFT;
+    RB_GC_GUARD(h);
 }
 
 static inline void
@@ -621,6 +650,7 @@ HASH_AR_TABLE_SIZE_ADD(VALUE h, st_index_t n)
     RHASH_AR_TABLE_SIZE_SET(h, RHASH_AR_TABLE_SIZE(h) + n);
 
     hash_verify(h);
+    RB_GC_GUARD(h);
 }
 
 #define RHASH_AR_TABLE_SIZE_INC(h) HASH_AR_TABLE_SIZE_ADD(h, 1)
@@ -639,6 +669,7 @@ RHASH_AR_TABLE_SIZE_DEC(VALUE h)
         RHASH_AR_TABLE_BOUND_SET(h, 0);
     }
     hash_verify(h);
+    RB_GC_GUARD(h);
 }
 
 static inline void
@@ -648,6 +679,7 @@ RHASH_AR_TABLE_CLEAR(VALUE h)
     RBASIC(h)->flags &= ~RHASH_AR_TABLE_BOUND_MASK;
 
     memset(RHASH_AR_TABLE(h), 0, sizeof(ar_table));
+    RB_GC_GUARD(h);
 }
 
 NOINLINE(static int ar_equal(VALUE x, VALUE y));
@@ -656,6 +688,8 @@ static int
 ar_equal(VALUE x, VALUE y)
 {
     return rb_any_cmp(x, y) == 0;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static unsigned
@@ -699,6 +733,7 @@ ar_find_entry_hint(VALUE hash, ar_hint_t hint, st_data_t key)
     }
     RB_DEBUG_COUNTER_INC(artable_hint_notfound);
     return RHASH_AR_TABLE_MAX_BOUND;
+    RB_GC_GUARD(hash);
 }
 
 static unsigned
@@ -706,6 +741,7 @@ ar_find_entry(VALUE hash, st_hash_t hash_value, st_data_t key)
 {
     ar_hint_t hint = ar_do_hash_hint(hash_value);
     return ar_find_entry_hint(hash, hint, key);
+    RB_GC_GUARD(hash);
 }
 
 static inline void
@@ -715,6 +751,7 @@ hash_ar_free_and_clear_table(VALUE hash)
 
     HASH_ASSERT(RHASH_AR_TABLE_SIZE(hash) == 0);
     HASH_ASSERT(RHASH_AR_TABLE_BOUND(hash) == 0);
+    RB_GC_GUARD(hash);
 }
 
 void rb_st_add_direct_with_hash(st_table *tab, st_data_t key, st_data_t value, st_hash_t hash); // st.c
@@ -785,6 +822,7 @@ ar_force_convert_table(VALUE hash, const char *file, int line)
         hash_ar_free_and_clear_table(hash);
         RHASH_ST_TABLE_SET(hash, new_tab);
         return RHASH_ST_TABLE(hash);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -824,6 +862,7 @@ ar_compact_table(VALUE hash)
         RHASH_AR_TABLE_BOUND_SET(hash, size);
         hash_verify(hash);
         return size;
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -845,6 +884,7 @@ ar_add_direct_with_hash(VALUE hash, st_data_t key, st_data_t val, st_hash_t hash
         RHASH_AR_TABLE_BOUND_SET(hash, bin+1);
         RHASH_AR_TABLE_SIZE_INC(hash);
         return 0;
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -854,6 +894,7 @@ ensure_ar_table(VALUE hash)
     if (!RHASH_AR_TABLE_P(hash)) {
         rb_raise(rb_eRuntimeError, "hash representation was changed during iteration");
     }
+        RB_GC_GUARD(hash);
 }
 
 static int
@@ -896,12 +937,14 @@ ar_general_foreach(VALUE hash, st_foreach_check_callback_func *func, st_update_c
         }
     }
     return 0;
+    RB_GC_GUARD(hash);
 }
 
 static int
 ar_foreach_with_replace(VALUE hash, st_foreach_check_callback_func *func, st_update_callback_func *replace, st_data_t arg)
 {
     return ar_general_foreach(hash, func, replace, arg);
+    RB_GC_GUARD(hash);
 }
 
 struct functor {
@@ -921,6 +964,7 @@ ar_foreach(VALUE hash, st_foreach_callback_func *func, st_data_t arg)
 {
     const struct functor f = { func, arg };
     return ar_general_foreach(hash, apply_functor, NULL, (st_data_t)&f);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -971,6 +1015,7 @@ ar_foreach_check(VALUE hash, st_foreach_check_callback_func *func, st_data_t arg
         }
     }
     return 0;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -1028,6 +1073,7 @@ ar_update(VALUE hash, st_data_t key,
         break;
     }
     return existing;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -1059,6 +1105,7 @@ ar_insert(VALUE hash, st_data_t key, st_data_t value)
     else {
         RHASH_AR_TABLE_REF(hash, bin)->val = value;
         return 1;
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -1086,6 +1133,7 @@ ar_lookup(VALUE hash, st_data_t key, st_data_t *value)
             }
             return 1;
         }
+            RB_GC_GUARD(hash);
     }
 }
 
@@ -1114,6 +1162,7 @@ ar_delete(VALUE hash, st_data_t *key, st_data_t *value)
         ar_clear_entry(hash, bin);
         RHASH_AR_TABLE_SIZE_DEC(hash);
         return 1;
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -1136,6 +1185,7 @@ ar_shift(VALUE hash, st_data_t *key, st_data_t *value)
     }
     if (value != NULL) *value = 0;
     return 0;
+    RB_GC_GUARD(hash);
 }
 
 static long
@@ -1156,6 +1206,7 @@ ar_keys(VALUE hash, st_data_t *keys, st_index_t size)
     }
 
     return keys - keys_start;
+    RB_GC_GUARD(hash);
 }
 
 static long
@@ -1176,6 +1227,7 @@ ar_values(VALUE hash, st_data_t *values, st_index_t size)
     }
 
     return values - values_start;
+    RB_GC_GUARD(hash);
 }
 
 static ar_table*
@@ -1192,6 +1244,8 @@ ar_copy(VALUE hash1, VALUE hash2)
     rb_gc_writebarrier_remember(hash1);
 
     return new_tab;
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash1);
 }
 
 static void
@@ -1205,6 +1259,7 @@ ar_clear(VALUE hash)
         HASH_ASSERT(RHASH_AR_TABLE_SIZE(hash) == 0);
         HASH_ASSERT(RHASH_AR_TABLE_BOUND(hash) == 0);
     }
+        RB_GC_GUARD(hash);
 }
 
 static void
@@ -1216,6 +1271,7 @@ hash_st_free(VALUE hash)
 
     xfree(tab->bins);
     xfree(tab->entries);
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -1224,6 +1280,7 @@ hash_st_free_and_clear_table(VALUE hash)
     hash_st_free(hash);
 
     RHASH_ST_CLEAR(hash);
+    RB_GC_GUARD(hash);
 }
 
 void
@@ -1232,6 +1289,7 @@ rb_hash_free(VALUE hash)
     if (RHASH_ST_TABLE_P(hash)) {
         hash_st_free(hash);
     }
+        RB_GC_GUARD(hash);
 }
 
 typedef int st_foreach_func(st_data_t, st_data_t, st_data_t);
@@ -1330,6 +1388,8 @@ iter_lev_in_ivar(VALUE hash)
     long lev = FIX2LONG(levval);
     HASH_ASSERT(lev >= 0);
     return (unsigned long)lev;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(levval);
 }
 
 void rb_ivar_set_internal(VALUE obj, ID id, VALUE val);
@@ -1340,12 +1400,14 @@ iter_lev_in_ivar_set(VALUE hash, unsigned long lev)
     HASH_ASSERT(lev >= RHASH_LEV_MAX);
     HASH_ASSERT(POSFIXABLE(lev)); /* POSFIXABLE means fitting to long */
     rb_ivar_set_internal(hash, id_hash_iter_lev, LONG2FIX((long)lev));
+    RB_GC_GUARD(hash);
 }
 
 static inline unsigned long
 iter_lev_in_flags(VALUE hash)
 {
     return (unsigned long)((RBASIC(hash)->flags >> RHASH_LEV_SHIFT) & RHASH_LEV_MAX);
+    RB_GC_GUARD(hash);
 }
 
 static inline void
@@ -1353,12 +1415,14 @@ iter_lev_in_flags_set(VALUE hash, unsigned long lev)
 {
     HASH_ASSERT(lev <= RHASH_LEV_MAX);
     RBASIC(hash)->flags = ((RBASIC(hash)->flags & ~RHASH_LEV_MASK) | ((VALUE)lev << RHASH_LEV_SHIFT));
+    RB_GC_GUARD(hash);
 }
 
 static inline bool
 hash_iterating_p(VALUE hash)
 {
     return iter_lev_in_flags(hash) > 0;
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -1377,6 +1441,7 @@ hash_iter_lev_inc(VALUE hash)
         if (lev < RHASH_LEV_MAX) return;
     }
     iter_lev_in_ivar_set(hash, lev);
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -1395,6 +1460,7 @@ hash_iter_lev_dec(VALUE hash)
         rb_raise(rb_eRuntimeError, "iteration level underflow");
     }
     iter_lev_in_flags_set(hash, lev - 1);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -1402,6 +1468,7 @@ hash_foreach_ensure(VALUE hash)
 {
     hash_iter_lev_dec(hash);
     return 0;
+    RB_GC_GUARD(hash);
 }
 
 /* This does not manage iteration level */
@@ -1413,6 +1480,7 @@ rb_hash_stlike_foreach(VALUE hash, st_foreach_callback_func *func, st_data_t arg
     }
     else {
         return st_foreach(RHASH_ST_TABLE(hash), func, arg);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -1425,6 +1493,7 @@ rb_hash_stlike_foreach_with_replace(VALUE hash, st_foreach_check_callback_func *
     }
     else {
         return st_foreach_with_replace(RHASH_ST_TABLE(hash), func, replace, arg);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -1445,6 +1514,8 @@ hash_foreach_call(VALUE arg)
         rb_raise(rb_eRuntimeError, "ret: %d, hash modified during iteration", ret);
     }
     return Qnil;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(hash);
 }
 
 void
@@ -1465,6 +1536,8 @@ rb_hash_foreach(VALUE hash, rb_foreach_func *func, VALUE farg)
         rb_ensure(hash_foreach_call, (VALUE)&arg, hash_foreach_ensure, hash);
     }
     hash_verify(hash);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(farg);
 }
 
 void rb_st_compact_table(st_table *tab);
@@ -1475,6 +1548,7 @@ compact_after_delete(VALUE hash)
     if (!hash_iterating_p(hash) && RHASH_ST_TABLE_P(hash)) {
         rb_st_compact_table(RHASH_ST_TABLE(hash));
     }
+        RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -1488,6 +1562,9 @@ hash_alloc_flags(VALUE klass, VALUE flags, VALUE ifnone, bool st)
     RHASH_SET_IFNONE((VALUE)hash, ifnone);
 
     return (VALUE)hash;
+    RB_GC_GUARD(ifnone);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -1495,6 +1572,7 @@ hash_alloc(VALUE klass)
 {
     /* Allocate to be able to fit both st_table and ar_table. */
     return hash_alloc_flags(klass, 0, Qnil, sizeof(st_table) > sizeof(ar_table));
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -1503,6 +1581,7 @@ empty_hash_alloc(VALUE klass)
     RUBY_DTRACE_CREATE_HOOK(HASH, 0);
 
     return hash_alloc(klass);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1518,6 +1597,8 @@ copy_compare_by_id(VALUE hash, VALUE basis)
         return rb_hash_compare_by_id(hash);
     }
     return hash;
+    RB_GC_GUARD(basis);
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -1531,6 +1612,7 @@ rb_hash_new_with_size(st_index_t size)
     }
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 VALUE
@@ -1570,6 +1652,8 @@ hash_copy(VALUE ret, VALUE hash)
         rb_gc_writebarrier_remember(ret);
     }
     return ret;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -1584,6 +1668,8 @@ hash_dup_with_compare_by_id(VALUE hash)
     }
 
     return hash_copy(dup, hash);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(dup);
 }
 
 static VALUE
@@ -1591,6 +1677,9 @@ hash_dup(VALUE hash, VALUE klass, VALUE flags)
 {
     return hash_copy(hash_alloc_flags(klass, flags, RHASH_IFNONE(hash), !RHASH_EMPTY_P(hash) && RHASH_ST_TABLE_P(hash)),
                      hash);
+                     RB_GC_GUARD(flags);
+                     RB_GC_GUARD(klass);
+                     RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -1602,6 +1691,8 @@ rb_hash_dup(VALUE hash)
     if (flags & FL_EXIVAR)
         rb_copy_generic_ivar(ret, hash);
     return ret;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ret);
 }
 
 VALUE
@@ -1609,18 +1700,22 @@ rb_hash_resurrect(VALUE hash)
 {
     VALUE ret = hash_dup(hash, rb_cHash, 0);
     return ret;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ret);
 }
 
 static void
 rb_hash_modify_check(VALUE hash)
 {
     rb_check_frozen(hash);
+    RB_GC_GUARD(hash);
 }
 
 struct st_table *
 rb_hash_tbl_raw(VALUE hash, const char *file, int line)
 {
     return ar_force_convert_table(hash, file, line);
+    RB_GC_GUARD(hash);
 }
 
 struct st_table *
@@ -1628,12 +1723,14 @@ rb_hash_tbl(VALUE hash, const char *file, int line)
 {
     OBJ_WB_UNPROTECT(hash);
     return rb_hash_tbl_raw(hash, file, line);
+    RB_GC_GUARD(hash);
 }
 
 static void
 rb_hash_modify(VALUE hash)
 {
     rb_hash_modify_check(hash);
+    RB_GC_GUARD(hash);
 }
 
 NORETURN(static void no_new_key(void));
@@ -1686,6 +1783,7 @@ rb_hash_stlike_update(VALUE hash, st_data_t key, st_update_callback_func *func, 
     }
 
     return st_update(RHASH_ST_TABLE(hash), key, func, arg);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -1713,6 +1811,7 @@ tbl_update_modify(st_data_t *key, st_data_t *val, st_data_t arg, int existing)
     }
 
     return ret;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -1733,6 +1832,8 @@ tbl_update(VALUE hash, VALUE key, tbl_update_func func, st_data_t optional_arg)
     if (arg.value) RB_OBJ_WRITTEN(hash, Qundef, arg.value);
 
     return ret;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 #define UPDATE_CALLBACK(iter_p, func) ((iter_p) ? func##_noinsert : func##_insert)
@@ -1758,6 +1859,8 @@ set_proc_default(VALUE hash, VALUE proc)
 
     FL_SET_RAW(hash, RHASH_PROC_DEFAULT);
     RHASH_SET_IFNONE(hash, proc);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(proc);
 }
 
 static VALUE
@@ -1786,6 +1889,11 @@ rb_hash_init(rb_execution_context_t *ec, VALUE hash, VALUE capa_value, VALUE ifn
 
     hash_verify(hash);
     return hash;
+    RB_GC_GUARD(block);
+    RB_GC_GUARD(ifnone);
+    RB_GC_GUARD(ifnone_unset);
+    RB_GC_GUARD(capa_value);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE rb_hash_to_a(VALUE hash);
@@ -1872,6 +1980,10 @@ rb_hash_s_create(int argc, VALUE *argv, VALUE klass)
                   case 1:
                     key = RARRAY_AREF(v, 0);
                     rb_hash_aset(hash, key, val);
+            RB_GC_GUARD(e);
+            RB_GC_GUARD(val);
+            RB_GC_GUARD(key);
+            RB_GC_GUARD(v);
                 }
             }
             return hash;
@@ -1885,12 +1997,16 @@ rb_hash_s_create(int argc, VALUE *argv, VALUE klass)
     rb_hash_bulk_insert(argc, argv, hash);
     hash_verify(hash);
     return hash;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(hash);
 }
 
 VALUE
 rb_to_hash_type(VALUE hash)
 {
     return rb_convert_type_with_id(hash, T_HASH, "Hash", idTo_hash);
+    RB_GC_GUARD(hash);
 }
 #define to_hash rb_to_hash_type
 
@@ -1898,6 +2014,7 @@ VALUE
 rb_check_hash_type(VALUE hash)
 {
     return rb_check_convert_type_with_id(hash, T_HASH, "Hash", idTo_hash);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -1917,6 +2034,8 @@ static VALUE
 rb_hash_s_try_convert(VALUE dummy, VALUE hash)
 {
     return rb_check_hash_type(hash);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(dummy);
 }
 
 /*
@@ -1939,6 +2058,8 @@ rb_hash_s_ruby2_keywords_hash_p(VALUE dummy, VALUE hash)
 {
     Check_Type(hash, T_HASH);
     return RBOOL(RHASH(hash)->basic.flags & RHASH_PASS_AS_KEYWORDS);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(dummy);
 }
 
 /*
@@ -1966,6 +2087,9 @@ rb_hash_s_ruby2_keywords_hash(VALUE dummy, VALUE hash)
     }
     RHASH(tmp)->basic.flags |= RHASH_PASS_AS_KEYWORDS;
     return tmp;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(dummy);
+    RB_GC_GUARD(tmp);
 }
 
 struct rehash_arg {
@@ -1983,6 +2107,9 @@ rb_hash_rehash_i(VALUE key, VALUE value, VALUE arg)
         st_insert(RHASH_ST_TABLE(arg), (st_data_t)key, (st_data_t)value);
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2029,6 +2156,8 @@ rb_hash_rehash(VALUE hash)
     }
     hash_verify(hash);
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(tmp);
 }
 
 static VALUE
@@ -2036,6 +2165,9 @@ call_default_proc(VALUE proc, VALUE hash, VALUE key)
 {
     VALUE args[2] = {hash, key};
     return rb_proc_call_with_block(proc, 2, args, Qnil);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(proc);
 }
 
 static bool
@@ -2047,6 +2179,8 @@ rb_hash_default_unredefined(VALUE hash)
     }
     else {
         return LIKELY(rb_method_basic_definition_p(klass, id_default));
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -2060,9 +2194,12 @@ rb_hash_default_value(VALUE hash, VALUE key)
         if (LIKELY(!FL_TEST_RAW(hash, RHASH_PROC_DEFAULT))) return ifnone;
         if (UNDEF_P(key)) return Qnil;
         return call_default_proc(ifnone, hash, key);
+    RB_GC_GUARD(ifnone);
     }
     else {
         return rb_funcall(hash, id_default, 1, key);
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(key);
     }
 }
 
@@ -2080,6 +2217,7 @@ hash_stlike_lookup(VALUE hash, st_data_t key, st_data_t *pval)
                     RHASH_ST_TABLE(hash)->type->hash == rb_ident_hash ||
                     RHASH_ST_TABLE(hash)->type->hash == rb_iseq_cdhash_hash);
         return st_lookup(RHASH_ST_TABLE(hash), key, pval);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -2087,6 +2225,7 @@ int
 rb_hash_stlike_lookup(VALUE hash, st_data_t key, st_data_t *pval)
 {
     return hash_stlike_lookup(hash, key, pval);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2113,6 +2252,8 @@ rb_hash_aref(VALUE hash, VALUE key)
     }
     else {
         return rb_hash_default_value(hash, key);
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(key);
     }
 }
 
@@ -2126,6 +2267,9 @@ rb_hash_lookup2(VALUE hash, VALUE key, VALUE def)
     }
     else {
         return def; /* without Hash#default */
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(def);
+        RB_GC_GUARD(key);
     }
 }
 
@@ -2133,6 +2277,8 @@ VALUE
 rb_hash_lookup(VALUE hash, VALUE key)
 {
     return rb_hash_lookup2(hash, key, Qnil);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2187,17 +2333,22 @@ rb_hash_fetch_m(int argc, VALUE *argv, VALUE hash)
             }
             desc = rb_str_ellipsize(desc, 65);
             rb_key_err_raise(rb_sprintf("key not found: %"PRIsVALUE, desc), hash, key);
+        RB_GC_GUARD(desc);
         }
         else {
             return argv[1];
         }
     }
+            RB_GC_GUARD(key);
+            RB_GC_GUARD(hash);
 }
 
 VALUE
 rb_hash_fetch(VALUE hash, VALUE key)
 {
     return rb_hash_fetch_m(1, &key, hash);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2232,6 +2383,8 @@ rb_hash_default(int argc, VALUE *argv, VALUE hash)
         return call_default_proc(ifnone, hash, argv[0]);
     }
     return ifnone;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ifnone);
 }
 
 /*
@@ -2253,6 +2406,8 @@ rb_hash_set_default(VALUE hash, VALUE ifnone)
     rb_hash_modify_check(hash);
     SET_DEFAULT(hash, ifnone);
     return ifnone;
+    RB_GC_GUARD(ifnone);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2274,6 +2429,7 @@ rb_hash_default_proc(VALUE hash)
         return RHASH_IFNONE(hash);
     }
     return Qnil;
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2309,6 +2465,9 @@ rb_hash_set_default_proc(VALUE hash, VALUE proc)
     proc = b;
     SET_PROC_DEFAULT(hash, proc);
     return proc;
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(b);
 }
 
 static int
@@ -2321,6 +2480,9 @@ key_i(VALUE key, VALUE value, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2347,6 +2509,8 @@ rb_hash_key(VALUE hash, VALUE value)
     rb_hash_foreach(hash, key_i, (VALUE)args);
 
     return args[1];
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(hash);
 }
 
 int
@@ -2357,6 +2521,7 @@ rb_hash_stlike_delete(VALUE hash, st_data_t *pkey, st_data_t *pval)
     }
     else {
         return st_delete(RHASH_ST_TABLE(hash), pkey, pval);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -2375,6 +2540,8 @@ rb_hash_delete_entry(VALUE hash, VALUE key)
     }
     else {
         return Qundef;
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(key);
     }
 }
 
@@ -2393,6 +2560,9 @@ rb_hash_delete(VALUE hash, VALUE key)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(deleted_value);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(hash);
     }
 }
 
@@ -2442,6 +2612,9 @@ rb_hash_delete_m(VALUE hash, VALUE key)
         else {
             return Qnil;
         }
+            RB_GC_GUARD(val);
+            RB_GC_GUARD(key);
+            RB_GC_GUARD(hash);
     }
 }
 
@@ -2458,6 +2631,9 @@ shift_i_safe(VALUE key, VALUE value, VALUE arg)
     var->key = key;
     var->val = value;
     return ST_STOP;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2511,6 +2687,7 @@ rb_hash_shift(VALUE hash)
         }
     }
     return Qnil;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -2521,12 +2698,18 @@ delete_if_i(VALUE key, VALUE value, VALUE hash)
         return ST_DELETE;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
 hash_enum_size(VALUE hash, VALUE args, VALUE eobj)
 {
     return rb_hash_size(hash);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2556,6 +2739,7 @@ rb_hash_delete_if(VALUE hash)
         compact_after_delete(hash);
     }
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2588,6 +2772,7 @@ rb_hash_reject_bang(VALUE hash)
     rb_hash_foreach(hash, delete_if_i, hash);
     if (n == RHASH_SIZE(hash)) return Qnil;
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2620,6 +2805,8 @@ rb_hash_reject(VALUE hash)
         compact_after_delete(result);
     }
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -2652,6 +2839,10 @@ rb_hash_slice(int argc, VALUE *argv, VALUE hash)
     }
 
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2680,6 +2871,9 @@ rb_hash_except(int argc, VALUE *argv, VALUE hash)
     compact_after_delete(result);
 
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2705,6 +2899,8 @@ rb_hash_values_at(int argc, VALUE *argv, VALUE hash)
         rb_ary_push(result, rb_hash_aref(hash, argv[i]));
     }
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -2737,6 +2933,8 @@ rb_hash_fetch_values(int argc, VALUE *argv, VALUE hash)
         rb_ary_push(result, rb_hash_fetch(hash, argv[i]));
     }
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 static int
@@ -2747,6 +2945,9 @@ keep_if_i(VALUE key, VALUE value, VALUE hash)
         return ST_DELETE;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2776,6 +2977,8 @@ rb_hash_select(VALUE hash)
         compact_after_delete(result);
     }
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -2807,6 +3010,7 @@ rb_hash_select_bang(VALUE hash)
     rb_hash_foreach(hash, keep_if_i, hash);
     if (n == RHASH_SIZE(hash)) return Qnil;
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2835,12 +3039,16 @@ rb_hash_keep_if(VALUE hash)
         rb_hash_foreach(hash, keep_if_i, hash);
     }
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static int
 clear_i(VALUE key, VALUE value, VALUE dummy)
 {
     return ST_DELETE;
+    RB_GC_GUARD(dummy);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2867,6 +3075,7 @@ rb_hash_clear(VALUE hash)
     }
 
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -2884,6 +3093,7 @@ rb_hash_key_str(VALUE key)
     }
     else {
         return rb_str_new_frozen(key);
+        RB_GC_GUARD(key);
     }
 }
 
@@ -2937,6 +3147,9 @@ rb_hash_aset(VALUE hash, VALUE key, VALUE val)
         RHASH_UPDATE_ITER(hash, iter_p, key, hash_aset_str, val);
     }
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2971,6 +3184,8 @@ rb_hash_replace(VALUE hash, VALUE hash2)
     hash_copy(hash, hash2);
 
     return hash;
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2988,12 +3203,14 @@ VALUE
 rb_hash_size(VALUE hash)
 {
     return INT2FIX(RHASH_SIZE(hash));
+    RB_GC_GUARD(hash);
 }
 
 size_t
 rb_hash_size_num(VALUE hash)
 {
     return (long)RHASH_SIZE(hash);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -3009,6 +3226,7 @@ VALUE
 rb_hash_empty_p(VALUE hash)
 {
     return RBOOL(RHASH_EMPTY_P(hash));
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3016,6 +3234,9 @@ each_value_i(VALUE key, VALUE value, VALUE _)
 {
     rb_yield(value);
     return ST_CONTINUE;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3048,6 +3269,7 @@ rb_hash_each_value(VALUE hash)
     RETURN_SIZED_ENUMERATOR(hash, 0, 0, hash_enum_size);
     rb_hash_foreach(hash, each_value_i, 0);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3055,6 +3277,9 @@ each_key_i(VALUE key, VALUE value, VALUE _)
 {
     rb_yield(key);
     return ST_CONTINUE;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3086,6 +3311,7 @@ rb_hash_each_key(VALUE hash)
     RETURN_SIZED_ENUMERATOR(hash, 0, 0, hash_enum_size);
     rb_hash_foreach(hash, each_key_i, 0);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3093,6 +3319,9 @@ each_pair_i(VALUE key, VALUE value, VALUE _)
 {
     rb_yield(rb_assoc_new(key, value));
     return ST_CONTINUE;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static int
@@ -3103,6 +3332,9 @@ each_pair_i_fast(VALUE key, VALUE value, VALUE _)
     argv[1] = value;
     rb_yield_values2(2, argv);
     return ST_CONTINUE;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3140,6 +3372,7 @@ rb_hash_each_pair(VALUE hash)
     else
         rb_hash_foreach(hash, each_pair_i, 0);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 struct transform_keys_args{
@@ -3162,6 +3395,12 @@ transform_keys_hash_i(VALUE key, VALUE value, VALUE transarg)
     }
     rb_hash_aset(result, new_key, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(transarg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(new_key);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(trans);
 }
 
 static int
@@ -3170,6 +3409,10 @@ transform_keys_i(VALUE key, VALUE value, VALUE result)
     VALUE new_key = rb_yield(key);
     rb_hash_aset(result, new_key, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(new_key);
 }
 
 /*
@@ -3235,6 +3478,8 @@ rb_hash_transform_keys(int argc, VALUE *argv, VALUE hash)
     }
 
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 static int flatten_i(VALUE key, VALUE val, VALUE ary);
@@ -3290,12 +3535,19 @@ rb_hash_transform_keys_bang(int argc, VALUE *argv, VALUE hash)
             }
             rb_hash_aset(hash, new_key, val);
             rb_hash_aset(new_keys, new_key, Qnil);
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(new_key);
+        RB_GC_GUARD(key);
         }
         rb_ary_clear(pairs);
         rb_hash_clear(new_keys);
+    RB_GC_GUARD(pairs);
+    RB_GC_GUARD(new_keys);
     }
     compact_after_delete(hash);
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(trans);
 }
 
 static int
@@ -3312,6 +3564,8 @@ transform_values_foreach_replace(st_data_t *key, st_data_t *value, st_data_t arg
     rb_hash_modify(hash);
     RB_OBJ_WRITE(hash, value, new_value);
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(new_value);
 }
 
 static VALUE
@@ -3319,6 +3573,7 @@ transform_values_call(VALUE hash)
 {
     rb_hash_stlike_foreach_with_replace(hash, transform_values_foreach_func, transform_values_foreach_replace, hash);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -3326,6 +3581,7 @@ transform_values(VALUE hash)
 {
     hash_iter_lev_inc(hash);
     rb_ensure(transform_values_call, hash, hash_foreach_ensure, hash);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -3363,6 +3619,8 @@ rb_hash_transform_values(VALUE hash)
     }
 
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -3391,6 +3649,7 @@ rb_hash_transform_values_bang(VALUE hash)
     }
 
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3398,6 +3657,9 @@ to_a_i(VALUE key, VALUE value, VALUE ary)
 {
     rb_ary_push(ary, rb_assoc_new(key, value));
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3419,6 +3681,8 @@ rb_hash_to_a(VALUE hash)
     rb_hash_foreach(hash, to_a_i, ary);
 
     return ary;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ary);
 }
 
 static bool
@@ -3449,6 +3713,7 @@ symbol_key_needs_quote(VALUE str)
             return true;
         default:
             return false;
+            RB_GC_GUARD(str);
     }
 }
 
@@ -3484,6 +3749,10 @@ inspect_i(VALUE key, VALUE value, VALUE str)
     rb_str_buf_append(str, str2);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(str2);
 }
 
 static VALUE
@@ -3497,6 +3766,9 @@ inspect_hash(VALUE hash, VALUE dummy, int recur)
     rb_str_buf_cat2(str, "}");
 
     return str;
+    RB_GC_GUARD(dummy);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3516,6 +3788,7 @@ rb_hash_inspect(VALUE hash)
     if (RHASH_EMPTY_P(hash))
         return rb_usascii_str_new2("{}");
     return rb_exec_recursive(inspect_hash, hash, 0);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -3528,6 +3801,7 @@ static VALUE
 rb_hash_to_hash(VALUE hash)
 {
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -3546,6 +3820,9 @@ rb_hash_set_pair(VALUE hash, VALUE arg)
     }
     rb_hash_aset(hash, RARRAY_AREF(pair, 0), RARRAY_AREF(pair, 1));
     return hash;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(pair);
 }
 
 static int
@@ -3553,6 +3830,9 @@ to_h_i(VALUE key, VALUE value, VALUE hash)
 {
     rb_hash_set_pair(hash, rb_yield_values(2, key, value));
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -3561,6 +3841,8 @@ rb_hash_to_h_block(VALUE hash)
     VALUE h = rb_hash_new_with_size(RHASH_SIZE(hash));
     rb_hash_foreach(hash, to_h_i, h);
     return h;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(h);
 }
 
 /*
@@ -3593,6 +3875,7 @@ rb_hash_to_h(VALUE hash)
         hash = hash_dup(hash, rb_cHash, flags & RHASH_PROC_DEFAULT);
     }
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3600,6 +3883,9 @@ keys_i(VALUE key, VALUE value, VALUE ary)
 {
     rb_ary_push(ary, key);
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3637,6 +3923,8 @@ rb_hash_keys(VALUE hash)
     }
 
     return keys;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(keys);
 }
 
 static int
@@ -3644,6 +3932,9 @@ values_i(VALUE key, VALUE value, VALUE ary)
 {
     rb_ary_push(ary, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3686,6 +3977,8 @@ rb_hash_values(VALUE hash)
     }
 
     return values;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(values);
 }
 
 /*
@@ -3702,6 +3995,8 @@ VALUE
 rb_hash_has_key(VALUE hash, VALUE key)
 {
     return RBOOL(hash_stlike_lookup(hash, key, NULL));
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3714,6 +4009,9 @@ rb_hash_search_value(VALUE key, VALUE value, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3733,6 +4031,8 @@ rb_hash_has_value(VALUE hash, VALUE val)
     data[1] = val;
     rb_hash_foreach(hash, rb_hash_search_value, (VALUE)data);
     return data[0];
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(hash);
 }
 
 struct equal_data {
@@ -3757,6 +4057,9 @@ eql_i(VALUE key, VALUE val1, VALUE arg)
             return ST_STOP;
         }
         return ST_CONTINUE;
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(arg);
+        RB_GC_GUARD(val1);
     }
 }
 
@@ -3771,6 +4074,8 @@ recursive_eql(VALUE hash, VALUE dt, int recur)
     rb_hash_foreach(hash, eql_i, dt);
 
     return data->result;
+    RB_GC_GUARD(dt);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -3814,6 +4119,8 @@ hash_equal(VALUE hash1, VALUE hash2, int eql)
         return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash1);
 }
 
 /*
@@ -3839,6 +4146,8 @@ static VALUE
 rb_hash_equal(VALUE hash1, VALUE hash2)
 {
     return hash_equal(hash1, hash2, FALSE);
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash1);
 }
 
 /*
@@ -3863,6 +4172,8 @@ static VALUE
 rb_hash_eql(VALUE hash1, VALUE hash2)
 {
     return hash_equal(hash1, hash2, TRUE);
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash1);
 }
 
 static int
@@ -3875,6 +4186,9 @@ hash_i(VALUE key, VALUE val, VALUE arg)
     hdata[1] = rb_hash(val);
     *hval ^= st_hash(hdata, sizeof(hdata), 0);
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3902,6 +4216,7 @@ rb_hash_hash(VALUE hash)
     }
     hval = rb_hash_end(hval);
     return ST2FIX(hval);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3909,6 +4224,9 @@ rb_hash_invert_i(VALUE key, VALUE value, VALUE hash)
 {
     rb_hash_aset(hash, value, key);
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -3933,6 +4251,8 @@ rb_hash_invert(VALUE hash)
 
     rb_hash_foreach(hash, rb_hash_invert_i, h);
     return h;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(h);
 }
 
 static int
@@ -3940,6 +4260,9 @@ rb_hash_update_i(VALUE key, VALUE value, VALUE hash)
 {
     rb_hash_aset(hash, key, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 struct update_call_args {
@@ -3968,6 +4291,10 @@ rb_hash_update_block_callback(st_data_t *key, st_data_t *value, struct update_ar
     }
     *value = (st_data_t)newvalue;
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(newvalue);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(k);
 }
 
 NOINSERT_UPDATE_CALLBACK(rb_hash_update_block_callback)
@@ -3979,6 +4306,9 @@ rb_hash_update_block_i(VALUE key, VALUE value, VALUE args)
     ua->newvalue = value;
     RHASH_UPDATE(ua->hash, key, rb_hash_update_block_callback, args);
     return ST_CONTINUE;
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -3993,9 +4323,11 @@ rb_hash_update_call(VALUE args)
         }
         else {
             rb_hash_foreach(hash, rb_hash_update_i, arg->hash);
+    RB_GC_GUARD(hash);
         }
     }
     return arg->hash;
+    RB_GC_GUARD(args);
 }
 
 static VALUE
@@ -4004,6 +4336,7 @@ rb_hash_update_ensure(VALUE args)
     struct update_call_args *ua = (void *)args;
     if (ua->iterating) hash_iter_lev_dec(ua->hash);
     return Qnil;
+    RB_GC_GUARD(args);
 }
 
 /*
@@ -4068,6 +4401,8 @@ rb_hash_update(int argc, VALUE *argv, VALUE self)
 
     rb_hash_modify(self);
     return rb_ensure(rb_hash_update_call, arg, rb_hash_update_ensure, arg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 struct update_func_arg {
@@ -4087,6 +4422,7 @@ rb_hash_update_func_callback(st_data_t *key, st_data_t *value, struct update_arg
     }
     *value = newvalue;
     return ST_CONTINUE;
+    RB_GC_GUARD(newvalue);
 }
 
 NOINSERT_UPDATE_CALLBACK(rb_hash_update_func_callback)
@@ -4100,6 +4436,10 @@ rb_hash_update_func_i(VALUE key, VALUE value, VALUE arg0)
     arg->value = value;
     RHASH_UPDATE(hash, key, rb_hash_update_func_callback, (VALUE)arg);
     return ST_CONTINUE;
+    RB_GC_GUARD(arg0);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -4117,6 +4457,8 @@ rb_hash_update_by(VALUE hash1, VALUE hash2, rb_hash_update_func *func)
         rb_hash_foreach(hash2, rb_hash_update_i, hash1);
     }
     return hash1;
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash1);
 }
 
 /*
@@ -4174,12 +4516,15 @@ static VALUE
 rb_hash_merge(int argc, VALUE *argv, VALUE self)
 {
     return rb_hash_update(argc, argv, copy_compare_by_id(rb_hash_dup(self), self));
+    RB_GC_GUARD(self);
 }
 
 static int
 assoc_cmp(VALUE a, VALUE b)
 {
     return !RTEST(rb_equal(a, b));
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 struct assoc_arg {
@@ -4194,6 +4539,7 @@ assoc_lookup(VALUE arg)
     st_data_t data;
     if (st_lookup(p->tbl, p->key, &data)) return (VALUE)data;
     return Qundef;
+    RB_GC_GUARD(arg);
 }
 
 static int
@@ -4206,6 +4552,9 @@ assoc_i(VALUE key, VALUE val, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -4247,12 +4596,16 @@ rb_hash_assoc(VALUE hash, VALUE key)
         }
         hash_verify(hash);
         if (!UNDEF_P(value)) return rb_assoc_new(key, value);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
     }
 
     args[0] = key;
     args[1] = Qnil;
     rb_hash_foreach(hash, assoc_i, (VALUE)args);
     return args[1];
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -4265,6 +4618,9 @@ rassoc_i(VALUE key, VALUE val, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -4289,6 +4645,8 @@ rb_hash_rassoc(VALUE hash, VALUE obj)
     args[1] = Qnil;
     rb_hash_foreach(hash, rassoc_i, (VALUE)args);
     return args[1];
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -4301,6 +4659,9 @@ flatten_i(VALUE key, VALUE val, VALUE ary)
     rb_ary_cat(ary, pair, 2);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -4353,6 +4714,7 @@ rb_hash_flatten(int argc, VALUE *argv, VALUE hash)
         if (level > 0) {
             VALUE ary_flatten_level = INT2FIX(level);
             rb_funcallv(ary, id_flatten_bang, 1, &ary_flatten_level);
+        RB_GC_GUARD(ary_flatten_level);
         }
         else if (level < 0) {
             /* flatten recursively */
@@ -4365,6 +4727,8 @@ rb_hash_flatten(int argc, VALUE *argv, VALUE hash)
     }
 
     return ary;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -4374,6 +4738,9 @@ delete_if_nil(VALUE key, VALUE value, VALUE hash)
         return ST_DELETE;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -4398,6 +4765,8 @@ rb_hash_compact(VALUE hash)
         result = rb_hash_compare_by_id(result);
     }
     return result;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -4423,6 +4792,7 @@ rb_hash_compact_bang(VALUE hash)
             return hash;
     }
     return Qnil;
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -4491,6 +4861,8 @@ rb_hash_compare_by_id(VALUE hash)
     }
 
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -4504,6 +4876,7 @@ VALUE
 rb_hash_compare_by_id_p(VALUE hash)
 {
     return RBOOL(RHASH_IDENTHASH_P(hash));
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -4512,6 +4885,7 @@ rb_ident_hash_new(void)
     VALUE hash = rb_hash_new();
     hash_st_table_init(hash, &identhash, 0);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -4520,6 +4894,7 @@ rb_ident_hash_new_with_size(st_index_t size)
     VALUE hash = rb_hash_new();
     hash_st_table_init(hash, &identhash, size);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 st_table *
@@ -4537,6 +4912,10 @@ any_p_i(VALUE key, VALUE value, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(ret);
 }
 
 static int
@@ -4548,6 +4927,10 @@ any_p_i_fast(VALUE key, VALUE value, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(ret);
 }
 
 static int
@@ -4559,6 +4942,10 @@ any_p_i_pattern(VALUE key, VALUE value, VALUE arg)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -4622,6 +5009,7 @@ rb_hash_any_p(int argc, VALUE *argv, VALUE hash)
             rb_hash_foreach(hash, any_p_i, (VALUE)args);
     }
     return args[0];
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -4661,6 +5049,7 @@ rb_hash_dig(int argc, VALUE *argv, VALUE self)
     if (!--argc) return self;
     ++argv;
     return rb_obj_dig(argc, argv, self, Qnil);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -4671,6 +5060,10 @@ hash_le_i(VALUE key, VALUE value, VALUE arg)
     if (!UNDEF_P(v) && rb_equal(value, v)) return ST_CONTINUE;
     args[1] = Qfalse;
     return ST_STOP;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -4681,6 +5074,8 @@ hash_le(VALUE hash1, VALUE hash2)
     args[1] = Qtrue;
     rb_hash_foreach(hash1, hash_le_i, (VALUE)args);
     return args[1];
+    RB_GC_GUARD(hash2);
+    RB_GC_GUARD(hash1);
 }
 
 /*
@@ -4700,6 +5095,8 @@ rb_hash_le(VALUE hash, VALUE other)
     other = to_hash(other);
     if (RHASH_SIZE(hash) > RHASH_SIZE(other)) return Qfalse;
     return hash_le(hash, other);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -4719,6 +5116,8 @@ rb_hash_lt(VALUE hash, VALUE other)
     other = to_hash(other);
     if (RHASH_SIZE(hash) >= RHASH_SIZE(other)) return Qfalse;
     return hash_le(hash, other);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -4738,6 +5137,8 @@ rb_hash_ge(VALUE hash, VALUE other)
     other = to_hash(other);
     if (RHASH_SIZE(hash) < RHASH_SIZE(other)) return Qfalse;
     return hash_le(other, hash);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -4757,6 +5158,8 @@ rb_hash_gt(VALUE hash, VALUE other)
     other = to_hash(other);
     if (RHASH_SIZE(hash) <= RHASH_SIZE(other)) return Qfalse;
     return hash_le(other, hash);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -4764,6 +5167,9 @@ hash_proc_call(RB_BLOCK_CALL_FUNC_ARGLIST(key, hash))
 {
     rb_check_arity(argc, 1, 1);
     return rb_hash_aref(hash, *argv);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -4782,6 +5188,7 @@ static VALUE
 rb_hash_to_proc(VALUE hash)
 {
     return rb_func_lambda_new(hash_proc_call, hash, 1, 1);
+    RB_GC_GUARD(hash);
 }
 
 /* :nodoc: */
@@ -4789,6 +5196,8 @@ static VALUE
 rb_hash_deconstruct_keys(VALUE hash, VALUE keys)
 {
     return hash;
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -4824,6 +5233,9 @@ rb_hash_add_new_element(VALUE hash, VALUE key, VALUE val)
 
     tbl = RHASH_TBL_RAW(hash);
     return st_update(tbl, (st_data_t)key, add_new_i, (st_data_t)args);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
 
 }
 
@@ -4832,6 +5244,7 @@ key_stringify(VALUE key)
 {
     return (rb_obj_class(key) == rb_cString && !RB_OBJ_FROZEN(key)) ?
         rb_hash_key_str(key) : key;
+        RB_GC_GUARD(key);
 }
 
 static void
@@ -4845,6 +5258,7 @@ ar_bulk_insert(VALUE hash, long argc, const VALUE *argv)
         RB_OBJ_WRITTEN(hash, Qundef, k);
         RB_OBJ_WRITTEN(hash, Qundef, v);
     }
+        RB_GC_GUARD(hash);
 }
 
 void
@@ -4862,6 +5276,7 @@ rb_hash_bulk_insert(long argc, const VALUE *argv, VALUE hash)
             rb_hash_bulk_insert_into_st_table(argc, argv, hash);
         }
     }
+            RB_GC_GUARD(hash);
 }
 
 static char **origenviron;
@@ -4911,6 +5326,7 @@ env_enc_str_new(const char *ptr, long len, rb_encoding *enc)
 
     rb_obj_freeze(str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -4937,6 +5353,7 @@ getenv_with_lock(const char *name)
     }
     ENV_UNLOCK();
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static bool
@@ -4969,6 +5386,7 @@ get_env_cstr(VALUE str, const char *name)
         rb_raise(rb_eArgError, "bad environment variable %s: contains null byte", name);
     }
     return rb_str_fill_terminator(str, 1); /* ASCII compatible */
+    RB_GC_GUARD(str);
 }
 
 #define get_env_ptr(var, val) \
@@ -5012,6 +5430,8 @@ env_delete(VALUE name)
         ruby_setenv(nam, 0);
     }
     return val;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -5047,6 +5467,9 @@ env_delete_m(VALUE obj, VALUE name)
     val = env_delete(name);
     if (NIL_P(val) && rb_block_given_p()) val = rb_yield(name);
     return val;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -5067,6 +5490,9 @@ rb_f_getenv(VALUE obj, VALUE name)
     const char *nam = env_name(name);
     VALUE env = getenv_with_lock(nam);
     return env;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(env);
 }
 
 /*
@@ -5119,6 +5545,9 @@ env_fetch(int argc, VALUE *argv, VALUE _)
         return argv[1];
     }
     return env;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(env);
+    RB_GC_GUARD(key);
 }
 
 #if defined(_WIN32) || (defined(HAVE_SETENV) && defined(HAVE_UNSETENV))
@@ -5392,6 +5821,9 @@ static VALUE
 env_aset_m(VALUE obj, VALUE nm, VALUE val)
 {
     return env_aset(nm, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(nm);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -5413,6 +5845,8 @@ env_aset(VALUE nm, VALUE val)
     ruby_setenv(name, value);
     reset_by_modified_env(name, value);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(nm);
 }
 
 static VALUE
@@ -5431,6 +5865,7 @@ env_keys(int raw)
                 size_t l = s - p;
                 VALUE e = raw ? rb_utf8_str_new(p, l) : env_enc_str_new(p, l, enc);
                 rb_ary_push(ary, e);
+            RB_GC_GUARD(e);
             }
             env++;
         }
@@ -5439,6 +5874,7 @@ env_keys(int raw)
     ENV_UNLOCK();
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -5458,6 +5894,7 @@ static VALUE
 env_f_keys(VALUE _)
 {
     return env_keys(FALSE);
+    RB_GC_GUARD(_);
 }
 
 static VALUE
@@ -5479,6 +5916,9 @@ rb_env_size(VALUE ehash, VALUE args, VALUE eobj)
     ENV_UNLOCK();
 
     return LONG2FIX(cnt);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ehash);
 }
 
 /*
@@ -5510,6 +5950,8 @@ env_each_key(VALUE ehash)
         rb_yield(RARRAY_AREF(keys, i));
     }
     return ehash;
+    RB_GC_GUARD(ehash);
+    RB_GC_GUARD(keys);
 }
 
 static VALUE
@@ -5533,6 +5975,7 @@ env_values(void)
     ENV_UNLOCK();
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -5551,6 +5994,7 @@ static VALUE
 env_f_values(VALUE _)
 {
     return env_values();
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -5582,6 +6026,8 @@ env_each_value(VALUE ehash)
         rb_yield(RARRAY_AREF(values, i));
     }
     return ehash;
+    RB_GC_GUARD(ehash);
+    RB_GC_GUARD(values);
 }
 
 /*
@@ -5639,6 +6085,8 @@ env_each_pair(VALUE ehash)
     }
 
     return ehash;
+    RB_GC_GUARD(ehash);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -5680,11 +6128,14 @@ env_reject_bang(VALUE ehash)
                 env_delete(RARRAY_AREF(keys, i));
                 del++;
             }
+    RB_GC_GUARD(val);
         }
     }
     RB_GC_GUARD(keys);
     if (del == 0) return Qnil;
     return envtbl;
+    RB_GC_GUARD(ehash);
+    RB_GC_GUARD(keys);
 }
 
 /*
@@ -5713,6 +6164,7 @@ env_delete_if(VALUE ehash)
     RETURN_SIZED_ENUMERATOR(ehash, 0, 0, rb_env_size);
     env_reject_bang(ehash);
     return envtbl;
+    RB_GC_GUARD(ehash);
 }
 
 /*
@@ -5743,6 +6195,8 @@ env_values_at(int argc, VALUE *argv, VALUE _)
         rb_ary_push(result, rb_f_getenv(Qnil, argv[i]));
     }
     return result;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -5781,11 +6235,16 @@ env_select(VALUE ehash)
             if (RTEST(rb_yield_values(2, key, val))) {
                 rb_hash_aset(result, key, val);
             }
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(val);
         }
     }
     RB_GC_GUARD(keys);
 
     return result;
+    RB_GC_GUARD(ehash);
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -5840,11 +6299,14 @@ env_select_bang(VALUE ehash)
                 env_delete(RARRAY_AREF(keys, i));
                 del++;
             }
+    RB_GC_GUARD(val);
         }
     }
     RB_GC_GUARD(keys);
     if (del == 0) return Qnil;
     return envtbl;
+    RB_GC_GUARD(ehash);
+    RB_GC_GUARD(keys);
 }
 
 /*
@@ -5871,6 +6333,7 @@ env_keep_if(VALUE ehash)
     RETURN_SIZED_ENUMERATOR(ehash, 0, 0, rb_env_size);
     env_select_bang(ehash);
     return envtbl;
+    RB_GC_GUARD(ehash);
 }
 
 /*
@@ -5904,6 +6367,10 @@ env_slice(int argc, VALUE *argv, VALUE _)
     }
 
     return result;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 VALUE
@@ -5917,9 +6384,11 @@ rb_env_clear(void)
         VALUE key = RARRAY_AREF(keys, i);
         const char *nam = RSTRING_PTR(key);
         ruby_setenv(nam, 0);
+    RB_GC_GUARD(key);
     }
     RB_GC_GUARD(keys);
     return envtbl;
+    RB_GC_GUARD(keys);
 }
 
 /*
@@ -5936,6 +6405,7 @@ static VALUE
 env_clear(VALUE _)
 {
     return rb_env_clear();
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -5949,6 +6419,7 @@ static VALUE
 env_to_s(VALUE _)
 {
     return rb_usascii_str_new2("ENV");
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -5989,6 +6460,8 @@ env_inspect(VALUE _)
     rb_str_buf_cat2(str, "}");
 
     return str;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6021,6 +6494,8 @@ env_to_a(VALUE _)
     ENV_UNLOCK();
 
     return ary;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -6035,6 +6510,7 @@ static VALUE
 env_none(VALUE _)
 {
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 static int
@@ -6067,6 +6543,7 @@ static VALUE
 env_size(VALUE _)
 {
     return INT2FIX(env_size_with_lock());
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -6095,6 +6572,7 @@ env_empty_p(VALUE _)
     ENV_UNLOCK();
 
     return RBOOL(empty);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -6125,6 +6603,8 @@ env_has_key(VALUE env, VALUE key)
 {
     const char *s = env_name(key);
     return RBOOL(has_env_with_lock(s));
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(env);
 }
 
 /*
@@ -6158,6 +6638,9 @@ env_assoc(VALUE env, VALUE key)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(e);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(env);
     }
 }
 
@@ -6200,6 +6683,9 @@ env_has_value(VALUE dmy, VALUE obj)
     ENV_UNLOCK();
 
     return ret;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dmy);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -6245,6 +6731,9 @@ env_rassoc(VALUE dmy, VALUE obj)
     ENV_UNLOCK();
 
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dmy);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -6288,6 +6777,9 @@ env_key(VALUE dmy, VALUE value)
     ENV_UNLOCK();
 
     return str;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(dmy);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -6311,6 +6803,7 @@ env_to_hash(void)
     ENV_UNLOCK();
 
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -6338,6 +6831,7 @@ static VALUE
 env_f_to_hash(VALUE _)
 {
     return env_to_hash();
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -6366,6 +6860,8 @@ env_to_h(VALUE _)
         hash = rb_hash_to_h_block(hash);
     }
     return hash;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -6389,6 +6885,9 @@ env_except(int argc, VALUE *argv, VALUE _)
     }
 
     return hash;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -6410,6 +6909,7 @@ static VALUE
 env_reject(VALUE _)
 {
     return rb_hash_delete_if(env_to_hash());
+    RB_GC_GUARD(_);
 }
 
 NORETURN(static VALUE env_freeze(VALUE self));
@@ -6425,6 +6925,7 @@ env_freeze(VALUE self)
 {
     rb_raise(rb_eTypeError, "cannot freeze ENV");
     UNREACHABLE_RETURN(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -6458,6 +6959,7 @@ env_shift(VALUE _)
                 key = env_str_new(p, s-p);
                 VALUE val = env_str_new2(getenv(RSTRING_PTR(key)));
                 result = rb_assoc_new(key, val);
+        RB_GC_GUARD(val);
             }
         }
         FREE_ENVIRON(environ);
@@ -6469,6 +6971,9 @@ env_shift(VALUE _)
     }
 
     return result;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -6490,6 +6995,7 @@ static VALUE
 env_invert(VALUE _)
 {
     return rb_hash_invert(env_to_hash());
+    RB_GC_GUARD(_);
 }
 
 static void
@@ -6508,7 +7014,10 @@ keylist_delete(VALUE keys, VALUE key)
         if (!ENVNMATCH(keyptr, eptr, elen)) continue;
         rb_ary_delete_at(keys, i);
         i--;
+        RB_GC_GUARD(e);
     }
+        RB_GC_GUARD(keys);
+        RB_GC_GUARD(key);
 }
 
 static int
@@ -6519,6 +7028,9 @@ env_replace_i(VALUE key, VALUE val, VALUE keys)
 
     keylist_delete(keys, key);
     return ST_CONTINUE;
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -6555,6 +7067,9 @@ env_replace(VALUE env, VALUE hash)
     }
     RB_GC_GUARD(keys);
     return env;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(env);
+    RB_GC_GUARD(keys);
 }
 
 static int
@@ -6562,6 +7077,9 @@ env_update_i(VALUE key, VALUE val, VALUE _)
 {
     env_aset(key, val);
     return ST_CONTINUE;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static int
@@ -6573,6 +7091,10 @@ env_update_block_i(VALUE key, VALUE val, VALUE _)
     }
     env_aset(key, val);
     return ST_CONTINUE;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(oldval);
 }
 
 /*
@@ -6621,8 +7143,10 @@ env_update(int argc, VALUE *argv, VALUE env)
         if (env == hash) continue;
         hash = to_hash(hash);
         rb_hash_foreach(hash, func, 0);
+    RB_GC_GUARD(hash);
     }
     return env;
+    RB_GC_GUARD(env);
 }
 
 NORETURN(static VALUE env_clone(int, VALUE *, VALUE));
@@ -6641,10 +7165,12 @@ env_clone(int argc, VALUE *argv, VALUE obj)
         VALUE opt;
         if (rb_scan_args(argc, argv, "0:", &opt) < argc) {
             rb_get_freeze_opt(1, &opt);
+    RB_GC_GUARD(opt);
         }
     }
 
     rb_raise(rb_eTypeError, "Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash");
+    RB_GC_GUARD(obj);
 }
 
 NORETURN(static VALUE env_dup(VALUE));
@@ -6659,6 +7185,7 @@ static VALUE
 env_dup(VALUE obj)
 {
     rb_raise(rb_eTypeError, "Cannot dup ENV, use ENV.to_h to get a copy of ENV as a hash");
+    RB_GC_GUARD(obj);
 }
 
 static const rb_data_type_t env_data_type = {
@@ -7489,6 +8016,7 @@ Init_Hash(void)
     rb_define_global_const("ENV", envtbl);
 
     HASH_ASSERT(sizeof(ar_hint_t) * RHASH_AR_TABLE_MAX_SIZE == sizeof(VALUE));
+    RB_GC_GUARD(envtbl_class);
 }
 
 #include "hash.rbinc"

@@ -57,4 +57,7 @@ Init_md5(void)
 
     cDigest_MD5 = rb_define_class_under(mDigest, "MD5", cDigest_Base);
     rb_iv_set(cDigest_MD5, "metadata", rb_digest_make_metadata(&md5));
+    RB_GC_GUARD(mDigest);
+    RB_GC_GUARD(cDigest_MD5);
+    RB_GC_GUARD(cDigest_Base);
 }

@@ -22,6 +22,7 @@ unixsock_connect_internal(VALUE a)
 {
     struct unixsock_arg *arg = (struct unixsock_arg *)a;
     return (VALUE)rsock_connect(arg->io, (struct sockaddr*)arg->sockaddr, arg->sockaddrlen, 0, RUBY_IO_TIMEOUT_DEFAULT);
+    RB_GC_GUARD(a);
 }
 
 static VALUE
@@ -47,6 +48,8 @@ unixsock_path_value(VALUE path)
     path = rb_str_export_to_enc(path, rb_utf8_encoding());
 #endif
     return rb_get_path(path);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
 }
 
 VALUE
@@ -112,6 +115,9 @@ rsock_init_unixsock(VALUE self, VALUE path, int server)
     }
 
     return io;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -130,6 +136,8 @@ static VALUE
 unix_init(VALUE self, VALUE path)
 {
     return rsock_init_unixsock(self, path, 0);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -158,6 +166,7 @@ unix_path(VALUE sock)
         fptr->pathv = rb_obj_freeze(rsock_unixpath_str(&addr, len));
     }
     return rb_str_dup(fptr->pathv);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -190,6 +199,7 @@ static VALUE
 unix_recvfrom(int argc, VALUE *argv, VALUE sock)
 {
     return rsock_s_recvfrom(sock, argc, argv, RECV_UNIX);
+    RB_GC_GUARD(sock);
 }
 
 #if defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL) && defined(SCM_RIGHTS)
@@ -296,6 +306,8 @@ unix_send_io(VALUE sock, VALUE val)
     }
 
     return Qnil;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(sock);
 }
 #else
 #define unix_send_io rb_f_notimplement
@@ -474,6 +486,9 @@ retry:
         ff_argv[0] = INT2FIX(fd);
         ff_argv[1] = mode;
         return rb_funcallv(klass, for_fd, ff_argc, ff_argv);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(sock);
+        RB_GC_GUARD(mode);
     }
 }
 #else
@@ -505,6 +520,7 @@ unix_addr(VALUE sock)
         rsock_sys_fail_path("getsockname(2)", fptr->pathv);
     if (len0 < len) len = len0;
     return rsock_unixaddr(&addr, len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -533,6 +549,7 @@ unix_peeraddr(VALUE sock)
         rsock_sys_fail_path("getpeername(2)", fptr->pathv);
     if (len0 < len) len = len0;
     return rsock_unixaddr(&addr, len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -571,6 +588,10 @@ unix_s_socketpair(int argc, VALUE *argv, VALUE klass)
     args[2] = protocol;
 
     return rsock_sock_s_socketpair(3, args, klass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(domain);
 }
 #endif
 

@@ -130,6 +130,7 @@ asn1_to_der(void *template, int (*i2d)(void *template, unsigned char **pp))
     rb_str_set_len(str, p - (unsigned char*)RSTRING_PTR(str));
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 static ASN1_OBJECT*
@@ -143,12 +144,14 @@ obj_to_asn1obj(VALUE obj)
     if(!a1obj) ossl_raise(eASN1Error, "invalid OBJECT ID");
 
     return a1obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
 obj_to_asn1obj_i(VALUE obj)
 {
     return (VALUE)obj_to_asn1obj(obj);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -170,6 +173,7 @@ get_asn1obj(ASN1_OBJECT *obj)
     }
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -188,6 +192,8 @@ ossl_ts_req_alloc(VALUE klass)
     TS_REQ_set_cert_req(req, 1);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -221,6 +227,8 @@ ossl_ts_req_initialize(int argc, VALUE *argv, VALUE self)
     DATA_PTR(self) = ts_req;
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -241,6 +249,7 @@ ossl_ts_req_get_algorithm(VALUE self)
     mi = TS_REQ_get_msg_imprint(req);
     algor = TS_MSG_IMPRINT_get_algo(mi);
     return get_asn1obj(algor->algorithm);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -271,6 +280,8 @@ ossl_ts_req_set_algorithm(VALUE self, VALUE algo)
     }
 
     return algo;
+    RB_GC_GUARD(algo);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -294,6 +305,8 @@ ossl_ts_req_get_msg_imprint(VALUE self)
     ret = rb_str_new((const char *)hashed_msg->data, hashed_msg->length);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -315,6 +328,8 @@ ossl_ts_req_set_msg_imprint(VALUE self, VALUE hash)
         ossl_raise(eTimestampError, "TS_MSG_IMPRINT_set_msg");
 
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -330,6 +345,7 @@ ossl_ts_req_get_version(VALUE self)
 
     GetTSRequest(self, req);
     return LONG2NUM(TS_REQ_get_version(req));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -352,6 +368,8 @@ ossl_ts_req_set_version(VALUE self, VALUE version)
         ossl_raise(eTimestampError, "TS_REQ_set_version");
 
     return version;
+    RB_GC_GUARD(version);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -370,6 +388,7 @@ ossl_ts_req_get_policy_id(VALUE self)
     if (!TS_REQ_get_policy_id(req))
         return Qnil;
     return get_asn1obj(TS_REQ_get_policy_id(req));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -399,6 +418,8 @@ ossl_ts_req_set_policy_id(VALUE self, VALUE oid)
         ossl_raise(eTimestampError, "TS_REQ_set_policy_id");
 
     return oid;
+    RB_GC_GUARD(oid);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -418,6 +439,7 @@ ossl_ts_req_get_nonce(VALUE self)
     if (!(nonce = TS_REQ_get_nonce(req)))
         return Qnil;
     return asn1integer_to_num(nonce);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -442,6 +464,8 @@ ossl_ts_req_set_nonce(VALUE self, VALUE num)
     if (!ok)
         ossl_raise(eTimestampError, NULL);
     return num;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -458,6 +482,7 @@ ossl_ts_req_get_cert_requested(VALUE self)
 
     GetTSRequest(self, req);
     return TS_REQ_get_cert_req(req) ? Qtrue: Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -476,6 +501,8 @@ ossl_ts_req_set_cert_requested(VALUE self, VALUE requested)
     TS_REQ_set_cert_req(req, RTEST(requested));
 
     return requested;
+    RB_GC_GUARD(requested);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -504,6 +531,7 @@ ossl_ts_req_to_der(VALUE self)
         ossl_raise(eTimestampError, "Message imprint missing hashed message");
 
     return asn1_to_der((void *)req, (int (*)(void *, unsigned char **))i2d_TS_REQ);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -523,6 +551,7 @@ ossl_ts_req_to_text(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -537,6 +566,8 @@ ossl_ts_resp_alloc(VALUE klass)
     SetTSResponse(obj, resp);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -566,6 +597,8 @@ ossl_ts_resp_initialize(VALUE self, VALUE der)
     DATA_PTR(self) = ts_resp;
 
     return self;
+    RB_GC_GUARD(der);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -588,6 +621,7 @@ ossl_ts_resp_get_status(VALUE self)
     st = TS_STATUS_INFO_get0_status(si);
 
     return asn1integer_to_num(st);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -652,6 +686,7 @@ ossl_ts_resp_get_failure_info(VALUE self)
         return sSYSTEM_FAILURE;
 
     ossl_raise(eTimestampError, "Unrecognized failure info.");
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -681,6 +716,8 @@ ossl_ts_resp_get_status_text(VALUE self)
     }
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -700,6 +737,7 @@ ossl_ts_resp_get_token(VALUE self)
     if (!(p7 = TS_RESP_get_token(resp)))
         return Qnil;
     return ossl_pkcs7_new(p7);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -727,6 +765,8 @@ ossl_ts_resp_get_token_info(VALUE self)
     SetTSTokenInfo(obj, copy);
 
     return obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -753,6 +793,7 @@ ossl_ts_resp_get_tsa_certificate(VALUE self)
     if (!cert)
         return Qnil;
     return ossl_x509_new(cert);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -768,6 +809,7 @@ ossl_ts_resp_to_der(VALUE self)
 
     GetTSResponse(self, resp);
     return asn1_to_der((void *)resp, (int (*)(void *, unsigned char **))i2d_TS_RESP);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -787,6 +829,7 @@ ossl_ts_resp_to_text(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -874,6 +917,10 @@ ossl_ts_resp_verify(int argc, VALUE *argv, VALUE self)
         ossl_raise(eTimestampError, "TS_RESP_verify_response");
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(intermediates);
+    RB_GC_GUARD(store);
+    RB_GC_GUARD(ts_req);
 }
 
 static VALUE
@@ -888,6 +935,8 @@ ossl_ts_token_info_alloc(VALUE klass)
     SetTSTokenInfo(obj, info);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -917,6 +966,8 @@ ossl_ts_token_info_initialize(VALUE self, VALUE der)
     DATA_PTR(self) = info;
 
     return self;
+    RB_GC_GUARD(der);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -934,6 +985,7 @@ ossl_ts_token_info_get_version(VALUE self)
 
     GetTSTokenInfo(self, info);
     return LONG2NUM(TS_TST_INFO_get_version(info));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -955,6 +1007,7 @@ ossl_ts_token_info_get_policy_id(VALUE self)
 
     GetTSTokenInfo(self, info);
     return get_asn1obj(TS_TST_INFO_get_policy_id(info));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -981,6 +1034,7 @@ ossl_ts_token_info_get_algorithm(VALUE self)
     mi = TS_TST_INFO_get_msg_imprint(info);
     algo = TS_MSG_IMPRINT_get_algo(mi);
     return get_asn1obj(algo->algorithm);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1009,6 +1063,8 @@ ossl_ts_token_info_get_msg_imprint(VALUE self)
     ret = rb_str_new((const char *)hashed_msg->data, hashed_msg->length);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1026,6 +1082,7 @@ ossl_ts_token_info_get_serial_number(VALUE self)
 
     GetTSTokenInfo(self, info);
     return asn1integer_to_num(TS_TST_INFO_get_serial(info));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1042,6 +1099,7 @@ ossl_ts_token_info_get_gen_time(VALUE self)
 
     GetTSTokenInfo(self, info);
     return asn1time_to_time(TS_TST_INFO_get_time(info));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1068,6 +1126,7 @@ ossl_ts_token_info_get_ordering(VALUE self)
 
     GetTSTokenInfo(self, info);
     return TS_TST_INFO_get_ordering(info) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1088,6 +1147,7 @@ ossl_ts_token_info_get_nonce(VALUE self)
         return Qnil;
 
     return asn1integer_to_num(nonce);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1103,6 +1163,7 @@ ossl_ts_token_info_to_der(VALUE self)
 
     GetTSTokenInfo(self, info);
     return asn1_to_der((void *)info, (int (*)(void *, unsigned char **))i2d_TS_TST_INFO);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1122,6 +1183,7 @@ ossl_ts_token_info_to_text(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static ASN1_INTEGER *
@@ -1149,12 +1211,14 @@ static VALUE
 ossl_evp_get_digestbyname_i(VALUE arg)
 {
     return (VALUE)ossl_evp_get_digestbyname(arg);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
 ossl_obj2bio_i(VALUE arg)
 {
     return (VALUE)ossl_obj2bio((VALUE *)arg);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -1271,6 +1335,7 @@ ossl_tsfac_create_ts(VALUE self, VALUE key, VALUE certificate, VALUE request)
             if (status)
                 goto end;
             TS_RESP_CTX_add_md(ctx, md);
+    RB_GC_GUARD(rbmd);
         }
     }
 
@@ -1306,6 +1371,18 @@ end:
     if (status)
         rb_jump_tag(status);
     return ret;
+    RB_GC_GUARD(request);
+    RB_GC_GUARD(certificate);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(tsresp);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(allowed_digests);
+    RB_GC_GUARD(additional_certs);
+    RB_GC_GUARD(gen_time);
+    RB_GC_GUARD(def_policy_id);
+    RB_GC_GUARD(serial_number);
 }
 
 /*

@@ -71,4 +71,7 @@ Init_sha2(void)
 
     cDigest_SHA2 = rb_define_class_under(mDigest, "SHA512", cDigest_Base);
     rb_ivar_set(cDigest_SHA2, id_metadata, rb_digest_make_metadata(&sha512));
+    RB_GC_GUARD(mDigest);
+    RB_GC_GUARD(cDigest_SHA2);
+    RB_GC_GUARD(cDigest_Base);
 }

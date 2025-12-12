@@ -7,6 +7,9 @@ hash_delete(VALUE hash, VALUE key)
 {
     VALUE ret = rb_hash_delete_entry(hash, key);
     return ret == Qundef ? Qnil : rb_ary_new_from_values(1, &ret);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ret);
 }
 
 void

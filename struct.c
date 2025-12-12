@@ -55,6 +55,9 @@ struct_ivar_get(VALUE c, ID id)
             if (!OBJ_FROZEN(orig)) rb_ivar_set(orig, id, ivar);
             return ivar;
         }
+            RB_GC_GUARD(orig);
+            RB_GC_GUARD(c);
+            RB_GC_GUARD(ivar);
     }
 }
 
@@ -62,6 +65,7 @@ VALUE
 rb_struct_s_keyword_init(VALUE klass)
 {
     return struct_ivar_get(klass, id_keyword_init);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -76,6 +80,8 @@ rb_struct_s_members(VALUE klass)
         rb_raise(rb_eTypeError, "corrupted struct");
     }
     return members;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(members);
 }
 
 VALUE
@@ -88,6 +94,8 @@ rb_struct_members(VALUE s)
                  RARRAY_LEN(members), RSTRUCT_LEN(s));
     }
     return members;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(members);
 }
 
 static long
@@ -95,6 +103,7 @@ struct_member_pos_ideal(VALUE name, long mask)
 {
     /* (id & (mask/2)) * 2 */
     return (SYM2ID(name) >> (ID_SCOPE_SHIFT - 1)) & mask;
+    RB_GC_GUARD(name);
 }
 
 static long
@@ -138,11 +147,15 @@ struct_set_members(VALUE klass, VALUE /* frozen hidden array */ members)
             }
         }
         OBJ_FREEZE(back);
+    RB_GC_GUARD(name);
     }
     rb_ivar_set(klass, id_members, members);
     rb_ivar_set(klass, id_back_members, back);
 
     return members;
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(back);
 }
 
 static inline int
@@ -189,6 +202,10 @@ struct_member_pos(VALUE s, VALUE name)
             return -1;
         }
         j = struct_member_pos_probe(j, mask);
+        RB_GC_GUARD(e);
+        RB_GC_GUARD(back);
+        RB_GC_GUARD(name);
+        RB_GC_GUARD(s);
     }
 }
 
@@ -209,6 +226,8 @@ rb_struct_s_members_m(VALUE klass)
     VALUE members = rb_struct_s_members(klass);
 
     return rb_ary_dup(members);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(members);
 }
 
 /*
@@ -227,6 +246,7 @@ static VALUE
 rb_struct_members_m(VALUE obj)
 {
     return rb_struct_s_members_m(rb_obj_class(obj));
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -240,12 +260,15 @@ rb_struct_getmember(VALUE obj, ID id)
     rb_name_err_raise("'%1$s' is not a struct member", obj, ID2SYM(id));
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(slot);
+    RB_GC_GUARD(obj);
 }
 
 static void
 rb_struct_modify(VALUE s)
 {
     rb_check_frozen(s);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -257,6 +280,8 @@ anonymous_struct(VALUE klass)
     rb_make_metaclass(nstr, RBASIC(klass)->klass);
     rb_class_inherited(klass, nstr);
     return nstr;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(nstr);
 }
 
 static VALUE
@@ -275,6 +300,8 @@ new_struct(VALUE name, VALUE super)
         rb_mod_remove_const(super, ID2SYM(id));
     }
     return rb_define_class_id_under_no_pin(super, id, super);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(name);
 }
 
 NORETURN(static void invalid_struct_pos(VALUE s, VALUE idx));
@@ -283,12 +310,18 @@ static void
 define_aref_method(VALUE nstr, VALUE name, VALUE off)
 {
     rb_add_method_optimized(nstr, SYM2ID(name), OPTIMIZED_METHOD_TYPE_STRUCT_AREF, FIX2UINT(off), METHOD_VISI_PUBLIC);
+    RB_GC_GUARD(nstr);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(name);
 }
 
 static void
 define_aset_method(VALUE nstr, VALUE name, VALUE off)
 {
     rb_add_method_optimized(nstr, SYM2ID(name), OPTIMIZED_METHOD_TYPE_STRUCT_ASET, FIX2UINT(off), METHOD_VISI_PUBLIC);
+    RB_GC_GUARD(nstr);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(name);
 }
 
 static VALUE
@@ -299,6 +332,8 @@ rb_struct_s_inspect(VALUE klass)
         rb_str_cat_cstr(inspect, "(keyword_init: true)");
     }
     return inspect;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(inspect);
 }
 
 static VALUE
@@ -319,8 +354,13 @@ rb_data_s_new(int argc, const VALUE *argv, VALUE klass)
         for (long i=0; i<argc; i++) {
             VALUE k = rb_ary_entry(members, i), v = argv[i];
             rb_hash_aset(arg_hash, k, v);
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(k);
         }
         return rb_class_new_instance_kw(1, &arg_hash, klass, RB_PASS_KEYWORDS);
+        RB_GC_GUARD(arg_hash);
+        RB_GC_GUARD(members);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -371,9 +411,13 @@ setup_struct(VALUE nstr, VALUE members)
 
         define_aref_method(nstr, sym, off);
         define_aset_method(nstr, ID2SYM(rb_id_attrset(id)), off);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(sym);
     }
 
     return nstr;
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(nstr);
 }
 
 static VALUE
@@ -397,15 +441,21 @@ setup_data(VALUE subclass, VALUE members)
         VALUE off = LONG2NUM(i);
 
         define_aref_method(subclass, sym, off);
+    RB_GC_GUARD(off);
+    RB_GC_GUARD(sym);
     }
 
     return subclass;
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(subclass);
+    RB_GC_GUARD(sclass);
 }
 
 VALUE
 rb_struct_alloc_noinit(VALUE klass)
 {
     return struct_alloc(klass);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -420,11 +470,14 @@ struct_make_members_list(va_list ar)
             rb_raise(rb_eArgError, "duplicate member: %s", mem);
         }
         rb_hash_aset(list, sym, Qtrue);
+    RB_GC_GUARD(sym);
     }
     ary = rb_hash_keys(list);
     RBASIC_CLEAR_CLASS(ary);
     OBJ_FREEZE(ary);
     return ary;
+    RB_GC_GUARD(list);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -454,6 +507,10 @@ struct_define_without_accessor(VALUE outer, const char *class_name, VALUE super,
     }
 
     return klass;
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -467,6 +524,9 @@ rb_struct_define_without_accessor_under(VALUE outer, const char *class_name, VAL
     va_end(ar);
 
     return struct_define_without_accessor(outer, class_name, super, alloc, members);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(members);
 }
 
 VALUE
@@ -480,6 +540,8 @@ rb_struct_define_without_accessor(const char *class_name, VALUE super, rb_alloc_
     va_end(ar);
 
     return struct_define_without_accessor(0, class_name, super, alloc, members);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(members);
 }
 
 VALUE
@@ -500,6 +562,8 @@ rb_struct_define(const char *name, ...)
         rb_vm_register_global_object(st);
     }
     return setup_struct(st, ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(st);
 }
 
 VALUE
@@ -513,6 +577,8 @@ rb_struct_define_under(VALUE outer, const char *name, ...)
     va_end(ar);
 
     return setup_struct(rb_define_class_id_under(outer, rb_intern(name), rb_cStruct), ary);
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -680,6 +746,7 @@ rb_struct_s_def(int argc, VALUE *argv, VALUE klass)
             rb_raise(rb_eArgError, "duplicate member: %"PRIsVALUE, mem);
         }
         rb_hash_aset(rest, mem, Qtrue);
+    RB_GC_GUARD(mem);
     }
     rest = rb_hash_keys(rest);
     RBASIC_CLEAR_CLASS(rest);
@@ -697,6 +764,12 @@ rb_struct_s_def(int argc, VALUE *argv, VALUE klass)
     }
 
     return st;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(st);
+    RB_GC_GUARD(keyword_init);
+    RB_GC_GUARD(rest);
+    RB_GC_GUARD(name);
 }
 
 static long
@@ -708,6 +781,8 @@ num_members(VALUE klass)
         rb_raise(rb_eTypeError, "broken members");
     }
     return RARRAY_LEN(members);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(members);
 }
 
 /*
@@ -736,6 +811,9 @@ struct_hash_set_i(VALUE key, VALUE val, VALUE arg)
         RSTRUCT_SET(args->self, i, val);
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -789,6 +867,8 @@ rb_struct_initialize_m(int argc, const VALUE *argv, VALUE self)
         }
     }
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -798,12 +878,15 @@ rb_struct_initialize(VALUE self, VALUE values)
     if (rb_obj_is_kind_of(self, rb_cData)) OBJ_FREEZE(self);
     RB_GC_GUARD(values);
     return Qnil;
+    RB_GC_GUARD(values);
+    RB_GC_GUARD(self);
 }
 
 static VALUE *
 struct_heap_alloc(VALUE st, size_t len)
 {
     return ALLOC_N(VALUE, len);
+    RB_GC_GUARD(st);
 }
 
 static VALUE
@@ -830,6 +913,8 @@ struct_alloc(VALUE klass)
         st->as.heap.len = n;
 
         return (VALUE)st;
+        RB_GC_GUARD(flags);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -837,6 +922,8 @@ VALUE
 rb_struct_alloc(VALUE klass, VALUE values)
 {
     return rb_class_new_instance(RARRAY_LENINT(values), RARRAY_CONST_PTR(values), klass);
+    RB_GC_GUARD(values);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -858,12 +945,16 @@ rb_struct_new(VALUE klass, ...)
     va_end(args);
 
     return rb_class_new_instance(size, mem, klass);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 struct_enum_size(VALUE s, VALUE args, VALUE eobj)
 {
     return rb_struct_size(s);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -898,6 +989,7 @@ rb_struct_each(VALUE s)
         rb_yield(RSTRUCT_GET(s, i));
     }
     return s;
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -936,6 +1028,8 @@ rb_struct_each_pair(VALUE s)
             VALUE key = rb_ary_entry(members, i);
             VALUE value = RSTRUCT_GET(s, i);
             rb_yield_values(2, key, value);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
         }
     }
     else {
@@ -943,9 +1037,13 @@ rb_struct_each_pair(VALUE s)
             VALUE key = rb_ary_entry(members, i);
             VALUE value = RSTRUCT_GET(s, i);
             rb_yield(rb_assoc_new(key, value));
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
         }
     }
     return s;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(members);
 }
 
 static VALUE
@@ -987,10 +1085,16 @@ inspect_struct(VALUE s, VALUE prefix, int recur)
         }
         rb_str_cat2(str, "=");
         rb_str_append(str, rb_inspect(RSTRUCT_GET(s, i)));
+    RB_GC_GUARD(slot);
     }
     rb_str_cat2(str, ">");
 
     return str;
+    RB_GC_GUARD(prefix);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(cname);
 }
 
 /*
@@ -1009,6 +1113,7 @@ static VALUE
 rb_struct_inspect(VALUE s)
 {
     return rb_exec_recursive(inspect_struct, s, rb_str_new2("#<struct "));
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1028,6 +1133,7 @@ static VALUE
 rb_struct_to_a(VALUE s)
 {
     return rb_ary_new4(RSTRUCT_LEN(s), RSTRUCT_CONST_PTR(s));
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1067,8 +1173,13 @@ rb_struct_to_h(VALUE s)
             rb_hash_set_pair(h, rb_yield_values(2, k, v));
         else
             rb_hash_aset(h, k, v);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(k);
     }
     return h;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(h);
 }
 
 /*
@@ -1114,8 +1225,12 @@ rb_struct_deconstruct_keys(VALUE s, VALUE keys)
             return h;
         }
         rb_hash_aset(h, key, RSTRUCT_GET(s, i));
+    RB_GC_GUARD(key);
     }
     return h;
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(h);
 }
 
 /* :nodoc: */
@@ -1134,6 +1249,8 @@ rb_struct_init_copy(VALUE copy, VALUE s)
     }
 
     return copy;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(copy);
 }
 
 static int
@@ -1166,6 +1283,8 @@ rb_struct_pos(VALUE s, VALUE *name)
             return -1;
         }
         return (int)i;
+        RB_GC_GUARD(idx);
+        RB_GC_GUARD(s);
     }
 }
 
@@ -1186,6 +1305,8 @@ invalid_struct_pos(VALUE s, VALUE idx)
     else {
         rb_name_err_raise("no member '%1$s' in struct", s, idx);
     }
+        RB_GC_GUARD(s);
+        RB_GC_GUARD(idx);
 }
 
 /*
@@ -1220,6 +1341,8 @@ rb_struct_aref(VALUE s, VALUE idx)
     int i = rb_struct_pos(s, &idx);
     if (i < 0) invalid_struct_pos(s, idx);
     return RSTRUCT_GET(s, i);
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1260,6 +1383,9 @@ rb_struct_aset(VALUE s, VALUE idx, VALUE val)
     rb_struct_modify(s);
     RSTRUCT_SET(s, i, val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(s);
 }
 
 FUNC_MINIMIZED(VALUE rb_struct_lookup(VALUE s, VALUE idx));
@@ -1269,6 +1395,8 @@ VALUE
 rb_struct_lookup(VALUE s, VALUE idx)
 {
     return rb_struct_lookup_default(s, idx, Qnil);
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -1277,12 +1405,16 @@ rb_struct_lookup_default(VALUE s, VALUE idx, VALUE notfound)
     int i = rb_struct_pos(s, &idx);
     if (i < 0) return notfound;
     return RSTRUCT_GET(s, i);
+    RB_GC_GUARD(notfound);
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
 struct_entry(VALUE s, long n)
 {
     return rb_struct_aref(s, LONG2NUM(n));
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1324,6 +1456,7 @@ static VALUE
 rb_struct_values_at(int argc, VALUE *argv, VALUE s)
 {
     return rb_get_values_at(s, RSTRUCT_LEN(s), argc, argv, struct_entry);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1360,6 +1493,8 @@ rb_struct_select(int argc, VALUE *argv, VALUE s)
     }
 
     return result;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -1373,6 +1508,8 @@ recursive_equal(VALUE s, VALUE s2, int recur)
         if (!rb_equal(RSTRUCT_GET(s, i), RSTRUCT_GET(s2, i))) return Qfalse;
     }
     return Qtrue;
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s);
 }
 
 
@@ -1407,6 +1544,8 @@ rb_struct_equal(VALUE s, VALUE s2)
     }
 
     return rb_exec_recursive_paired(recursive_equal, s, s2, s2);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1443,6 +1582,8 @@ rb_struct_hash(VALUE s)
     }
     h = rb_hash_end(h);
     return ST2FIX(h);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(n);
 }
 
 static VALUE
@@ -1456,6 +1597,8 @@ recursive_eql(VALUE s, VALUE s2, int recur)
         if (!rb_eql(RSTRUCT_GET(s, i), RSTRUCT_GET(s2, i))) return Qfalse;
     }
     return Qtrue;
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1488,6 +1631,8 @@ rb_struct_eql(VALUE s, VALUE s2)
     }
 
     return rb_exec_recursive_paired(recursive_eql, s, s2, s2);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1506,6 +1651,7 @@ VALUE
 rb_struct_size(VALUE s)
 {
     return LONG2FIX(RSTRUCT_LEN(s));
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1548,6 +1694,7 @@ rb_struct_dig(int argc, VALUE *argv, VALUE self)
     if (!--argc) return self;
     ++argv;
     return rb_obj_dig(argc, argv, self, Qnil);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1683,6 +1830,7 @@ rb_data_s_def(int argc, VALUE *argv, VALUE klass)
             rb_raise(rb_eArgError, "duplicate member: %"PRIsVALUE, mem);
         }
         rb_hash_aset(rest, mem, Qtrue);
+    RB_GC_GUARD(mem);
     }
     rest = rb_hash_keys(rest);
     RBASIC_CLEAR_CLASS(rest);
@@ -1694,6 +1842,9 @@ rb_data_s_def(int argc, VALUE *argv, VALUE klass)
     }
 
     return data_class;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(data_class);
+    RB_GC_GUARD(rest);
 }
 
 VALUE
@@ -1708,6 +1859,9 @@ rb_data_define(VALUE super, ...)
     VALUE klass = setup_data(anonymous_struct(super), ary);
     rb_vm_register_global_object(klass);
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1794,6 +1948,7 @@ rb_data_initialize_m(int argc, const VALUE *argv, VALUE self)
     if (RHASH_SIZE(argv[0]) < num_members) {
         VALUE missing = rb_ary_diff(members, rb_hash_keys(argv[0]));
         rb_exc_raise(rb_keyword_error_new("missing", missing));
+    RB_GC_GUARD(missing);
     }
 
     struct struct_hash_set_arg arg;
@@ -1808,6 +1963,9 @@ rb_data_initialize_m(int argc, const VALUE *argv, VALUE self)
         rb_exc_raise(rb_keyword_error_new("unknown", arg.unknown_keywords));
     }
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(members);
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -1817,6 +1975,8 @@ rb_data_init_copy(VALUE copy, VALUE s)
     copy = rb_struct_init_copy(copy, s);
     RB_OBJ_FREEZE(copy);
     return copy;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(copy);
 }
 
 /*
@@ -1861,6 +2021,9 @@ rb_data_with(int argc, const VALUE *argv, VALUE self)
     VALUE h = rb_struct_to_h(self);
     rb_hash_update_by(h, kwargs, 0);
     return rb_class_new_instance_kw(1, &h, rb_obj_class(self), TRUE);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(h);
+    RB_GC_GUARD(kwargs);
 }
 
 /*
@@ -1886,6 +2049,7 @@ static VALUE
 rb_data_inspect(VALUE s)
 {
     return rb_exec_recursive(inspect_struct, s, rb_str_new2("#<data "));
+    RB_GC_GUARD(s);
 }
 
 /*

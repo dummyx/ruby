@@ -10,6 +10,8 @@ ruby_fatal(VALUE obj, VALUE msg)
     cmsg = RSTRING_PTR(msg);
     rb_fatal("%s", cmsg);
     return 0; /* never reached */
+    RB_GC_GUARD(msg);
+    RB_GC_GUARD(obj);
 }
 
 void

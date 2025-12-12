@@ -125,12 +125,14 @@ ruby_debug_print_value(int level, int debug_level, const char *header, VALUE obj
         fflush(stderr);
     }
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 void
 ruby_debug_print_v(VALUE v)
 {
     ruby_debug_print_value(0, 1, "", v);
+    RB_GC_GUARD(v);
 }
 
 ID

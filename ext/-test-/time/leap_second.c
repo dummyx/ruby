@@ -6,6 +6,7 @@ bug_time_s_reset_leap_second_info(VALUE klass)
 {
     ruby_reset_leap_second_info();
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 void

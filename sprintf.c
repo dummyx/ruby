@@ -203,6 +203,7 @@ get_hash(volatile VALUE *hash, int argc, const VALUE *argv)
         rb_raise(rb_eArgError, "one hash required");
     }
     return (*hash = tmp);
+    RB_GC_GUARD(tmp);
 }
 
 VALUE
@@ -480,6 +481,8 @@ rb_str_format(int argc, const VALUE *argv, VALUE fmt)
                     if (width > 0) FILL_(' ', width);
                     rb_enc_mbcput(c, &buf[blen], enc);
                     blen += n;
+            RB_GC_GUARD(val);
+            RB_GC_GUARD(tmp);
                 }
             }
             break;
@@ -534,6 +537,7 @@ rb_str_format(int argc, const VALUE *argv, VALUE fmt)
                 PUSH(RSTRING_PTR(str), len);
                 RB_GC_GUARD(str);
                 rb_enc_associate(result, enc);
+            RB_GC_GUARD(arg);
             }
             break;
 
@@ -866,6 +870,9 @@ rb_str_format(int argc, const VALUE *argv, VALUE fmt)
                 }
                 RB_GC_GUARD(val);
                 break;
+          RB_GC_GUARD(den);
+          RB_GC_GUARD(num);
+          RB_GC_GUARD(val);
             }
           case 'g':
           case 'G':
@@ -925,11 +932,13 @@ rb_str_format(int argc, const VALUE *argv, VALUE fmt)
                     ENC_CODERANGE_SET(result, cr);
                     bsiz = rb_str_capacity(result);
                     RSTRING_GETMEM(result, buf, blen);
+            RB_GC_GUARD(val);
                 }
             }
             break;
         }
         flags = FNONE;
+    RB_GC_GUARD(sym);
     }
 
     update_coderange(FALSE);
@@ -945,6 +954,12 @@ rb_str_format(int argc, const VALUE *argv, VALUE fmt)
     rb_str_resize(result, blen);
 
     return result;
+    RB_GC_GUARD(fmt);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(nextvalue);
+    RB_GC_GUARD(result);
 }
 
 static char *
@@ -1087,6 +1102,7 @@ ruby__sfvwrite(register rb_printf_buffer *fp, register struct __suio *uio)
     fp->_p = (unsigned char *)buf;
     rb_str_set_len(result, buf - RSTRING_PTR(result));
     return 0;
+    RB_GC_GUARD(result);
 }
 
 static const char *
@@ -1139,6 +1155,8 @@ ruby__sfvextra(rb_printf_buffer *fp, size_t valsize, void *valp, long *sz, int s
     RSTRING_GETMEM(value, cp, *sz);
     ((rb_printf_buffer_extra *)fp)->value = value;
     return cp;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(value);
 }
 
 static void
@@ -1173,6 +1191,8 @@ ruby_vsprintf0(VALUE result, char *p, const char *fmt, va_list ap)
     }
     rb_str_resize(result, blen);
 #undef f
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -1192,6 +1212,7 @@ rb_enc_vsprintf(rb_encoding *enc, const char *fmt, va_list ap)
     }
     ruby_vsprintf0(result, RSTRING_PTR(result), fmt, ap);
     return result;
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -1205,6 +1226,7 @@ rb_enc_sprintf(rb_encoding *enc, const char *format, ...)
     va_end(ap);
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -1224,6 +1246,7 @@ rb_sprintf(const char *format, ...)
     va_end(ap);
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -1234,6 +1257,7 @@ rb_str_vcatf(VALUE str, const char *fmt, va_list ap)
     ruby_vsprintf0(str, RSTRING_END(str), fmt, ap);
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1246,4 +1270,5 @@ rb_str_catf(VALUE str, const char *format, ...)
     va_end(ap);
 
     return str;
+    RB_GC_GUARD(str);
 }

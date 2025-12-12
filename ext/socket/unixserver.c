@@ -27,6 +27,8 @@ static VALUE
 unix_svr_init(VALUE sock, VALUE path)
 {
     return rsock_init_unixsock(sock, path, 1);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -53,6 +55,7 @@ unix_accept(VALUE server)
     socklen_t length = sizeof(buffer);
 
     return rsock_s_accept(rb_cUNIXSocket, server, (struct sockaddr*)&buffer, &length);
+    RB_GC_GUARD(server);
 }
 
 /* :nodoc: */
@@ -67,6 +70,8 @@ unix_accept_nonblock(VALUE sock, VALUE ex)
     fromlen = (socklen_t)sizeof(from);
     return rsock_s_accept_nonblock(rb_cUNIXSocket, ex, fptr,
                                    (struct sockaddr *)&from, &fromlen);
+                                   RB_GC_GUARD(ex);
+                                   RB_GC_GUARD(sock);
 }
 
 /*
@@ -94,6 +99,7 @@ unix_sysaccept(VALUE server)
     socklen_t length = sizeof(buffer);
 
     return rsock_s_accept(0, server, (struct sockaddr*)&buffer, &length);
+    RB_GC_GUARD(server);
 }
 
 #endif

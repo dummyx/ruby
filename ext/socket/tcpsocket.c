@@ -77,6 +77,16 @@ tcp_init(int argc, VALUE *argv, VALUE sock)
                                local_host, local_serv, INET_CLIENT,
                                resolv_timeout, connect_timeout, fast_fallback,
                                test_mode_settings);
+                               RB_GC_GUARD(sock);
+                               RB_GC_GUARD(test_mode_settings);
+                               RB_GC_GUARD(fast_fallback);
+                               RB_GC_GUARD(connect_timeout);
+                               RB_GC_GUARD(resolv_timeout);
+                               RB_GC_GUARD(opt);
+                               RB_GC_GUARD(local_serv);
+                               RB_GC_GUARD(local_host);
+                               RB_GC_GUARD(remote_serv);
+                               RB_GC_GUARD(remote_host);
 }
 
 static VALUE
@@ -111,6 +121,8 @@ tcp_s_gethostbyname(VALUE obj, VALUE host)
     struct rb_addrinfo *res =
         rsock_addrinfo(host, Qnil, AF_UNSPEC, SOCK_STREAM, AI_CANONNAME);
     return rsock_make_hostent(host, res, tcp_sockaddr);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(obj);
 }
 
 void

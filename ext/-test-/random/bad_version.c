@@ -45,6 +45,8 @@ bad_version_alloc(VALUE klass, const rb_data_type_t *type)
     VALUE obj = TypedData_Make_Struct(klass, rb_random_t, type, rnd);
     rb_random_base_init(rnd);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /* version 0 */
@@ -65,6 +67,7 @@ static VALUE
 version_zero_alloc(VALUE klass)
 {
     return bad_version_alloc(klass, &version_zero_type);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -73,6 +76,9 @@ init_version_zero(VALUE mod, VALUE base)
     VALUE c = rb_define_class_under(mod, "VersionZero", base);
     rb_define_alloc_func(c, version_zero_alloc);
     RB_RANDOM_DATA_INIT_PARENT(version_zero_type);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(mod);
 }
 
 #if DEFINE_VERSION_MAX
@@ -93,6 +99,7 @@ static VALUE
 version_max_alloc(VALUE klass)
 {
     return bad_version_alloc(klass, &version_max_type);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -101,6 +108,9 @@ init_version_max(VALUE mod, VALUE base)
     VALUE c = rb_define_class_under(mod, "VersionMax", base);
     rb_define_alloc_func(c, version_max_alloc);
     RB_RANDOM_DATA_INIT_PARENT(version_max_type);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(mod);
 }
 #else
 static void

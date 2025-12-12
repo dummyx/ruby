@@ -9,12 +9,16 @@ big(VALUE x)
         return x;
     rb_raise(rb_eTypeError, "can't convert %s to Bignum",
             rb_obj_classname(x));
+            RB_GC_GUARD(x);
 }
 
 static VALUE
 divrem_normal(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_divrem_normal(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 #if defined(HAVE_LIBGMP) && defined(HAVE_GMP_H)
@@ -22,6 +26,9 @@ static VALUE
 divrem_gmp(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_divrem_gmp(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 #else
 #define divrem_gmp rb_f_notimplement

@@ -184,6 +184,7 @@ dump_append_ptr(struct dump_config *dc, VALUE ref)
     *--buffer_start = '0';
     *--buffer_start = '"';
     buffer_append(dc, buffer_start, buffer_end - buffer_start);
+    RB_GC_GUARD(ref);
 }
 
 static void
@@ -191,6 +192,7 @@ dump_append_ref(struct dump_config *dc, VALUE ref)
 {
     RUBY_ASSERT(ref > 0);
     dump_append_ptr(dc, ref);
+    RB_GC_GUARD(ref);
 }
 
 
@@ -236,6 +238,7 @@ dump_append_string_value(struct dump_config *dc, VALUE obj)
         }
     }
     dump_append(dc, "\"");
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -244,6 +247,7 @@ dump_append_symbol_value(struct dump_config *dc, VALUE obj)
     dump_append(dc, "{\"type\":\"SYMBOL\", \"value\":");
     dump_append_string_value(dc, rb_sym2str(obj));
     dump_append(dc, "}");
+    RB_GC_GUARD(obj);
 }
 
 static inline const char *
@@ -281,6 +285,7 @@ obj_type(VALUE obj)
       default: break;
     }
     return "UNKNOWN";
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -307,6 +312,7 @@ dump_append_special_const(struct dump_config *dc, VALUE value)
     else {
         dump_append(dc, "{}");
     }
+        RB_GC_GUARD(value);
 }
 
 static void
@@ -327,6 +333,7 @@ reachable_object_i(VALUE ref, void *data)
     }
 
     dc->cur_obj_references++;
+    RB_GC_GUARD(ref);
 }
 
 static bool
@@ -362,6 +369,7 @@ dump_append_string_content(struct dump_config *dc, VALUE obj)
             dump_append_string_value(dc, obj);
         }
     }
+            RB_GC_GUARD(obj);
 }
 
 static inline void
@@ -376,6 +384,7 @@ dump_append_id(struct dump_config *dc, ID id)
         dump_append_sizet(dc, rb_id_to_serial(id));
         dump_append(dc, ")\"");
     }
+        RB_GC_GUARD(str);
 }
 
 
@@ -459,6 +468,7 @@ dump_object(VALUE obj, struct dump_config *dc)
                 if (klass != 0) {
                     dump_append(dc, ", \"receiver_class\":");
                     dump_append_ref(dc, klass);
+            RB_GC_GUARD(klass);
                 }
             }
             break;
@@ -559,11 +569,13 @@ dump_object(VALUE obj, struct dump_config *dc)
                     dump_append(dc, ", \"real_class_name\":\"");
                     dump_append(dc, RSTRING_PTR(real_mod_name));
                     dump_append(dc, "\"");
+            RB_GC_GUARD(real_mod_name);
                 }
             }
 
             if (RCLASS_SINGLETON_P(obj)) {
                 dump_append(dc, ", \"singleton\":true");
+        RB_GC_GUARD(mod_name);
             }
         }
         break;
@@ -628,6 +640,7 @@ dump_object(VALUE obj, struct dump_config *dc)
             VALUE m = rb_sym2str(ainfo->mid);
             dump_append(dc, ", \"method\":");
             dump_append_string_value(dc, m);
+        RB_GC_GUARD(m);
         }
         dump_append(dc, ", \"generation\":");
         dump_append_sizet(dc, ainfo->generation);
@@ -650,6 +663,7 @@ dump_object(VALUE obj, struct dump_config *dc)
     }
 
     dump_append(dc, "}\n");
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -670,6 +684,7 @@ heap_i(void *vstart, void *vend, size_t stride, void *data)
         }
     }
     return 0;
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -692,6 +707,7 @@ root_obj_i(const char *category, VALUE obj, void *data)
 
     dc->root_category = category;
     dc->roots = 1;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -741,6 +757,10 @@ dump_output(struct dump_config *dc, VALUE output, VALUE full, VALUE since, VALUE
     }
 
     dc->shapes_since = RTEST(shapes) ? NUM2SIZET(shapes) : 0;
+    RB_GC_GUARD(output);
+    RB_GC_GUARD(shapes);
+    RB_GC_GUARD(since);
+    RB_GC_GUARD(full);
 }
 
 static VALUE
@@ -771,6 +791,9 @@ objspace_dump(VALUE os, VALUE obj, VALUE output)
     dump_object(obj, &dc);
 
     return dump_result(&dc);
+    RB_GC_GUARD(output);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(os);
 }
 
 static void
@@ -852,6 +875,11 @@ objspace_dump_all(VALUE os, VALUE output, VALUE full, VALUE since, VALUE shapes)
     rb_objspace_each_objects(heap_i, &dc);
 
     return dump_result(&dc);
+    RB_GC_GUARD(shapes);
+    RB_GC_GUARD(since);
+    RB_GC_GUARD(full);
+    RB_GC_GUARD(output);
+    RB_GC_GUARD(os);
 }
 
 /* :nodoc: */
@@ -865,6 +893,9 @@ objspace_dump_shapes(VALUE os, VALUE output, VALUE shapes)
         rb_shape_each_shape(shape_i, &dc);
     }
     return dump_result(&dc);
+    RB_GC_GUARD(shapes);
+    RB_GC_GUARD(output);
+    RB_GC_GUARD(os);
 }
 
 void
@@ -881,4 +912,5 @@ Init_objspace_dump(VALUE rb_mObjSpace)
 
     /* force create static IDs */
     rb_obj_gc_flags(rb_mObjSpace, 0, 0);
+    RB_GC_GUARD(rb_mObjSpace);
 }

@@ -16,6 +16,7 @@ static VALUE libyaml_version(VALUE module)
     list[2] = INT2NUM(patch);
 
     return rb_ary_new4((long)3, list);
+    RB_GC_GUARD(module);
 }
 
 VALUE mPsych;

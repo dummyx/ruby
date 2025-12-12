@@ -184,6 +184,7 @@ resize_buffer(VALUE ftime, char *s, const char **start, const char **endp,
 	*endp = s + nlen;
 	*start = s;
 	return s += len;
+	RB_GC_GUARD(ftime);
 }
 
 static void
@@ -195,6 +196,7 @@ buffer_size_check(const char *s,
 		const char *format = format_end-format_len;
 		VALUE fmt = rb_enc_str_new(format, format_len, enc);
 		rb_syserr_fail_str(ERANGE, fmt);
+		RB_GC_GUARD(fmt);
 	}
 }
 
@@ -225,6 +227,7 @@ format_value(VALUE val, int base)
 	if (!RB_BIGNUM_TYPE_P(val))
 		val = rb_Integer(val);
 	return rb_big2str(val, base);
+	RB_GC_GUARD(val);
 }
 
 /*
@@ -498,6 +501,7 @@ rb_strftime_with_timespec(VALUE ftime, const char *format, size_t format_len,
                         else {
                                 VALUE sec = div(timev, INT2FIX(1));
                                 FMTV('0', 1, "d", sec);
+                        RB_GC_GUARD(sec);
                         }
                         continue;
 
@@ -644,6 +648,7 @@ rb_strftime_with_timespec(VALUE ftime, const char *format, size_t format_len,
 					i = strlcpy(tbuf, RSTRING_PTR(str), TBUFSIZE);
 					tp = tbuf;
 					break;
+			    RB_GC_GUARD(str);
 				    }
 				}
 			    }
@@ -769,6 +774,7 @@ rb_strftime_with_timespec(VALUE ftime, const char *format, size_t format_len,
                                         FMT('0', 2, "ld", y);
                                 }
                                 continue;
+                                RB_GC_GUARD(yv);
                         }
 
 #endif /* ISO_DATE_EXT */
@@ -838,6 +844,8 @@ rb_strftime_with_timespec(VALUE ftime, const char *format, size_t format_len,
                                                       rb_fstring_lit("%0*d"));
                                         (void)strlcpy(s, StringValueCStr(result), endp-s);
                                         s += precision;
+			RB_GC_GUARD(result);
+			RB_GC_GUARD(subsec);
                                 }
 			}
 			continue;
@@ -916,6 +924,10 @@ rb_strftime_with_timespec(VALUE ftime, const char *format, size_t format_len,
 
 err:
         return 0;
+        RB_GC_GUARD(timev);
+        RB_GC_GUARD(time);
+        RB_GC_GUARD(ftime);
+        RB_GC_GUARD(zone);
 }
 
 static size_t
@@ -936,6 +948,9 @@ rb_strftime(const char *format, size_t format_len, rb_encoding *enc,
 	return rb_strftime_with_timespec(result, format, format_len, enc,
 					 time, vtm, timev, NULL, gmt,
 					 strftime_size_limit(format_len));
+					 RB_GC_GUARD(timev);
+					 RB_GC_GUARD(time);
+					 RB_GC_GUARD(result);
 }
 
 VALUE
@@ -947,6 +962,8 @@ rb_strftime_timespec(const char *format, size_t format_len, rb_encoding *enc,
 	return rb_strftime_with_timespec(result, format, format_len, enc,
 					 time, vtm, Qnil, ts, gmt,
 					 strftime_size_limit(format_len));
+					 RB_GC_GUARD(time);
+					 RB_GC_GUARD(result);
 }
 
 #if 0

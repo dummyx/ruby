@@ -242,6 +242,7 @@ date_strftime_with_tmx(char *s, const size_t maxsize, const char *format,
 		}
 		else {
 		    FMTV('0', 4, "d", year);
+	    RB_GC_GUARD(year);
 		}
 	    }
 	    continue;
@@ -312,6 +313,8 @@ date_strftime_with_tmx(char *s, const size_t maxsize, const char *format,
 		    result = rb_str_format(2, args, rb_str_new2("%0*d"));
 		    (void)strlcpy(s, StringValueCStr(result), endp - s);
 		    s += precision;
+	    RB_GC_GUARD(result);
+	    RB_GC_GUARD(subsec);
 		}
 	    }
 	    continue;

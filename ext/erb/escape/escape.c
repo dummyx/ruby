@@ -23,6 +23,8 @@ static inline void
 preserve_original_state(VALUE orig, VALUE dest)
 {
     rb_enc_associate(dest, rb_enc_get(orig));
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(dest);
 }
 
 static inline long
@@ -33,6 +35,7 @@ escaped_length(VALUE str)
         ruby_malloc_size_overflow(len, HTML_ESCAPE_MAX_LEN);
     }
     return len * HTML_ESCAPE_MAX_LEN;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -63,6 +66,9 @@ optimized_escape_html(VALUE str)
     }
     ALLOCV_END(vbuf);
     return escaped;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(escaped);
+    RB_GC_GUARD(vbuf);
 }
 
 // ERB::Util.html_escape is different from CGI.escapeHTML in the following two parts:
@@ -80,6 +86,8 @@ erb_escape_html(VALUE self, VALUE str)
     }
     else {
         return rb_funcall(rb_cCGI, id_escapeHTML, 1, str);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(str);
     }
 }
 

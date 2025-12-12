@@ -225,6 +225,7 @@ signm2signo(VALUE *sig_ptr, int negative, int exit, int *prefix_ptr)
                      rb_obj_classname(vsig));
         }
         *sig_ptr = vsig = str;
+    RB_GC_GUARD(str);
     }
 
     rb_must_asciicompat(vsig);
@@ -278,6 +279,7 @@ signm2signo(VALUE *sig_ptr, int negative, int exit, int *prefix_ptr)
     rb_raise(rb_eArgError, "unsupported signal '%.*s%"PRIsVALUE"'",
              prefix, signame_prefix, vsig);
     UNREACHABLE_RETURN(0);
+    RB_GC_GUARD(vsig);
 }
 
 static const char*
@@ -312,6 +314,8 @@ sig_signame(VALUE recv, VALUE signo)
     const char *signame = signo2signm(NUM2INT(signo));
     if (!signame) return Qnil;
     return rb_str_new_cstr(signame);
+    RB_GC_GUARD(signo);
+    RB_GC_GUARD(recv);
 }
 
 const char *
@@ -377,6 +381,8 @@ esignal_init(int argc, VALUE *argv, VALUE self)
     rb_ivar_set(self, id_signo, INT2NUM(signo));
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(sig);
 }
 
 /*
@@ -390,6 +396,7 @@ static VALUE
 esignal_signo(VALUE self)
 {
     return rb_ivar_get(self, id_signo);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -401,6 +408,7 @@ interrupt_init(int argc, VALUE *argv, VALUE self)
     args[0] = INT2FIX(SIGINT);
     args[1] = rb_check_arity(argc, 0, 1) ? argv[0] : Qnil;
     return rb_call_super(2, args);
+    RB_GC_GUARD(self);
 }
 
 void rb_malloc_info_show_results(void); /* gc.c */
@@ -510,6 +518,7 @@ rb_f_kill(int argc, const VALUE *argv)
     rb_thread_execute_interrupts(rb_thread_current());
 
     return INT2FIX(i-1);
+    RB_GC_GUARD(str);
 }
 
 static struct {
@@ -1039,6 +1048,7 @@ signal_exec(VALUE cmd, int sig)
     if ((state = EC_EXEC_TAG()) == TAG_NONE) {
         VALUE signum = INT2NUM(sig);
         rb_eval_cmd_kw(cmd, rb_ary_new3(1, signum), RB_NO_KEYWORDS);
+    RB_GC_GUARD(signum);
     }
     EC_POP_TAG();
     ec = GET_EC();
@@ -1049,6 +1059,7 @@ signal_exec(VALUE cmd, int sig)
         EC_JUMP_TAG(ec, state);
     }
     return TRUE;
+    RB_GC_GUARD(cmd);
 }
 
 void
@@ -1060,6 +1071,7 @@ rb_vm_trap_exit(rb_vm_t *vm)
         vm->trap_list.cmd[0] = 0;
         signal_exec(trap_exit, 0);
     }
+        RB_GC_GUARD(trap_exit);
 }
 
 /* returns true if a trap handler was run, false otherwise */
@@ -1103,6 +1115,7 @@ rb_signal_exec(rb_thread_t *th, int sig)
         return signal_exec(cmd, sig);
     }
     return FALSE;
+    RB_GC_GUARD(cmd);
 }
 
 static sighandler_t
@@ -1232,6 +1245,7 @@ trap_handler(VALUE *cmd, int sig)
     }
 
     return func;
+    RB_GC_GUARD(command);
 }
 
 static int
@@ -1249,6 +1263,7 @@ trap_signm(VALUE vsig)
         sig = signm2signo(&vsig, FALSE, TRUE, NULL);
     }
     return sig;
+    RB_GC_GUARD(vsig);
 }
 
 static VALUE
@@ -1289,6 +1304,8 @@ trap(int sig, sighandler_t func, VALUE command)
     ACCESS_ONCE(VALUE, vm->trap_list.cmd[sig]) = command;
 
     return oldcmd;
+    RB_GC_GUARD(command);
+    RB_GC_GUARD(oldcmd);
 }
 
 static int
@@ -1385,6 +1402,8 @@ sig_trap(int argc, VALUE *argv, VALUE _)
     }
 
     return trap(sig, func, cmd);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(cmd);
 }
 
 /*
@@ -1406,6 +1425,8 @@ sig_list(VALUE _)
         rb_hash_aset(h, rb_fstring_cstr(sigs->signm), INT2FIX(sigs->signo));
     }
     return h;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(h);
 }
 
 #define INSTALL_SIGHANDLER(cond, signame, signum) do {	\
@@ -1554,4 +1575,5 @@ Init_signal(void)
 #endif
 
     rb_enable_interrupt();
+    RB_GC_GUARD(mSignal);
 }

@@ -127,6 +127,8 @@ hexencode_str_new(VALUE str_digest)
     RB_GC_GUARD(str_digest);
 
     return str;
+    RB_GC_GUARD(str_digest);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -139,6 +141,8 @@ static VALUE
 rb_digest_s_hexencode(VALUE klass, VALUE str)
 {
     return hexencode_str_new(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 NORETURN(static void rb_digest_instance_method_unimpl(VALUE self, const char *method));
@@ -155,6 +159,7 @@ rb_digest_instance_method_unimpl(VALUE self, const char *method)
 {
     rb_raise(rb_eRuntimeError, "%s does not implement %s()",
              rb_obj_classname(self), method);
+             RB_GC_GUARD(self);
 }
 
 /*
@@ -174,6 +179,8 @@ rb_digest_instance_update(VALUE self, VALUE str)
     rb_digest_instance_method_unimpl(self, "update");
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -194,6 +201,7 @@ rb_digest_instance_finish(VALUE self)
     rb_digest_instance_method_unimpl(self, "finish");
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -210,6 +218,7 @@ rb_digest_instance_reset(VALUE self)
     rb_digest_instance_method_unimpl(self, "reset");
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -225,6 +234,8 @@ rb_digest_instance_new(VALUE self)
     VALUE clone = rb_obj_clone(self);
     rb_funcall(clone, id_reset, 0);
     return clone;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(clone);
 }
 
 /*
@@ -254,6 +265,9 @@ rb_digest_instance_digest(int argc, VALUE *argv, VALUE self)
     }
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -270,6 +284,8 @@ rb_digest_instance_digest_bang(VALUE self)
     rb_funcall(self, id_reset, 0);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
 }
 
 /*
@@ -299,6 +315,9 @@ rb_digest_instance_hexdigest(int argc, VALUE *argv, VALUE self)
     }
 
     return hexencode_str_new(value);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -315,6 +334,8 @@ rb_digest_instance_hexdigest_bang(VALUE self)
     rb_funcall(self, id_reset, 0);
 
     return hexencode_str_new(value);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
 }
 
 /*
@@ -327,6 +348,7 @@ static VALUE
 rb_digest_instance_to_s(VALUE self)
 {
     return rb_funcall(self, id_hexdigest, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -352,6 +374,8 @@ rb_digest_instance_inspect(VALUE self)
     rb_str_buf_append(str, rb_digest_instance_hexdigest(0, 0, self));
     rb_str_buf_cat2(str, ">");
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -387,6 +411,10 @@ rb_digest_instance_equal(VALUE self, VALUE other)
         return Qtrue;
     }
     return Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 /*
@@ -407,6 +435,8 @@ rb_digest_instance_digest_length(VALUE self)
     /* never blindly assume that #digest() returns a string */
     StringValue(digest);
     return LONG2NUM(RSTRING_LEN(digest));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(digest);
 }
 
 /*
@@ -420,6 +450,7 @@ static VALUE
 rb_digest_instance_length(VALUE self)
 {
     return rb_funcall(self, id_digest_length, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -436,6 +467,7 @@ rb_digest_instance_block_length(VALUE self)
     rb_digest_instance_method_unimpl(self, "block_length");
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -473,6 +505,8 @@ rb_digest_class_s_digest(int argc, VALUE *argv, VALUE klass)
     rb_obj_call_init(obj, argc, argv);
 
     return rb_funcall(obj, id_digest, 1, str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -487,6 +521,7 @@ static VALUE
 rb_digest_class_s_hexdigest(int argc, VALUE *argv, VALUE klass)
 {
     return hexencode_str_new(rb_funcallv(klass, id_digest, argc, argv));
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -494,6 +529,7 @@ static VALUE
 rb_digest_class_init(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -565,6 +601,7 @@ get_metadata_ptr(VALUE obj)
 #endif
 
     return algo;
+    RB_GC_GUARD(obj);
 }
 
 static rb_digest_metadata_t *
@@ -607,12 +644,16 @@ get_digest_base_metadata(VALUE klass)
     }
 
     return algo;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(p);
 }
 
 static rb_digest_metadata_t *
 get_digest_obj_metadata(VALUE obj)
 {
     return get_digest_base_metadata(rb_obj_class(obj));
+    RB_GC_GUARD(obj);
 }
 
 static const rb_data_type_t digest_type = {
@@ -648,6 +689,8 @@ rb_digest_base_alloc(VALUE klass)
     algo_init(algo, pctx);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -670,6 +713,8 @@ rb_digest_base_copy(VALUE copy, VALUE obj)
     memcpy(pctx2, pctx1, algo->ctx_size);
 
     return copy;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(copy);
 }
 
 /*
@@ -690,6 +735,7 @@ rb_digest_base_reset(VALUE self)
     algo_init(algo, pctx);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -714,6 +760,8 @@ rb_digest_base_update(VALUE self, VALUE str)
     RB_GC_GUARD(str);
 
     return self;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -735,6 +783,8 @@ rb_digest_base_finish(VALUE self)
     algo_init(algo, pctx);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -750,6 +800,7 @@ rb_digest_base_digest_length(VALUE self)
     algo = get_digest_obj_metadata(self);
 
     return SIZET2NUM(algo->digest_len);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -765,6 +816,7 @@ rb_digest_base_block_length(VALUE self)
     algo = get_digest_obj_metadata(self);
 
     return SIZET2NUM(algo->block_len);
+    RB_GC_GUARD(self);
 }
 
 void

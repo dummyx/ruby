@@ -547,6 +547,8 @@ dir_s_alloc(VALUE klass)
     dirp->enc = NULL;
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static void *
@@ -632,6 +634,10 @@ dir_initialize(rb_execution_context_t *ec, VALUE dir, VALUE dirname, VALUE enc)
     RB_OBJ_WRITE(dir, &dp->path, orig);
 
     return dir;
+    RB_GC_GUARD(enc);
+    RB_GC_GUARD(dirname);
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(orig);
 }
 
 static VALUE
@@ -643,12 +649,18 @@ dir_s_open(rb_execution_context_t *ec, VALUE klass, VALUE dirname, VALUE enc)
     dir_initialize(ec, dir, dirname, enc);
 
     return dir;
+    RB_GC_GUARD(enc);
+    RB_GC_GUARD(dirname);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(dir);
 }
 
 static VALUE
 dir_s_close(rb_execution_context_t *ec, VALUE klass, VALUE dir)
 {
     return dir_close(dir);
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(klass);
 }
 
 # if defined(HAVE_FDOPENDIR) && defined(HAVE_DIRFD)
@@ -691,6 +703,9 @@ dir_s_for_fd(VALUE klass, VALUE fd)
 
     RB_OBJ_WRITE(dir, &dp->path, Qnil);
     return dir;
+    RB_GC_GUARD(fd);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(dir);
 }
 #else
 #define dir_s_for_fd rb_f_notimplement
@@ -709,6 +724,7 @@ dir_get(VALUE dir)
 {
     rb_check_frozen(dir);
     return rb_check_typeddata(dir, &dir_data_type);
+    RB_GC_GUARD(dir);
 }
 
 static struct dir_data *
@@ -717,6 +733,7 @@ dir_check(VALUE dir)
     struct dir_data *dirp = dir_get(dir);
     if (!dirp->dir) dir_closed();
     return dirp;
+    RB_GC_GUARD(dir);
 }
 
 #define GetDIR(obj, dirp) ((dirp) = dir_check(obj))
@@ -744,8 +761,10 @@ dir_inspect(VALUE dir)
         rb_str_append(str, dirp->path);
         rb_str_cat2(str, ">");
         return str;
+    RB_GC_GUARD(str);
     }
     return rb_funcallv(dir, idTo_s, 0, 0);
+    RB_GC_GUARD(dir);
 }
 
 /* Workaround for Solaris 10 that does not have dirfd.
@@ -787,6 +806,7 @@ dir_fileno(VALUE dir)
     if (fd == -1)
         rb_sys_fail("dirfd");
     return INT2NUM(fd);
+    RB_GC_GUARD(dir);
 }
 #else
 #define dir_fileno rb_f_notimplement
@@ -810,6 +830,7 @@ dir_path(VALUE dir)
     TypedData_Get_Struct(dir, struct dir_data, &dir_data_type, dirp);
     if (NIL_P(dirp->path)) return Qnil;
     return rb_str_dup(dirp->path);
+    RB_GC_GUARD(dir);
 }
 
 #if defined _WIN32
@@ -902,6 +923,7 @@ dir_read(VALUE dir)
         int e = errno;
         if (e != 0) rb_syserr_fail(e, 0);
         return Qnil;		/* end of stream */
+        RB_GC_GUARD(dir);
     }
 }
 
@@ -911,6 +933,8 @@ static VALUE
 dir_yield(VALUE arg, VALUE path)
 {
     return rb_yield(path);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -937,6 +961,7 @@ dir_each(VALUE dir)
 {
     RETURN_ENUMERATOR(dir, 0, 0);
     return dir_each_entry(dir, dir_yield, Qnil, FALSE);
+    RB_GC_GUARD(dir);
 }
 
 static VALUE
@@ -967,8 +992,11 @@ dir_each_entry(VALUE dir, VALUE (*each)(VALUE, VALUE), VALUE arg, int children_o
 #endif
         path = rb_external_str_new_with_enc(name, namlen, dirp->enc);
         (*each)(arg, path);
+    RB_GC_GUARD(path);
     }
     return dir;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(dir);
 }
 
 #ifdef HAVE_TELLDIR
@@ -995,6 +1023,7 @@ dir_tell(VALUE dir)
     if((pos = telldir(dirp->dir)) < 0)
         rb_sys_fail("telldir");
     return rb_int2inum(pos);
+    RB_GC_GUARD(dir);
 }
 #else
 #define dir_tell rb_f_notimplement
@@ -1030,6 +1059,8 @@ dir_seek(VALUE dir, VALUE pos)
     GetDIR(dir, dirp);
     seekdir(dirp->dir, p);
     return dir;
+    RB_GC_GUARD(pos);
+    RB_GC_GUARD(dir);
 }
 #else
 #define dir_seek rb_f_notimplement
@@ -1061,6 +1092,8 @@ dir_set_pos(VALUE dir, VALUE pos)
 {
     dir_seek(dir, pos);
     return pos;
+    RB_GC_GUARD(pos);
+    RB_GC_GUARD(dir);
 }
 #else
 #define dir_set_pos rb_f_notimplement
@@ -1089,6 +1122,7 @@ dir_rewind(VALUE dir)
     GetDIR(dir, dirp);
     rewinddir(dirp->dir);
     return dir;
+    RB_GC_GUARD(dir);
 }
 
 /*
@@ -1115,6 +1149,7 @@ dir_close(VALUE dir)
     close_dir_data(dirp);
 
     return Qnil;
+    RB_GC_GUARD(dir);
 }
 
 static void *
@@ -1130,6 +1165,7 @@ dir_chdir0(VALUE path)
 {
     if (IO_WITHOUT_GVL_INT(nogvl_chdir, (void*)RSTRING_PTR(path)) < 0)
         rb_sys_fail_path(path);
+        RB_GC_GUARD(path);
 }
 
 static struct {
@@ -1200,6 +1236,7 @@ chdir_yield(VALUE v)
     args->done = TRUE;
     chdir_enter();
     return args->yield_path ? rb_yield(args->new_path) : rb_yield_values2(0, NULL);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1211,6 +1248,7 @@ chdir_restore(VALUE v)
         dir_chdir0(args->old_path);
     }
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1233,6 +1271,7 @@ chdir_path(VALUE path, bool yield_path)
     }
 
     return INT2FIX(0);
+    RB_GC_GUARD(path);
 }
 
 /*
@@ -1316,6 +1355,8 @@ dir_s_chdir(int argc, VALUE *argv, VALUE obj)
     }
 
     return chdir_path(path, true);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(path);
 }
 
 #if defined(HAVE_FCHDIR) && defined(HAVE_DIRFD) && HAVE_FCHDIR && HAVE_DIRFD
@@ -1348,6 +1389,7 @@ fchdir_yield(VALUE v)
     args->done = TRUE;
     chdir_enter();
     return rb_yield_values(0);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1360,6 +1402,7 @@ fchdir_restore(VALUE v)
     }
     dir_close(args->old_dir);
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -1434,6 +1477,8 @@ dir_s_fchdir(VALUE klass, VALUE fd_value)
     }
 
     return INT2FIX(0);
+    RB_GC_GUARD(fd_value);
+    RB_GC_GUARD(klass);
 }
 #else
 #define dir_s_fchdir rb_f_notimplement
@@ -1467,6 +1512,7 @@ dir_chdir(VALUE dir)
 {
 #if defined(HAVE_FCHDIR) && defined(HAVE_DIRFD) && HAVE_FCHDIR && HAVE_DIRFD
     return dir_s_fchdir(rb_cDir, dir_fileno(dir));
+    RB_GC_GUARD(dir);
 #else
     return chdir_path(dir_get(dir)->path, false);
 #endif
@@ -1490,6 +1536,8 @@ rb_dir_getwd_ospath(void)
 #endif
     rb_free_tmp_buffer(&path_guard);
     return cwd;
+    RB_GC_GUARD(path_guard);
+    RB_GC_GUARD(cwd);
 }
 #endif
 
@@ -1511,6 +1559,7 @@ rb_dir_getwd(void)
 #endif
     }
     return rb_enc_associate_index(cwd, fsenc);
+    RB_GC_GUARD(cwd);
 }
 
 /*
@@ -1527,6 +1576,7 @@ static VALUE
 dir_s_getwd(VALUE dir)
 {
     return rb_dir_getwd();
+    RB_GC_GUARD(dir);
 }
 
 static VALUE
@@ -1547,6 +1597,8 @@ check_dirname(VALUE dir)
         StringValueCStr(d);
     }
     return rb_str_encode_ospath(d);
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(d);
 }
 
 #if defined(HAVE_CHROOT)
@@ -1576,6 +1628,8 @@ dir_s_chroot(VALUE dir, VALUE path)
         rb_sys_fail_path(path);
 
     return INT2FIX(0);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(dir);
 }
 #else
 #define dir_s_chroot rb_f_notimplement
@@ -1631,6 +1685,9 @@ dir_s_mkdir(int argc, VALUE *argv, VALUE obj)
         rb_sys_fail_path(path);
 
     return INT2FIX(0);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(vmode);
+    RB_GC_GUARD(path);
 }
 
 static void *
@@ -1664,6 +1721,8 @@ dir_s_rmdir(VALUE obj, VALUE dir)
         rb_sys_fail_path(dir);
 
     return INT2FIX(0);
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(obj);
 }
 
 struct warning_args {
@@ -1688,6 +1747,7 @@ sys_warning_1(VALUE mesg)
     rb_sys_enc_warning(arg->enc, "%s", arg->mesg);
 #endif
     return Qnil;
+    RB_GC_GUARD(mesg);
 }
 
 static void
@@ -1968,6 +2028,7 @@ do_opendir(const int basefd, size_t baselen, const char *path, int flags, rb_enc
 #endif
 
     return dirp;
+    RB_GC_GUARD(arg);
 }
 
 /* Globing pattern */
@@ -2385,6 +2446,7 @@ glob_func_caller(VALUE val)
 
     glob_call_func(args->func, args->path, args->value, args->enc);
     return Qnil;
+    RB_GC_GUARD(val);
 }
 
 struct glob_error_args {
@@ -2399,6 +2461,7 @@ glob_func_warning(VALUE val)
     struct glob_error_args *arg = (struct glob_error_args *)val;
     rb_syserr_enc_warning(arg->error, arg->enc, "%s", arg->path);
     return Qnil;
+    RB_GC_GUARD(val);
 }
 
 #if 0
@@ -2425,6 +2488,8 @@ glob_func_error(VALUE val)
     VALUE path = rb_enc_str_new_cstr(arg->path, arg->enc);
     rb_syserr_fail_str(arg->error, path);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -2446,6 +2511,7 @@ rb_glob_error(const char *path, VALUE a, const void *enc, int error)
     args.error = error;
     rb_protect(errfunc, (VALUE)&args, &status);
     return status;
+    RB_GC_GUARD(a);
 }
 
 typedef struct rb_dirent {
@@ -2493,6 +2559,7 @@ dirent_match_brace(const char *pattern, VALUE val, void *enc)
     struct dirent_brace_args *arg = (struct dirent_brace_args *)val;
 
     return dirent_match(pattern, enc, arg->name, arg->dp, arg->flags);
+    RB_GC_GUARD(val);
 }
 
 /* join paths from pattern list of glob_make_pattern() */
@@ -3043,6 +3110,7 @@ glob_helper(
     }
 
     return status;
+    RB_GC_GUARD(arg);
 }
 
 static int
@@ -3061,6 +3129,7 @@ push_caller(const char *path, VALUE val, void *enc)
                          arg->arg, enc);
     glob_free_pattern(list);
     return status;
+    RB_GC_GUARD(val);
 }
 
 static int ruby_glob0(const char *path, int fd, const char *base, int flags,
@@ -3079,6 +3148,7 @@ push_glob0_caller(const char *path, VALUE val, void *enc)
 {
     struct push_glob0_args *arg = (struct push_glob0_args *)val;
     return ruby_glob0(path, arg->fd, arg->base, arg->flags, arg->funcs, arg->arg, enc);
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -3135,6 +3205,7 @@ ruby_glob0(const char *path, int fd, const char *base, int flags,
     GLOB_FREE(buf);
 
     return status;
+    RB_GC_GUARD(arg);
 }
 
 int
@@ -3145,6 +3216,7 @@ ruby_glob(const char *path, int flags, ruby_glob_func *func, VALUE arg)
     funcs.error = 0;
     return ruby_glob0(path, AT_FDCWD, 0, flags & ~GLOB_VERBOSE,
                       &funcs, arg, rb_ascii8bit_encoding());
+                      RB_GC_GUARD(arg);
 }
 
 static int
@@ -3156,6 +3228,7 @@ rb_glob_caller(const char *path, VALUE a, void *enc)
     args->path = path;
     rb_protect(glob_func_caller, a, &status);
     return status;
+    RB_GC_GUARD(a);
 }
 
 static const ruby_glob_funcs_t rb_glob_funcs = {
@@ -3175,6 +3248,7 @@ rb_glob(const char *path, void (*func)(const char *, VALUE, void *), VALUE arg)
     status = ruby_glob0(path, AT_FDCWD, 0, GLOB_VERBOSE, &rb_glob_funcs,
                         (VALUE)&args, args.enc);
     if (status) GLOB_JUMP_TAG(status);
+    RB_GC_GUARD(arg);
 }
 
 static void
@@ -3188,6 +3262,8 @@ push_pattern(const char *path, VALUE ary, void *enc)
     VALUE name = rb_external_str_new_with_enc(path, strlen(path), enc);
 #endif
     rb_ary_push(ary, name);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -3248,6 +3324,8 @@ ruby_brace_expand(const char *str, int flags, ruby_glob_func *func, VALUE arg,
 
     RB_GC_GUARD(var);
     return status;
+    RB_GC_GUARD(var);
+    RB_GC_GUARD(arg);
 }
 
 struct brace_args {
@@ -3262,6 +3340,7 @@ glob_brace(const char *path, VALUE val, void *enc)
     struct brace_args *arg = (struct brace_args *)val;
 
     return ruby_glob0(path, AT_FDCWD, 0, arg->flags, &arg->funcs, arg->value, enc);
+    RB_GC_GUARD(val);
 }
 
 int
@@ -3275,12 +3354,14 @@ ruby_brace_glob_with_enc(const char *str, int flags, ruby_glob_func *func, VALUE
     args.value = arg;
     args.flags = flags;
     return ruby_brace_expand(str, flags, glob_brace, (VALUE)&args, enc, Qfalse);
+    RB_GC_GUARD(arg);
 }
 
 int
 ruby_brace_glob(const char *str, int flags, ruby_glob_func *func, VALUE arg)
 {
     return ruby_brace_glob_with_enc(str, flags, func, arg, rb_ascii8bit_encoding());
+    RB_GC_GUARD(arg);
 }
 
 static int
@@ -3321,6 +3402,9 @@ push_glob(VALUE ary, VALUE str, VALUE base, int flags)
 
     return ruby_glob0(RSTRING_PTR(str), fd, args.base, flags, &rb_glob_funcs,
                       (VALUE)&args, enc);
+                      RB_GC_GUARD(base);
+                      RB_GC_GUARD(str);
+                      RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3345,6 +3429,9 @@ rb_push_glob(VALUE str, VALUE base, int flags) /* '\0' is delimiter */
     if (status) GLOB_JUMP_TAG(status);
 
     return ary;
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3359,10 +3446,14 @@ dir_globs(VALUE args, VALUE base, int flags)
         FilePathValue(str);
         status = push_glob(ary, str, base, flags);
         if (status) GLOB_JUMP_TAG(status);
+    RB_GC_GUARD(str);
     }
     RB_GC_GUARD(args);
 
     return ary;
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3379,12 +3470,14 @@ dir_glob_option_base(VALUE base)
     FilePathValue(base);
     if (!RSTRING_LEN(base)) return Qnil;
     return base;
+    RB_GC_GUARD(base);
 }
 
 static int
 dir_glob_option_sort(VALUE sort)
 {
     return (rb_bool_expected(sort, "sort", TRUE) ? 0 : FNM_GLOB_NOSORT);
+    RB_GC_GUARD(sort);
 }
 
 static VALUE
@@ -3396,6 +3489,10 @@ dir_s_aref(rb_execution_context_t *ec, VALUE obj, VALUE args, VALUE base, VALUE 
         return rb_push_glob(RARRAY_AREF(args, 0), base, flags);
     }
     return dir_globs(args, base, flags);
+    RB_GC_GUARD(sort);
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3416,6 +3513,12 @@ dir_s_glob(rb_execution_context_t *ec, VALUE obj, VALUE str, VALUE rflags, VALUE
         return Qnil;
     }
     return ary;
+    RB_GC_GUARD(sort);
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(rflags);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3425,6 +3528,7 @@ dir_open_dir(int argc, VALUE *argv)
 
     rb_check_typeddata(dir, &dir_data_type);
     return dir;
+    RB_GC_GUARD(dir);
 }
 
 
@@ -3468,6 +3572,8 @@ dir_foreach(int argc, VALUE *argv, VALUE io)
     dir = dir_open_dir(argc, argv);
     rb_ensure(dir_each, dir, dir_close, dir);
     return Qnil;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(dir);
 }
 
 static VALUE
@@ -3476,6 +3582,8 @@ dir_collect(VALUE dir)
     VALUE ary = rb_ary_new();
     dir_each_entry(dir, rb_ary_push, ary, FALSE);
     return ary;
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3502,12 +3610,15 @@ dir_entries(int argc, VALUE *argv, VALUE io)
 
     dir = dir_open_dir(argc, argv);
     return rb_ensure(dir_collect, dir, dir_close, dir);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(dir);
 }
 
 static VALUE
 dir_each_child(VALUE dir)
 {
     return dir_each_entry(dir, dir_yield, Qnil, TRUE);
+    RB_GC_GUARD(dir);
 }
 
 /*
@@ -3527,6 +3638,8 @@ dir_s_each_child(int argc, VALUE *argv, VALUE io)
     dir = dir_open_dir(argc, argv);
     rb_ensure(dir_each_child, dir, dir_close, dir);
     return Qnil;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(dir);
 }
 
 /*
@@ -3552,6 +3665,7 @@ dir_each_child_m(VALUE dir)
 {
     RETURN_ENUMERATOR(dir, 0, 0);
     return dir_each_entry(dir, dir_yield, Qnil, TRUE);
+    RB_GC_GUARD(dir);
 }
 
 /*
@@ -3571,6 +3685,8 @@ dir_collect_children(VALUE dir)
     VALUE ary = rb_ary_new();
     dir_each_entry(dir, rb_ary_push, ary, TRUE);
     return ary;
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3599,6 +3715,8 @@ dir_s_children(int argc, VALUE *argv, VALUE io)
 
     dir = dir_open_dir(argc, argv);
     return rb_ensure(dir_collect_children, dir, dir_close, dir);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(dir);
 }
 
 static int
@@ -3625,6 +3743,8 @@ fnmatch_brace(const char *pattern, VALUE val, void *enc)
         }
     }
     return (fnmatch(pattern, enc, RSTRING_PTR(path), arg->flags) == 0);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(path);
 }
 
 /* :nodoc: */
@@ -3661,6 +3781,10 @@ file_s_fnmatch(int argc, VALUE *argv, VALUE obj)
     RB_GC_GUARD(pattern);
 
     return Qfalse;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(rflags);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(pattern);
 }
 
 /*
@@ -3692,6 +3816,8 @@ dir_s_home(int argc, VALUE *argv, VALUE obj)
         }
     }
     return rb_default_home_dir(rb_str_new(0, 0));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(user);
 
 }
 
@@ -3744,6 +3870,7 @@ nogvl_dir_empty_p(void *ptr)
     }
     check_closedir(dir);
     return (void *)result;
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -3799,6 +3926,10 @@ rb_dir_s_empty_p(VALUE obj, VALUE dirname)
         rb_syserr_fail_path((int)FIX2LONG(result), orig);
     }
     return result;
+    RB_GC_GUARD(dirname);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(result);
 }
 
 void

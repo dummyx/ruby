@@ -32,6 +32,8 @@ exportable_string_get_memory_view(VALUE obj, rb_memory_view_t *view, int flags)
     VALUE str = rb_ivar_get(obj, id_str);
     rb_memory_view_init_as_byte_array(view, obj, RSTRING_PTR(str), RSTRING_LEN(str), true);
     return true;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 static bool
@@ -39,6 +41,8 @@ exportable_string_memory_view_available_p(VALUE obj)
 {
     VALUE str = rb_ivar_get(obj, id_str);
     return !NIL_P(str);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 static const rb_memory_view_entry_t exportable_string_memory_view_entry = {
@@ -51,12 +55,16 @@ static VALUE
 memory_view_available_p(VALUE mod, VALUE obj)
 {
     return rb_memory_view_available_p(obj) ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
 memory_view_register(VALUE mod, VALUE obj)
 {
     return rb_memory_view_register(obj, &exportable_string_memory_view_entry) ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
@@ -71,6 +79,8 @@ memory_view_item_size_from_format(VALUE mod, VALUE format)
         return rb_assoc_new(SSIZET2NUM(item_size), Qnil);
     else
         return rb_assoc_new(SSIZET2NUM(item_size), rb_str_new_cstr(err));
+        RB_GC_GUARD(format);
+        RB_GC_GUARD(mod);
 }
 
 static VALUE
@@ -100,10 +110,12 @@ memory_view_parse_item_format(VALUE mod, VALUE format)
             rb_hash_aset(member, sym_size, SSIZET2NUM(members[i].size));
             rb_hash_aset(member, sym_repeat, SSIZET2NUM(members[i].repeat));
             rb_ary_push(ary, member);
+        RB_GC_GUARD(member);
         }
         xfree(members);
         rb_ary_push(result, ary);
         rb_ary_push(result, Qnil);
+    RB_GC_GUARD(ary);
     }
     else {
         rb_ary_push(result, Qnil); // members
@@ -111,6 +123,9 @@ memory_view_parse_item_format(VALUE mod, VALUE format)
     }
 
     return result;
+    RB_GC_GUARD(format);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -133,6 +148,7 @@ memory_view_get_memory_view_info(VALUE mod, VALUE obj)
     if (view.shape) {
         VALUE shape = rb_ary_new_capa(view.ndim);
         rb_hash_aset(hash, sym_shape, shape);
+    RB_GC_GUARD(shape);
     }
     else {
         rb_hash_aset(hash, sym_shape, Qnil);
@@ -141,6 +157,7 @@ memory_view_get_memory_view_info(VALUE mod, VALUE obj)
     if (view.strides) {
         VALUE strides = rb_ary_new_capa(view.ndim);
         rb_hash_aset(hash, sym_strides, strides);
+    RB_GC_GUARD(strides);
     }
     else {
         rb_hash_aset(hash, sym_strides, Qnil);
@@ -149,6 +166,7 @@ memory_view_get_memory_view_info(VALUE mod, VALUE obj)
     if (view.sub_offsets) {
         VALUE sub_offsets = rb_ary_new_capa(view.ndim);
         rb_hash_aset(hash, sym_sub_offsets, sub_offsets);
+    RB_GC_GUARD(sub_offsets);
     }
     else {
         rb_hash_aset(hash, sym_sub_offsets, Qnil);
@@ -157,6 +175,9 @@ memory_view_get_memory_view_info(VALUE mod, VALUE obj)
     rb_memory_view_release(&view);
 
     return hash;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -182,6 +203,12 @@ memory_view_fill_contiguous_strides(VALUE mod, VALUE ndim_v, VALUE item_size_v, 
     xfree(shape);
 
     return result;
+    RB_GC_GUARD(row_major_p);
+    RB_GC_GUARD(shape_v);
+    RB_GC_GUARD(item_size_v);
+    RB_GC_GUARD(ndim_v);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -202,6 +229,7 @@ memory_view_get_ref_count(VALUE obj)
     }
 
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -220,6 +248,8 @@ memory_view_ref_count_while_exporting_i(VALUE obj, long n)
     rb_memory_view_release(&view);
 
     return ref_count;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ref_count);
 }
 
 static VALUE
@@ -227,6 +257,9 @@ memory_view_ref_count_while_exporting(VALUE mod, VALUE obj, VALUE n)
 {
     Check_Type(n, T_FIXNUM);
     return memory_view_ref_count_while_exporting_i(obj, FIX2LONG(n));
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
@@ -247,6 +280,10 @@ memory_view_extract_item_members(VALUE mod, VALUE str, VALUE format)
     xfree(members);
 
     return item;
+    RB_GC_GUARD(format);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(item);
 }
 
 static VALUE
@@ -257,6 +294,8 @@ expstr_initialize(VALUE obj, VALUE s)
     }
     rb_ivar_set(obj, id_str, s);
     return Qnil;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(obj);
 }
 
 static bool
@@ -308,6 +347,11 @@ mdview_get_memory_view(VALUE obj, rb_memory_view_t *view, int flags)
     view->sub_offsets = NULL;
 
     return true;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(strides_v);
+    RB_GC_GUARD(shape_v);
+    RB_GC_GUARD(format_v);
+    RB_GC_GUARD(buf_v);
 }
 
 static bool
@@ -317,12 +361,14 @@ mdview_release_memory_view(VALUE obj, rb_memory_view_t *view)
     xfree((void *)view->strides);
 
     return true;
+    RB_GC_GUARD(obj);
 }
 
 static bool
 mdview_memory_view_available_p(VALUE obj)
 {
     return true;
+    RB_GC_GUARD(obj);
 }
 
 static const rb_memory_view_entry_t mdview_memory_view_entry = {
@@ -344,6 +390,11 @@ mdview_initialize(VALUE obj, VALUE buf, VALUE format, VALUE shape, VALUE strides
     rb_ivar_set(obj, SYM2ID(sym_shape), shape);
     rb_ivar_set(obj, SYM2ID(sym_strides), strides);
     return Qnil;
+    RB_GC_GUARD(strides);
+    RB_GC_GUARD(shape);
+    RB_GC_GUARD(format);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -373,6 +424,10 @@ mdview_aref(VALUE obj, VALUE indices_v)
     rb_memory_view_release(&view);
 
     return result;
+    RB_GC_GUARD(indices_v);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(buf_indices);
 }
 
 #endif /* HAVE_RUBY_MEMORY_VIEW_H */
@@ -447,4 +502,7 @@ Init_memory_view(void)
 #undef DEF_ALIGNMENT_CONST
 
 #endif /* HAVE_RUBY_MEMORY_VIEW_H */
+    RB_GC_GUARD(mMemoryViewTestUtils);
+    RB_GC_GUARD(cMDView);
+    RB_GC_GUARD(cExportableString);
 }

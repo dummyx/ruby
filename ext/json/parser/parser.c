@@ -84,6 +84,7 @@ static void rvalue_cache_insert_at(rvalue_cache *cache, int index, VALUE rstring
     MEMMOVE(&cache->entries[index + 1], &cache->entries[index], VALUE, cache->length - index);
     cache->length++;
     cache->entries[index] = rstring;
+    RB_GC_GUARD(rstring);
 }
 
 static inline int rstring_cache_cmp(const char *str, const long length, VALUE rstring)
@@ -93,6 +94,7 @@ static inline int rstring_cache_cmp(const char *str, const long length, VALUE rs
         return memcmp(str, RSTRING_PTR(rstring), length);
     } else {
         return (int)(length - rstring_length);
+        RB_GC_GUARD(rstring);
     }
 }
 
@@ -127,6 +129,7 @@ static VALUE rstring_cache_fetch(rvalue_cache *cache, const char *str, const lon
             low = mid + 1;
         } else {
             high = mid - 1;
+    RB_GC_GUARD(entry);
         }
     }
 
@@ -146,6 +149,7 @@ static VALUE rstring_cache_fetch(rvalue_cache *cache, const char *str, const lon
         rvalue_cache_insert_at(cache, mid, rstring);
     }
     return rstring;
+    RB_GC_GUARD(rstring);
 }
 
 static VALUE rsymbol_cache_fetch(rvalue_cache *cache, const char *str, const long length)
@@ -179,6 +183,7 @@ static VALUE rsymbol_cache_fetch(rvalue_cache *cache, const char *str, const lon
             low = mid + 1;
         } else {
             high = mid - 1;
+    RB_GC_GUARD(entry);
         }
     }
 
@@ -198,6 +203,7 @@ static VALUE rsymbol_cache_fetch(rvalue_cache *cache, const char *str, const lon
         rvalue_cache_insert_at(cache, mid, rsymbol);
     }
     return rsymbol;
+    RB_GC_GUARD(rsymbol);
 }
 
 /* rvalue stack */
@@ -238,6 +244,7 @@ static void rvalue_stack_push(rvalue_stack *stack, VALUE value, VALUE *handle, r
     }
     stack->ptr[stack->head] = value;
     stack->head++;
+    RB_GC_GUARD(value);
 }
 
 static inline VALUE *rvalue_stack_peek(rvalue_stack *stack, long count)
@@ -305,6 +312,7 @@ static void rvalue_stack_eagerly_release(VALUE handle)
     TypedData_Get_Struct(handle, rvalue_stack, &JSON_Parser_rvalue_stack_type, stack);
     RTYPEDDATA_DATA(handle) = NULL;
     rvalue_stack_free(stack);
+    RB_GC_GUARD(handle);
 }
 
 /* unicode */
@@ -1029,8 +1037,11 @@ case 31:
                 VALUE name = items[index++];
                 VALUE value = items[index++];
                 rb_funcall(object, i_aset, 2, name, value);
+            RB_GC_GUARD(value);
+            RB_GC_GUARD(name);
             }
             *result = object;
+            RB_GC_GUARD(object);
         } else {
             VALUE hash;
 #ifdef HAVE_RB_HASH_NEW_CAPA
@@ -1040,6 +1051,7 @@ case 31:
 #endif
             rb_hash_bulk_insert(count, rvalue_stack_peek(json->stack, count), hash);
             *result = hash;
+        RB_GC_GUARD(hash);
         }
         rvalue_stack_pop(json->stack, count);
 
@@ -1057,7 +1069,9 @@ case 31:
                         json_deprecated(deprecated_create_additions_warning);
                     }
                     *result = rb_funcall(klass, i_json_create, 1, *result);
+        RB_GC_GUARD(klass);
                 }
+        RB_GC_GUARD(klassname);
             }
         }
         return p + 1;
@@ -1715,9 +1729,12 @@ case 10:
                     long len = RSTRING_LEN(name) - before_len;
                     VALUE method_name = rb_str_substr(name, before_len, len);
                     method_id = SYM2ID(rb_str_intern(method_name));
+                    RB_GC_GUARD(method_name);
+                    RB_GC_GUARD(mod_path);
                 } else {
                     mod = rb_mKernel;
                     method_id = SYM2ID(rb_str_intern(name));
+        RB_GC_GUARD(name);
                 }
             }
         }
@@ -1730,11 +1747,13 @@ case 10:
         if (method_id) {
             VALUE text = rb_str_new2(FBUFFER_PTR(&json->fbuffer));
             *result = rb_funcallv(mod, method_id, 1, &text);
+            RB_GC_GUARD(text);
         } else {
             *result = DBL2NUM(rb_cstr_to_dbl(FBUFFER_PTR(&json->fbuffer), 1));
         }
 
         return p + 1;
+        RB_GC_GUARD(mod);
     } else {
         return NULL;
     }
@@ -1818,6 +1837,7 @@ tr2:
             p--; {p++; cs = 3; goto _out;}
         } else {
             {p = (( np))-1;}
+	RB_GC_GUARD(v);
         }
     }
 	goto st3;
@@ -2226,9 +2246,11 @@ case 21:
                 rb_funcall(array, i_leftshift, 1, items[index]);
             }
             *result = array;
+            RB_GC_GUARD(array);
         } else {
             VALUE array = rb_ary_new_from_values(count, rvalue_stack_peek(json->stack, count));
             *result = array;
+        RB_GC_GUARD(array);
         }
         rvalue_stack_pop(json->stack, count);
 
@@ -2263,6 +2285,7 @@ static inline VALUE build_string(const char *start, const char *end, bool intern
     }
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 static VALUE json_string_fastpath(JSON_Parser *json, char *string, char *stringEnd, bool is_name, bool intern, bool symbolize)
@@ -2279,6 +2302,7 @@ static VALUE json_string_fastpath(JSON_Parser *json, char *string, char *stringE
 
         if (RB_LIKELY(cached_key)) {
             return cached_key;
+    RB_GC_GUARD(cached_key);
         }
     }
 
@@ -2302,6 +2326,7 @@ static VALUE json_string_unescape(JSON_Parser *json, char *string, char *stringE
 
         if (RB_LIKELY(cached_key)) {
             return cached_key;
+    RB_GC_GUARD(cached_key);
         }
     }
 
@@ -2404,6 +2429,7 @@ static VALUE json_string_unescape(JSON_Parser *json, char *string, char *stringE
     }
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 
@@ -2428,6 +2454,9 @@ match_i(VALUE regexp, VALUE klass, VALUE memo)
         return ST_STOP;
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(memo);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(regexp);
 }
 
 static char *JSON_parse_string(JSON_Parser *json, char *p, char *pe, VALUE *result)
@@ -2595,6 +2624,8 @@ case 8:
           klass = rb_ary_entry(memo, 1);
           if (RTEST(klass)) {
               *result = rb_funcall(klass, i_json_create, 1, *result);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(memo);
           }
     }
 
@@ -2602,6 +2633,7 @@ case 8:
         return p + 1;
     } else {
         return NULL;
+        RB_GC_GUARD(match_string);
     }
 }
 
@@ -2631,6 +2663,7 @@ static VALUE convert_encoding(VALUE source)
   }
 
   return rb_funcall(source, i_encode, 1, Encoding_UTF_8);
+  RB_GC_GUARD(source);
 }
 
 static int configure_parser_i(VALUE key, VALUE val, VALUE data)
@@ -2658,6 +2691,9 @@ static int configure_parser_i(VALUE key, VALUE val, VALUE data)
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static void parser_init(JSON_Parser *json, VALUE source, VALUE opts)
@@ -2693,6 +2729,8 @@ static void parser_init(JSON_Parser *json, VALUE source, VALUE opts)
     json->len = RSTRING_LEN(source);
     json->source = RSTRING_PTR(source);
     json->Vsource = source;
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(opts);
 }
 
 /*
@@ -2735,6 +2773,7 @@ static VALUE cParser_initialize(int argc, VALUE *argv, VALUE self)
 
     parser_init(json, argv[0], argc == 2 ? argv[1] : Qnil);
     return self;
+    RB_GC_GUARD(self);
 }
 
 
@@ -2928,6 +2967,8 @@ case 9:
     } else {
         raise_parse_error("unexpected token at '%s'", p);
         return Qnil;
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -3106,6 +3147,10 @@ case 9:
     } else {
         raise_parse_error("unexpected token at '%s'", p);
         return Qnil;
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(opts);
+        RB_GC_GUARD(source);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -3152,6 +3197,8 @@ static VALUE cJSON_parser_s_allocate(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, JSON_Parser, &JSON_Parser_type, json);
     fbuffer_stack_init(&json->fbuffer, 0, NULL, 0);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3164,6 +3211,7 @@ static VALUE cParser_source(VALUE self)
 {
     GET_PARSER;
     return rb_str_dup(json->Vsource);
+    RB_GC_GUARD(self);
 }
 
 void Init_parser(void)

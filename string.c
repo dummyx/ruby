@@ -159,6 +159,7 @@ static inline bool
 str_enc_fastpath(VALUE str)
 {
     return str_encindex_fastpath(ENCODING_GET_INLINED(str));
+    RB_GC_GUARD(str);
 }
 
 #define TERM_LEN(str) (str_enc_fastpath(str) ? 1 : rb_enc_mbminlen(rb_enc_from_index(ENCODING_GET(str))))
@@ -226,12 +227,14 @@ static inline long
 str_embed_capa(VALUE str)
 {
     return rb_gc_obj_slot_size(str) - offsetof(struct RString, as.embed.ary);
+    RB_GC_GUARD(str);
 }
 
 bool
 rb_str_reembeddable_p(VALUE str)
 {
     return !FL_TEST(str, STR_NOFREE|STR_SHARED_ROOT|STR_SHARED);
+    RB_GC_GUARD(str);
 }
 
 static inline size_t
@@ -261,6 +264,7 @@ rb_str_size_as_embedded(VALUE str)
     }
 
     return real_size;
+    RB_GC_GUARD(str);
 }
 
 static inline bool
@@ -285,6 +289,7 @@ str_make_independent(VALUE str)
     long len = RSTRING_LEN(str);
     int termlen = TERM_LEN(str);
     str_make_independent_expand((str), len, 0L, termlen);
+    RB_GC_GUARD(str);
 }
 
 static inline int str_dependent_p(VALUE str);
@@ -295,6 +300,7 @@ rb_str_make_independent(VALUE str)
     if (str_dependent_p(str)) {
         str_make_independent(str);
     }
+        RB_GC_GUARD(str);
 }
 
 void
@@ -315,6 +321,7 @@ rb_str_make_embedded(VALUE str)
     }
 
     TERM_FILL(RSTRING(str)->as.embed.ary + len, TERM_LEN(str));
+    RB_GC_GUARD(str);
 }
 
 void
@@ -334,6 +341,7 @@ static rb_encoding *
 get_encoding(VALUE str)
 {
     return rb_enc_from_index(ENCODING_GET(str));
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -342,6 +350,7 @@ mustnot_broken(VALUE str)
     if (is_broken_string(str)) {
         rb_raise(rb_eArgError, "invalid byte sequence in %s", rb_enc_name(STR_ENC_GET(str)));
     }
+        RB_GC_GUARD(str);
 }
 
 static void
@@ -351,6 +360,7 @@ mustnot_wchar(VALUE str)
     if (rb_enc_mbminlen(enc) > 1) {
         rb_raise(rb_eArgError, "wide char encoding: %s", rb_enc_name(enc));
     }
+        RB_GC_GUARD(str);
 }
 
 static int fstring_cmp(VALUE a, VALUE b);
@@ -372,6 +382,7 @@ fstring_hash(VALUE str)
     }
     else {
         return rb_str_hash(str);
+        RB_GC_GUARD(str);
     }
 }
 #else
@@ -394,6 +405,7 @@ str_do_hash(VALUE str)
         h = rb_hash_end(rb_hash_uint32(h, (uint32_t)e));
     }
     return h;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -413,6 +425,7 @@ str_store_precomputed_hash(VALUE str, st_index_t hash)
     FL_SET(str, STR_PRECOMPUTED_HASH);
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 struct fstr_update_arg {
@@ -472,6 +485,7 @@ fstr_update_callback(st_data_t *key, st_data_t *value, st_data_t data, int exist
 #endif
                 }
                 str = new_str;
+            RB_GC_GUARD(new_str);
             }
             else {
                 str = str_new_static(rb_cString, RSTRING(str)->as.heap.ptr,
@@ -499,6 +513,7 @@ fstr_update_callback(st_data_t *key, st_data_t *value, st_data_t data, int exist
 
         *key = *value = arg->fstr = str;
         return ST_CONTINUE;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -537,6 +552,8 @@ rb_fstring(VALUE str)
         return str;
     }
     return fstr;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(fstr);
 }
 
 static VALUE
@@ -571,6 +588,7 @@ register_fstring(VALUE str, bool copy, bool force_precompute_hash)
     RUBY_ASSERT(RBASIC_CLASS(args.fstr) == rb_cString);
 
     return args.fstr;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -643,6 +661,8 @@ fstring_cmp(VALUE a, VALUE b)
     return (alen != blen ||
             ENCODING_GET(a) != ENCODING_GET(b) ||
             memcmp(aptr, bptr, alen) != 0);
+            RB_GC_GUARD(b);
+            RB_GC_GUARD(a);
 }
 
 static inline bool
@@ -669,6 +689,7 @@ single_byte_optimizable(VALUE str)
     /* Conservative.  Possibly single byte.
      * "\xa1" in Shift_JIS for example. */
     return false;
+    RB_GC_GUARD(str);
 }
 
 VALUE rb_fs;
@@ -836,6 +857,8 @@ static inline void
 str_enc_copy(VALUE str1, VALUE str2)
 {
     rb_enc_set_index(str1, ENCODING_GET(str2));
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(str2);
 }
 
 /* Like str_enc_copy, but does not check frozen status of str1.
@@ -850,6 +873,8 @@ str_enc_copy_direct(VALUE str1, VALUE str2)
     else {
         ENCODING_SET_INLINED(str1, inlined_encoding);
     }
+        RB_GC_GUARD(str1);
+        RB_GC_GUARD(str2);
 }
 
 static void
@@ -880,6 +905,8 @@ rb_enc_cr_str_copy_for_substr(VALUE dest, VALUE src)
       default:
         break;
     }
+        RB_GC_GUARD(dest);
+        RB_GC_GUARD(src);
 }
 
 static void
@@ -887,18 +914,22 @@ rb_enc_cr_str_exact_copy(VALUE dest, VALUE src)
 {
     str_enc_copy(dest, src);
     ENC_CODERANGE_SET(dest, ENC_CODERANGE(src));
+    RB_GC_GUARD(dest);
+    RB_GC_GUARD(src);
 }
 
 static int
 enc_coderange_scan(VALUE str, rb_encoding *enc)
 {
     return coderange_scan(RSTRING_PTR(str), RSTRING_LEN(str), enc);
+    RB_GC_GUARD(str);
 }
 
 int
 rb_enc_str_coderange_scan(VALUE str, rb_encoding *enc)
 {
     return enc_coderange_scan(str, enc);
+    RB_GC_GUARD(str);
 }
 
 int
@@ -911,6 +942,7 @@ rb_enc_str_coderange(VALUE str)
         ENC_CODERANGE_SET(str, cr);
     }
     return cr;
+    RB_GC_GUARD(str);
 }
 
 static inline bool
@@ -918,6 +950,7 @@ rb_enc_str_asciicompat(VALUE str)
 {
     int encindex = ENCODING_GET_INLINED(str);
     return str_encindex_fastpath(encindex) || rb_enc_asciicompat(rb_enc_get_from_index(encindex));
+    RB_GC_GUARD(str);
 }
 
 int
@@ -930,6 +963,7 @@ rb_enc_str_asciionly_p(VALUE str)
         return true;
       default:
         return false;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -939,6 +973,7 @@ str_mod_check(VALUE s, const char *p, long len)
     if (RSTRING_PTR(s) != p || RSTRING_LEN(s) != len){
         rb_raise(rb_eRuntimeError, "string modified");
     }
+        RB_GC_GUARD(s);
 }
 
 static size_t
@@ -952,6 +987,7 @@ str_capacity(VALUE str, const int termlen)
     }
     else {
         return RSTRING(str)->as.heap.aux.capa;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -959,6 +995,7 @@ size_t
 rb_str_capacity(VALUE str)
 {
     return str_capacity(str, TERM_LEN(str));
+    RB_GC_GUARD(str);
 }
 
 static inline void
@@ -980,6 +1017,7 @@ str_alloc_embed(VALUE klass, size_t capa)
             T_STRING | (RGENGC_WB_PROTECTED_STRING ? FL_WB_PROTECTED : 0), size, 0);
 
     return (VALUE)str;
+    RB_GC_GUARD(klass);
 }
 
 static inline VALUE
@@ -989,6 +1027,7 @@ str_alloc_heap(VALUE klass)
             T_STRING | STR_NOEMBED | (RGENGC_WB_PROTECTED_STRING ? FL_WB_PROTECTED : 0), sizeof(struct RString), 0);
 
     return (VALUE)str;
+    RB_GC_GUARD(klass);
 }
 
 static inline VALUE
@@ -999,6 +1038,8 @@ empty_str_alloc(VALUE klass)
     memset(RSTRING(str)->as.embed.ary, 0, str_embed_capa(str));
     ENC_CODERANGE_SET(str, ENC_CODERANGE_7BIT);
     return str;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1043,12 +1084,15 @@ str_enc_new(VALUE klass, const char *ptr, long len, rb_encoding *enc)
     STR_SET_LEN(str, len);
     TERM_FILL(RSTRING_PTR(str) + len, termlen);
     return str;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
 str_new(VALUE klass, const char *ptr, long len)
 {
     return str_enc_new(klass, ptr, len, rb_ascii8bit_encoding());
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1131,6 +1175,8 @@ str_new_static(VALUE klass, const char *ptr, long len, int encindex)
         rb_enc_associate_index(str, encindex);
     }
     return str;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1168,6 +1214,7 @@ is_enc_ascii_string(VALUE str, rb_encoding *enc)
     if (rb_enc_get_index(str) == encidx)
         return is_ascii_string(str);
     return enc_coderange_scan(str, enc) == ENC_CODERANGE_7BIT;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1197,6 +1244,9 @@ rb_str_conv_enc_opts(VALUE str, rb_encoding *from, rb_encoding *to, int ecflags,
         return str;
     }
     return newstr;
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(newstr);
 }
 
 VALUE
@@ -1218,6 +1268,8 @@ rb_str_cat_conv_enc_opts(VALUE newstr, long ofs, const char *ptr, long len,
     return str_cat_conv_enc_opts(newstr, ofs, ptr, len, from,
                                  rb_enc_get(newstr),
                                  ecflags, ecopts);
+                                 RB_GC_GUARD(ecopts);
+                                 RB_GC_GUARD(newstr);
 }
 
 VALUE
@@ -1227,6 +1279,7 @@ rb_str_initialize(VALUE str, const char *ptr, long len, rb_encoding *enc)
     rb_enc_associate(str, enc);
     rb_str_cat(str, ptr, len);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1283,6 +1336,9 @@ str_cat_conv_enc_opts(VALUE newstr, long ofs, const char *ptr, long len,
 
       default:
         return Qnil;
+        RB_GC_GUARD(econv_wrapper);
+        RB_GC_GUARD(ecopts);
+        RB_GC_GUARD(newstr);
     }
 }
 
@@ -1290,6 +1346,7 @@ VALUE
 rb_str_conv_enc(VALUE str, rb_encoding *from, rb_encoding *to)
 {
     return rb_str_conv_enc_opts(str, from, to, 0, Qnil);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1328,6 +1385,7 @@ rb_external_str_new_with_enc(const char *ptr, long len, rb_encoding *eenc)
         rb_str_initialize(str, ptr, len, eenc);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1341,6 +1399,7 @@ rb_external_str_with_enc(VALUE str, rb_encoding *eenc)
     }
     rb_enc_associate_index(str, eidx);
     return rb_str_conv_enc(str, eenc, rb_default_internal_encoding());
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1383,18 +1442,21 @@ VALUE
 rb_str_export(VALUE str)
 {
     return rb_str_export_to_enc(str, rb_default_external_encoding());
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_str_export_locale(VALUE str)
 {
     return rb_str_export_to_enc(str, rb_locale_encoding());
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_str_export_to_enc(VALUE str, rb_encoding *enc)
 {
     return rb_str_conv_enc(str, STR_ENC_GET(str), enc);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1435,11 +1497,14 @@ str_replace_shared_without_enc(VALUE str2, VALUE str)
         FL_SET(str2, STR_NOEMBED);
         RSTRING(str2)->as.heap.ptr = ptr;
         STR_SET_SHARED(str2, root);
+    RB_GC_GUARD(root);
     }
 
     STR_SET_LEN(str2, len);
 
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 static VALUE
@@ -1448,18 +1513,23 @@ str_replace_shared(VALUE str2, VALUE str)
     str_replace_shared_without_enc(str2, str);
     rb_enc_cr_str_exact_copy(str2, str);
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 static VALUE
 str_new_shared(VALUE klass, VALUE str)
 {
     return str_replace_shared(str_alloc_heap(klass), str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_str_new_shared(VALUE str)
 {
     return str_new_shared(rb_obj_class(str), str);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1467,6 +1537,7 @@ rb_str_new_frozen(VALUE orig)
 {
     if (RB_FL_TEST_RAW(orig, FL_FREEZE | STR_CHILLED) == FL_FREEZE) return orig;
     return str_new_frozen(rb_obj_class(orig), orig);
+    RB_GC_GUARD(orig);
 }
 
 static VALUE
@@ -1474,6 +1545,7 @@ rb_str_new_frozen_String(VALUE orig)
 {
     if (OBJ_FROZEN(orig) && rb_obj_class(orig) == rb_cString) return orig;
     return str_new_frozen(rb_cString, orig);
+    RB_GC_GUARD(orig);
 }
 
 VALUE
@@ -1481,6 +1553,7 @@ rb_str_tmp_frozen_acquire(VALUE orig)
 {
     if (OBJ_FROZEN_RAW(orig)) return orig;
     return str_new_frozen_buffer(0, orig, FALSE);
+    RB_GC_GUARD(orig);
 }
 
 VALUE
@@ -1517,6 +1590,8 @@ rb_str_tmp_frozen_no_embed_acquire(VALUE orig)
     RSTRING(str)->as.heap.aux.capa = capa;
 
     return str;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(str);
 }
 
 void
@@ -1545,14 +1620,19 @@ rb_str_tmp_frozen_release(VALUE orig, VALUE tmp)
             /* Make tmp embedded and empty so it is safe for sweeping. */
             STR_SET_EMBED(tmp);
             STR_SET_LEN(tmp, 0);
+            RB_GC_GUARD(shared);
         }
     }
+            RB_GC_GUARD(orig);
+            RB_GC_GUARD(tmp);
 }
 
 static VALUE
 str_new_frozen(VALUE klass, VALUE orig)
 {
     return str_new_frozen_buffer(klass, orig, TRUE);
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -1571,6 +1651,9 @@ heap_str_make_shared(VALUE klass, VALUE orig)
     if (klass == 0)
         FL_UNSET_RAW(str, STR_BORROWED);
     return str;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1608,6 +1691,7 @@ str_new_frozen_buffer(VALUE klass, VALUE orig, int copy_encoding)
                 if (RBASIC_CLASS(shared) == 0)
                     FL_SET_RAW(shared, STR_BORROWED);
                 return shared;
+        RB_GC_GUARD(shared);
             }
         }
         else if (STR_EMBEDDABLE_P(RSTRING_LEN(orig), TERM_LEN(orig))) {
@@ -1626,12 +1710,16 @@ str_new_frozen_buffer(VALUE klass, VALUE orig, int copy_encoding)
     if (copy_encoding) rb_enc_cr_str_exact_copy(str, orig);
     OBJ_FREEZE(str);
     return str;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_str_new_with_class(VALUE obj, const char *ptr, long len)
 {
     return str_enc_new(rb_obj_class(obj), ptr, len, STR_ENC_GET(obj));
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1640,6 +1728,8 @@ str_new_empty_String(VALUE str)
     VALUE v = rb_str_new(0, 0);
     rb_enc_copy(v, str);
     return v;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(v);
 }
 
 #define STR_BUF_MIN_SIZE 63
@@ -1658,6 +1748,7 @@ rb_str_buf_new(long capa)
     RSTRING(str)->as.heap.ptr[0] = '\0';
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1670,6 +1761,7 @@ rb_str_buf_new_cstr(const char *ptr)
     rb_str_buf_cat(str, ptr, len);
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1692,6 +1784,7 @@ rb_str_free(VALUE str)
         RB_DEBUG_COUNTER_INC(obj_str_ptr);
         ruby_sized_xfree(STR_HEAP_PTR(str), STR_HEAP_SIZE(str));
     }
+        RB_GC_GUARD(str);
 }
 
 size_t
@@ -1702,6 +1795,7 @@ rb_str_memsize(VALUE str)
     }
     else {
         return 0;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -1709,6 +1803,7 @@ VALUE
 rb_str_to_str(VALUE str)
 {
     return rb_convert_type_with_id(str, T_STRING, "String", idTo_str);
+    RB_GC_GUARD(str);
 }
 
 static inline void str_discard(VALUE str);
@@ -1718,6 +1813,8 @@ void
 rb_str_shared_replace(VALUE str, VALUE str2)
 {
     if (str != str2) str_shared_replace(str, str2);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 static void
@@ -1762,6 +1859,7 @@ str_shared_replace(VALUE str, VALUE str2)
         if (FL_TEST(str2, STR_SHARED)) {
             VALUE shared = RSTRING(str2)->as.heap.aux.shared;
             STR_SET_SHARED(str, shared);
+        RB_GC_GUARD(shared);
         }
         else {
             RSTRING(str)->as.heap.aux.capa = RSTRING(str2)->as.heap.aux.capa;
@@ -1774,6 +1872,8 @@ str_shared_replace(VALUE str, VALUE str2)
         rb_enc_associate(str, enc);
         ENC_CODERANGE_SET(str, cr);
     }
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(str2);
 }
 
 VALUE
@@ -1786,6 +1886,8 @@ rb_obj_as_string(VALUE obj)
     }
     str = rb_funcall(obj, idTo_s, 0);
     return rb_obj_as_string_result(str, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1794,6 +1896,8 @@ rb_obj_as_string_result(VALUE str, VALUE obj)
     if (!RB_TYPE_P(str, T_STRING))
         return rb_any_to_s(obj);
     return str;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1810,12 +1914,15 @@ str_replace(VALUE str, VALUE str2)
         RSTRING(str)->as.heap.ptr = RSTRING_PTR(str2);
         STR_SET_SHARED(str, shared);
         rb_enc_cr_str_exact_copy(str, str2);
+    RB_GC_GUARD(shared);
     }
     else {
         str_replace_shared(str, str2);
     }
 
     return str;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 static inline VALUE
@@ -1829,6 +1936,7 @@ ec_str_alloc_embed(struct rb_execution_context_struct *ec, VALUE klass, size_t c
             T_STRING | (RGENGC_WB_PROTECTED_STRING ? FL_WB_PROTECTED : 0), size, ec);
 
     return (VALUE)str;
+    RB_GC_GUARD(klass);
 }
 
 static inline VALUE
@@ -1838,6 +1946,7 @@ ec_str_alloc_heap(struct rb_execution_context_struct *ec, VALUE klass)
             T_STRING | STR_NOEMBED | (RGENGC_WB_PROTECTED_STRING ? FL_WB_PROTECTED : 0), sizeof(struct RString), ec);
 
     return (VALUE)str;
+    RB_GC_GUARD(klass);
 }
 
 static inline VALUE
@@ -1851,6 +1960,9 @@ str_duplicate_setup_encoding(VALUE str, VALUE dup, VALUE flags)
     FL_SET_RAW(dup, flags & ~FL_FREEZE);
     if (encidx) rb_enc_associate_index(dup, encidx);
     return dup;
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(dup);
+    RB_GC_GUARD(str);
 }
 
 static const VALUE flag_mask = ENC_CODERANGE_MASK | ENCODING_MASK | FL_FREEZE;
@@ -1866,6 +1978,10 @@ str_duplicate_setup_embed(VALUE klass, VALUE str, VALUE dup)
     MEMCPY(RSTRING(dup)->as.embed.ary, RSTRING(str)->as.embed.ary, char, len + 1);
     STR_SET_LEN(dup, RSTRING_LEN(str));
     return str_duplicate_setup_encoding(str, dup, flags);
+    RB_GC_GUARD(dup);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(flags);
 }
 
 static inline VALUE
@@ -1890,6 +2006,11 @@ str_duplicate_setup_heap(VALUE klass, VALUE str, VALUE dup)
 
     STR_SET_LEN(dup, RSTRING_LEN(str));
     return str_duplicate_setup_encoding(str, dup, flags);
+    RB_GC_GUARD(dup);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(root);
+    RB_GC_GUARD(flags);
 }
 
 static inline VALUE
@@ -1900,6 +2021,9 @@ str_duplicate_setup(VALUE klass, VALUE str, VALUE dup)
     }
     else {
         return str_duplicate_setup_heap(klass, str, dup);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(dup);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -1915,12 +2039,16 @@ str_duplicate(VALUE klass, VALUE str)
     }
 
     return str_duplicate_setup(klass, str, dup);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(dup);
 }
 
 VALUE
 rb_str_dup(VALUE str)
 {
     return str_duplicate(rb_obj_class(str), str);
+    RB_GC_GUARD(str);
 }
 
 /* :nodoc: */
@@ -1932,6 +2060,7 @@ rb_str_dup_m(VALUE str)
     }
     else {
         return rb_obj_dup(str);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -1940,6 +2069,7 @@ rb_str_resurrect(VALUE str)
 {
     RUBY_DTRACE_CREATE_HOOK(STRING, RSTRING_LEN(str));
     return str_duplicate(rb_cString, str);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1960,6 +2090,9 @@ rb_ec_str_resurrect(struct rb_execution_context_struct *ec, VALUE str, bool chil
         FL_SET_RAW(new_str, STR_CHILLED_LITERAL);
     }
     return new_str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(new_str);
 }
 
 VALUE
@@ -1970,6 +2103,9 @@ rb_str_with_debug_created_info(VALUE str, VALUE path, int line)
     rb_ivar_set(str, id_debug_created_info, rb_ary_freeze(debug_info));
     FL_SET_RAW(str, STR_CHILLED_LITERAL);
     return rb_str_freeze(str);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(debug_info);
 }
 
 /*
@@ -2056,6 +2192,11 @@ rb_str_init(int argc, VALUE *argv, VALUE str)
         rb_str_replace(str, orig);
     }
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(vcapa);
+    RB_GC_GUARD(venc);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(orig);
 }
 
 /* :nodoc: */
@@ -2107,11 +2248,13 @@ rb_str_s_new(int argc, VALUE *argv, VALUE klass)
                 rb_enc_associate(empty_str, enc);
             }
             return empty_str;
+        RB_GC_GUARD(empty_str);
         }
         VALUE copy = str_duplicate(klass, orig);
         rb_enc_associate(copy, enc);
         ENC_CODERANGE_CLEAR(copy);
         return copy;
+    RB_GC_GUARD(copy);
     }
 
     long capa = 0;
@@ -2136,6 +2279,12 @@ rb_str_s_new(int argc, VALUE *argv, VALUE klass)
     }
 
     return str;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(capacity);
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(orig);
 }
 
 #ifdef NONASCII_MASK
@@ -2336,6 +2485,7 @@ str_strlen(VALUE str, rb_encoding *enc)
     }
     else {
         return enc_strlen(p, e, enc, cr);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -2343,6 +2493,7 @@ long
 rb_str_strlen(VALUE str)
 {
     return str_strlen(str, NULL);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2357,6 +2508,7 @@ VALUE
 rb_str_length(VALUE str)
 {
     return LONG2NUM(str_strlen(str, NULL));
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2371,6 +2523,7 @@ VALUE
 rb_str_bytesize(VALUE str)
 {
     return LONG2NUM(RSTRING_LEN(str));
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2389,6 +2542,7 @@ static VALUE
 rb_str_empty(VALUE str)
 {
     return RBOOL(RSTRING_LEN(str) == 0);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2429,6 +2583,9 @@ rb_str_plus(VALUE str1, VALUE str2)
     RB_GC_GUARD(str1);
     RB_GC_GUARD(str2);
     return str3;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(str3);
 }
 
 /* A variant of rb_str_plus that does not raise but return Qundef instead. */
@@ -2458,6 +2615,8 @@ rb_str_opt_plus(VALUE str1, VALUE str2)
     }
     else {
         return rb_str_plus(str1, str2);
+        RB_GC_GUARD(str1);
+        RB_GC_GUARD(str2);
     }
 
 }
@@ -2529,6 +2688,9 @@ rb_str_times(VALUE str, VALUE times)
     rb_enc_cr_str_copy_for_substr(str2, str);
 
     return str2;
+    RB_GC_GUARD(times);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 /*
@@ -2558,6 +2720,9 @@ rb_str_format_m(VALUE str, VALUE arg)
         return rb_str_format(RARRAY_LENINT(tmp), RARRAY_CONST_PTR(tmp), str);
     }
     return rb_str_format(1, &arg, str);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(tmp);
 }
 
 static inline void
@@ -2566,6 +2731,7 @@ rb_check_lockedtmp(VALUE str)
     if (FL_TEST(str, STR_TMPLOCK)) {
         rb_raise(rb_eRuntimeError, "can't modify string; temporarily locked");
     }
+        RB_GC_GUARD(str);
 }
 
 // If none of these flags are set, we know we have an modifiable string.
@@ -2581,6 +2747,7 @@ str_modifiable(VALUE str)
         rb_check_lockedtmp(str);
         rb_check_frozen(str);
     }
+        RB_GC_GUARD(str);
 }
 
 static inline int
@@ -2591,6 +2758,7 @@ str_dependent_p(VALUE str)
     }
     else {
         return TRUE;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -2605,6 +2773,7 @@ str_independent(VALUE str)
         return !str_dependent_p(str);
     }
     return TRUE;
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -2639,6 +2808,7 @@ str_make_independent_expand(VALUE str, long len, long expand, const int termlen)
     RSTRING(str)->as.heap.ptr = ptr;
     STR_SET_LEN(str, len);
     RSTRING(str)->as.heap.aux.capa = capa;
+    RB_GC_GUARD(str);
 }
 
 void
@@ -2647,6 +2817,7 @@ rb_str_modify(VALUE str)
     if (!str_independent(str))
         str_make_independent(str);
     ENC_CODERANGE_CLEAR(str);
+    RB_GC_GUARD(str);
 }
 
 void
@@ -2669,6 +2840,7 @@ rb_str_modify_expand(VALUE str, long expand)
         RESIZE_CAPA_TERM(str, len + expand, termlen);
     }
     ENC_CODERANGE_CLEAR(str);
+    RB_GC_GUARD(str);
 }
 
 /* As rb_str_modify(), but don't clear coderange */
@@ -2680,6 +2852,7 @@ str_modify_keep_cr(VALUE str)
     if (ENC_CODERANGE(str) == ENC_CODERANGE_BROKEN)
         /* Force re-scan later */
         ENC_CODERANGE_CLEAR(str);
+        RB_GC_GUARD(str);
 }
 
 static inline void
@@ -2691,6 +2864,7 @@ str_discard(VALUE str)
         RSTRING(str)->as.heap.ptr = 0;
         STR_SET_LEN(str, 0);
     }
+        RB_GC_GUARD(str);
 }
 
 void
@@ -2710,6 +2884,7 @@ rb_must_asciicompat(VALUE str)
     if (!rb_enc_asciicompat(enc)) {
         rb_raise(rb_eEncCompatError, "ASCII incompatible encoding: %s", rb_enc_name(enc));
     }
+        RB_GC_GUARD(str);
 }
 
 VALUE
@@ -2721,6 +2896,7 @@ rb_string_value(volatile VALUE *ptr)
         *ptr = s;
     }
     return s;
+    RB_GC_GUARD(s);
 }
 
 char *
@@ -2728,6 +2904,7 @@ rb_string_value_ptr(volatile VALUE *ptr)
 {
     VALUE str = rb_string_value(ptr);
     return RSTRING_PTR(str);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -2765,6 +2942,7 @@ str_fill_term(VALUE str, char *s, long len, int termlen)
         return s;
     }
     return RSTRING_PTR(str);
+    RB_GC_GUARD(str);
 }
 
 void
@@ -2794,6 +2972,7 @@ rb_str_change_terminator_length(VALUE str, const int oldtermlen, const int terml
     }
 
     return;
+    RB_GC_GUARD(str);
 }
 
 static char *
@@ -2819,6 +2998,7 @@ str_null_check(VALUE str, int *w)
         s = str_fill_term(str, s, len, minlen);
     }
     return s;
+    RB_GC_GUARD(str);
 }
 
 char *
@@ -2826,6 +3006,7 @@ rb_str_to_cstr(VALUE str)
 {
     int w;
     return str_null_check(str, &w);
+    RB_GC_GUARD(str);
 }
 
 char *
@@ -2841,6 +3022,7 @@ rb_string_value_cstr(volatile VALUE *ptr)
         rb_raise(rb_eArgError, "string contains null byte");
     }
     return s;
+    RB_GC_GUARD(str);
 }
 
 char *
@@ -2849,6 +3031,7 @@ rb_str_fill_terminator(VALUE str, const int newminlen)
     char *s = RSTRING_PTR(str);
     long len = RSTRING_LEN(str);
     return str_fill_term(str, s, len, newminlen);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -2856,6 +3039,7 @@ rb_check_string_type(VALUE str)
 {
     str = rb_check_convert_type_with_id(str, T_STRING, "String", idTo_str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2875,6 +3059,8 @@ static VALUE
 rb_str_s_try_convert(VALUE dummy, VALUE str)
 {
     return rb_check_string_type(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(dummy);
 }
 
 static char*
@@ -2960,6 +3146,7 @@ rb_str_offset(VALUE str, long pos)
 {
     return str_offset(RSTRING_PTR(str), RSTRING_END(str), pos,
                       STR_ENC_GET(str), single_byte_optimizable(str));
+                      RB_GC_GUARD(str);
 }
 
 #ifdef NONASCII_MASK
@@ -3010,6 +3197,7 @@ rb_str_sublen(VALUE str, long pos)
     else {
         char *p = RSTRING_PTR(str);
         return enc_strlen(p, p + pos, STR_ENC_GET(str), ENC_CODERANGE(str));
+        RB_GC_GUARD(str);
     }
 }
 
@@ -3050,6 +3238,8 @@ str_subseq(VALUE str, long beg, long len)
     }
 
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 VALUE
@@ -3058,6 +3248,8 @@ rb_str_subseq(VALUE str, long beg, long len)
     VALUE str2 = str_subseq(str, beg, len);
     rb_enc_cr_str_copy_for_substr(str2, str);
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 char *
@@ -3145,6 +3337,7 @@ rb_str_subpos(VALUE str, long beg, long *lenp)
     *lenp = len;
     RB_GC_GUARD(str);
     return p;
+    RB_GC_GUARD(str);
 }
 
 static VALUE str_substr(VALUE str, long beg, long len, int empty);
@@ -3153,12 +3346,16 @@ VALUE
 rb_str_substr(VALUE str, long beg, long len)
 {
     return str_substr(str, beg, len, TRUE);
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_str_substr_two_fixnums(VALUE str, VALUE beg, VALUE len, int empty)
 {
     return str_substr(str, NUM2LONG(beg), NUM2LONG(len), empty);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -3174,6 +3371,8 @@ str_substr(VALUE str, long beg, long len, int empty)
     VALUE str2 = str_subseq(str, beg, len);
     rb_enc_cr_str_copy_for_substr(str2, str);
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 /* :nodoc: */
@@ -3187,6 +3386,7 @@ rb_str_freeze(VALUE str)
     if (OBJ_FROZEN(str)) return str;
     rb_str_resize(str, RSTRING_LEN(str));
     return rb_obj_freeze(str);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3206,6 +3406,7 @@ str_uplus(VALUE str)
     }
     else {
         return str;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -3237,6 +3438,7 @@ str_uminus(VALUE str)
         str = rb_str_dup(str);
     }
     return rb_fstring(str);
+    RB_GC_GUARD(str);
 }
 
 RUBY_ALIAS_FUNCTION(rb_str_dup_frozen(VALUE str), rb_str_new_frozen, (str))
@@ -3250,6 +3452,7 @@ rb_str_locktmp(VALUE str)
     }
     FL_SET(str, STR_TMPLOCK);
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3260,6 +3463,7 @@ rb_str_unlocktmp(VALUE str)
     }
     FL_UNSET(str, STR_TMPLOCK);
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3267,6 +3471,8 @@ rb_str_locktmp_ensure(VALUE str, VALUE (*func)(VALUE), VALUE arg)
 {
     rb_str_locktmp(str);
     return rb_ensure(func, arg, rb_str_unlocktmp, str);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
 }
 
 void
@@ -3315,6 +3521,7 @@ rb_str_set_len(VALUE str, long len)
 
     STR_SET_LEN(str, len);
     TERM_FILL(&RSTRING_PTR(str)[len], termlen);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3368,6 +3575,7 @@ rb_str_resize(VALUE str, long len)
         TERM_FILL(RSTRING(str)->as.heap.ptr + len, termlen); /* sentinel */
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -3394,6 +3602,7 @@ str_ensure_available_capa(VALUE str, long len)
         }
         RESIZE_CAPA_TERM(str, capa, termlen);
     }
+        RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -3440,6 +3649,7 @@ str_buf_cat4(VALUE str, const char *ptr, long len, bool keep_cr)
     TERM_FILL(sptr + total, termlen); /* sentinel */
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 #define str_buf_cat(str, ptr, len) str_buf_cat4((str), (ptr), len, false)
@@ -3453,6 +3663,7 @@ rb_str_cat(VALUE str, const char *ptr, long len)
         rb_raise(rb_eArgError, "negative string size (or size too big)");
     }
     return str_buf_cat(str, ptr, len);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3460,6 +3671,7 @@ rb_str_cat_cstr(VALUE str, const char *ptr)
 {
     must_not_null(ptr);
     return rb_str_buf_cat(str, ptr, strlen(ptr));
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -3516,6 +3728,7 @@ rb_str_buf_cat_byte(VALUE str, unsigned char byte)
             }
         }
     }
+                RB_GC_GUARD(str);
 }
 
 RUBY_ALIAS_FUNCTION(rb_str_buf_cat(VALUE str, const char *ptr, long len), rb_str_cat, (str, ptr, len))
@@ -3610,6 +3823,7 @@ rb_enc_cr_str_buf_cat(VALUE str, const char *ptr, long len,
     rb_raise(rb_eEncCompatError, "incompatible character encodings: %s and %s",
              rb_enc_inspect_name(str_enc), rb_enc_inspect_name(ptr_enc));
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3617,6 +3831,7 @@ rb_enc_str_buf_cat(VALUE str, const char *ptr, long len, rb_encoding *ptr_enc)
 {
     return rb_enc_cr_str_buf_cat(str, ptr, len,
         rb_enc_to_index(ptr_enc), ENC_CODERANGE_UNKNOWN, NULL);
+        RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3640,6 +3855,7 @@ rb_str_buf_cat_ascii(VALUE str, const char *ptr)
             ptr++;
         }
         return str;
+        RB_GC_GUARD(str);
     }
 }
 
@@ -3675,6 +3891,8 @@ rb_str_buf_append(VALUE str, VALUE str2)
     ENC_CODERANGE_SET(str2, str2_cr);
 
     return str;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3682,6 +3900,8 @@ rb_str_append(VALUE str, VALUE str2)
 {
     StringValue(str2);
     return rb_str_buf_append(str, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -3709,6 +3929,7 @@ rb_str_concat_literals(size_t num, const VALUE *strary)
         }
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3745,9 +3966,11 @@ rb_str_concat_multi(int argc, VALUE *argv, VALUE str)
             rb_str_concat(arg_str, argv[i]);
         }
         rb_str_buf_append(str, arg_str);
+    RB_GC_GUARD(arg_str);
     }
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3784,6 +4007,7 @@ rb_str_append_as_bytes(int argc, VALUE *argv, VALUE str)
         VALUE obj = argv[index];
         enum ruby_value_type type = types[index] = rb_type(obj);
         switch (type) {
+          RB_GC_GUARD(obj);
           case T_FIXNUM:
           case T_BIGNUM:
             needed_capacity++;
@@ -3808,6 +4032,7 @@ rb_str_append_as_bytes(int argc, VALUE *argv, VALUE str)
         VALUE obj = argv[index];
         enum ruby_value_type type = types[index];
         switch (type) {
+          RB_GC_GUARD(obj);
           case T_FIXNUM:
           case T_BIGNUM: {
             argv[index] = obj = rb_int_and(obj, INT2FIX(0xff));
@@ -3839,6 +4064,7 @@ rb_str_append_as_bytes(int argc, VALUE *argv, VALUE str)
             VALUE obj = argv[index];
             enum ruby_value_type type = types[index];
             switch (type) {
+              RB_GC_GUARD(obj);
               case T_FIXNUM:
               case T_BIGNUM: {
                 if (!ISASCII(NUM2INT(obj))) {
@@ -3883,6 +4109,7 @@ rb_str_append_as_bytes(int argc, VALUE *argv, VALUE str)
     ENC_CODERANGE_CLEAR(str);
   keep_cr:
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3976,6 +4203,8 @@ rb_str_concat(VALUE str1, VALUE str2)
         ENC_CODERANGE_SET(str1, cr);
     }
     return str1;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 int
@@ -4027,9 +4256,11 @@ rb_str_prepend_multi(int argc, VALUE *argv, VALUE str)
             rb_str_append(arg_str, argv[i]);
         }
         rb_str_update(str, 0L, 0L, arg_str);
+    RB_GC_GUARD(arg_str);
     }
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 st_index_t
@@ -4044,6 +4275,7 @@ rb_str_hash(VALUE str)
     }
 
     return str_do_hash(str);
+    RB_GC_GUARD(str);
 }
 
 int
@@ -4056,6 +4288,8 @@ rb_str_hash_cmp(VALUE str1, VALUE str2)
     return (len1 != len2 ||
             !rb_str_comparable(str1, str2) ||
             memcmp(ptr1, ptr2, len1) != 0);
+            RB_GC_GUARD(str2);
+            RB_GC_GUARD(str1);
 }
 
 /*
@@ -4073,6 +4307,7 @@ rb_str_hash_m(VALUE str)
 {
     st_index_t hval = rb_str_hash(str);
     return ST2FIX(hval);
+    RB_GC_GUARD(str);
 }
 
 #define lesser(a,b) (((a)>(b))?(b):(a))
@@ -4100,6 +4335,8 @@ rb_str_comparable(VALUE str1, VALUE str2)
             return TRUE;
     }
     return FALSE;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 int
@@ -4126,6 +4363,8 @@ rb_str_cmp(VALUE str1, VALUE str2)
     }
     if (retval > 0) return 1;
     return -1;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 /*
@@ -4159,6 +4398,8 @@ rb_str_equal(VALUE str1, VALUE str2)
         return rb_equal(str2, str1);
     }
     return rb_str_eql_internal(str1, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 /*
@@ -4185,6 +4426,8 @@ rb_str_eql(VALUE str1, VALUE str2)
     if (str1 == str2) return Qtrue;
     if (!RB_TYPE_P(str2, T_STRING)) return Qfalse;
     return rb_str_eql_internal(str1, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 /*
@@ -4219,6 +4462,9 @@ rb_str_cmp_m(VALUE str1, VALUE str2)
     }
     result = rb_str_cmp(str1, s);
     return INT2FIX(result);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(s);
 }
 
 static VALUE str_casecmp(VALUE str1, VALUE str2);
@@ -4258,6 +4504,9 @@ rb_str_casecmp(VALUE str1, VALUE str2)
         return Qnil;
     }
     return str_casecmp(str1, s);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -4315,6 +4564,8 @@ str_casecmp(VALUE str1, VALUE str2)
     if (RSTRING_LEN(str1) == RSTRING_LEN(str2)) return INT2FIX(0);
     if (RSTRING_LEN(str1) > RSTRING_LEN(str2)) return INT2FIX(1);
     return INT2FIX(-1);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 /*
@@ -4348,6 +4599,9 @@ rb_str_casecmp_p(VALUE str1, VALUE str2)
         return Qnil;
     }
     return str_casecmp_p(str1, s);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -4366,6 +4620,11 @@ str_casecmp_p(VALUE str1, VALUE str2)
     folded_str2 = rb_str_downcase(1, &fold_opt, str2);
 
     return rb_str_eql(folded_str1, folded_str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(fold_opt);
+    RB_GC_GUARD(folded_str2);
+    RB_GC_GUARD(folded_str1);
 }
 
 static long
@@ -4428,6 +4687,8 @@ rb_strseq_index(VALUE str, VALUE sub, long offset, int in_byte)
 
     /* need proceed one character at a time */
     return strseq_core(str_ptr, str_ptr_end, str_len, sub_ptr, sub_len, offset, enc);
+    RB_GC_GUARD(sub);
+    RB_GC_GUARD(str);
 }
 
 
@@ -4471,6 +4732,7 @@ rb_str_index_m(int argc, VALUE *argv, VALUE str)
             struct re_registers *regs = RMATCH_REGS(match);
             pos = rb_str_sublen(str, BEG(0));
             return LONG2NUM(pos);
+    RB_GC_GUARD(match);
         }
     }
     else {
@@ -4482,6 +4744,9 @@ rb_str_index_m(int argc, VALUE *argv, VALUE str)
         }
     }
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(initpos);
+    RB_GC_GUARD(sub);
 }
 
 /* Ensure that the given pos is a valid character boundary.
@@ -4500,6 +4765,7 @@ str_ensure_byte_pos(VALUE str, long pos)
                      "offset %ld does not land on character boundary", pos);
         }
     }
+                     RB_GC_GUARD(str);
 }
 
 /*
@@ -4572,6 +4838,7 @@ rb_str_byteindex_m(int argc, VALUE *argv, VALUE str)
             struct re_registers *regs = RMATCH_REGS(match);
             pos = BEG(0);
             return LONG2NUM(pos);
+    RB_GC_GUARD(match);
         }
     }
     else {
@@ -4580,6 +4847,9 @@ rb_str_byteindex_m(int argc, VALUE *argv, VALUE str)
         if (pos >= 0) return LONG2NUM(pos);
     }
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(initpos);
+    RB_GC_GUARD(sub);
 }
 
 #ifndef HAVE_MEMRCHR
@@ -4629,6 +4899,8 @@ str_rindex(VALUE str, VALUE sub, const char *s, rb_encoding *enc)
     } while (searchlen > 0);
 
     return -1;
+    RB_GC_GUARD(sub);
+    RB_GC_GUARD(str);
 }
 
 /* found index in byte */
@@ -4662,6 +4934,8 @@ rb_str_rindex(VALUE str, VALUE sub, long pos)
 
     s = str_nth(sbeg, RSTRING_END(str), pos, enc, singlebyte);
     return str_rindex(str, sub, s, enc);
+    RB_GC_GUARD(sub);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4753,6 +5027,7 @@ rb_str_rindex_m(int argc, VALUE *argv, VALUE str)
             struct re_registers *regs = RMATCH_REGS(match);
             pos = rb_str_sublen(str, BEG(0));
             return LONG2NUM(pos);
+    RB_GC_GUARD(match);
         }
     }
     else {
@@ -4764,6 +5039,9 @@ rb_str_rindex_m(int argc, VALUE *argv, VALUE str)
         }
     }
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(initpos);
+    RB_GC_GUARD(sub);
 }
 
 static long
@@ -4794,6 +5072,8 @@ rb_str_byterindex(VALUE str, VALUE sub, long pos)
 
     s = sbeg + pos;
     return str_rindex(str, sub, s, enc);
+    RB_GC_GUARD(sub);
+    RB_GC_GUARD(str);
 }
 
 
@@ -4886,6 +5166,7 @@ rb_str_byterindex_m(int argc, VALUE *argv, VALUE str)
             struct re_registers *regs = RMATCH_REGS(match);
             pos = BEG(0);
             return LONG2NUM(pos);
+    RB_GC_GUARD(match);
         }
     }
     else {
@@ -4894,6 +5175,9 @@ rb_str_byterindex_m(int argc, VALUE *argv, VALUE str)
         if (pos >= 0) return LONG2NUM(pos);
     }
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(initpos);
+    RB_GC_GUARD(sub);
 }
 
 /*
@@ -4936,6 +5220,8 @@ rb_str_match(VALUE x, VALUE y)
 
       default:
         return rb_funcall(y, idEqTilde, 1, x);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4991,6 +5277,9 @@ rb_str_match_m(int argc, VALUE *argv, VALUE str)
         return rb_yield(result);
     }
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(re);
 }
 
 /*
@@ -5024,6 +5313,8 @@ rb_str_match_m_p(int argc, VALUE *argv, VALUE str)
     rb_check_arity(argc, 1, 2);
     re = get_pat(argv[0]);
     return rb_reg_match_p(re, str, argc > 1 ? NUM2LONG(argv[1]) : 0);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 enum neighbor_char {
@@ -5276,6 +5567,8 @@ rb_str_succ(VALUE orig)
     str = rb_str_new(RSTRING_PTR(orig), RSTRING_LEN(orig));
     rb_enc_cr_str_copy_for_substr(str, orig);
     return str_succ(str);
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -5363,6 +5656,7 @@ str_succ(VALUE str)
     TERM_FILL(&sbeg[slen], rb_enc_mbminlen(enc));
     rb_enc_str_coderange(str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 
@@ -5379,6 +5673,7 @@ rb_str_succ_bang(VALUE str)
     rb_str_modify(str);
     str_succ(str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -5396,6 +5691,8 @@ str_upto_i(VALUE str, VALUE arg)
 {
     rb_yield(str);
     return 0;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -5441,6 +5738,9 @@ rb_str_upto(int argc, VALUE *argv, VALUE beg)
     rb_scan_args(argc, argv, "11", &end, &exclusive);
     RETURN_ENUMERATOR(beg, argc, argv);
     return rb_str_upto_each(beg, end, RTEST(exclusive), str_upto_i, Qnil);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(exclusive);
+    RB_GC_GUARD(end);
 }
 
 VALUE
@@ -5468,6 +5768,7 @@ rb_str_upto_each(VALUE beg, VALUE end, int excl, int (*each)(VALUE, VALUE), VALU
             if (!excl && c == e) break;
             c++;
             if (excl && c == e) break;
+        RB_GC_GUARD(str);
         }
         return beg;
     }
@@ -5498,12 +5799,15 @@ rb_str_upto_each(VALUE beg, VALUE end, int excl, int (*each)(VALUE, VALUE), VALU
 
             args[0] = INT2FIX(width);
             while (rb_funcall(b, op, 1, e)) {
+                RB_GC_GUARD(fmt);
                 args[1] = b;
                 if ((*each)(rb_str_format(numberof(args), args, fmt), arg)) break;
                 b = rb_funcallv(b, succ, 0, 0);
             }
         }
         return beg;
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
     }
     /* normal case */
     n = rb_str_cmp(beg, end);
@@ -5522,9 +5826,15 @@ rb_str_upto_each(VALUE beg, VALUE end, int excl, int (*each)(VALUE, VALUE), VALU
         if (excl && rb_str_equal(current, end)) break;
         if (RSTRING_LEN(current) > RSTRING_LEN(end) || RSTRING_LEN(current) == 0)
             break;
+    RB_GC_GUARD(next);
     }
 
     return beg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(after_end);
+    RB_GC_GUARD(current);
 }
 
 VALUE
@@ -5552,6 +5862,8 @@ rb_str_upto_endless_each(VALUE beg, int (*each)(VALUE, VALUE), VALUE arg)
         }
         args[0] = INT2FIX(width);
         while (1) {
+            RB_GC_GUARD(fmt);
+            RB_GC_GUARD(b);
             args[1] = b;
             if ((*each)(rb_str_format(numberof(args), args, fmt), arg)) break;
             b = rb_funcallv(b, succ, 0, 0);
@@ -5566,9 +5878,13 @@ rb_str_upto_endless_each(VALUE beg, int (*each)(VALUE, VALUE), VALUE arg)
         StringValue(current);
         if (RSTRING_LEN(current) == 0)
             break;
+    RB_GC_GUARD(next);
     }
 
     return beg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(current);
 }
 
 static int
@@ -5578,6 +5894,8 @@ include_range_i(VALUE str, VALUE arg)
     if (!rb_equal(str, *argp)) return 0;
     *argp = Qnil;
     return 1;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -5621,6 +5939,10 @@ rb_str_include_range_p(VALUE beg, VALUE end, VALUE val, VALUE exclusive)
     rb_str_upto_each(beg, end, RTEST(exclusive), include_range_i, (VALUE)&val);
 
     return RBOOL(NIL_P(val));
+    RB_GC_GUARD(exclusive);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static VALUE
@@ -5630,8 +5952,12 @@ rb_str_subpat(VALUE str, VALUE re, VALUE backref)
         VALUE match = rb_backref_get();
         int nth = rb_reg_backref_number(match, backref);
         return rb_reg_nth_match(nth, match);
+    RB_GC_GUARD(match);
     }
     return Qnil;
+    RB_GC_GUARD(backref);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -5665,6 +5991,8 @@ rb_str_aref(VALUE str, VALUE indx)
     }
 
     return str_substr(str, idx, 1, FALSE);
+    RB_GC_GUARD(indx);
+    RB_GC_GUARD(str);
 }
 
 
@@ -5695,6 +6023,7 @@ rb_str_aref_m(int argc, VALUE *argv, VALUE str)
     }
     rb_check_arity(argc, 1, 2);
     return rb_str_aref(str, argv[0]);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -5719,6 +6048,7 @@ rb_str_drop_bytes(VALUE str, long len)
             VALUE shared = heap_str_make_shared(rb_obj_class(str), str);
             rb_enc_cr_str_exact_copy(shared, str);
             OBJ_FREEZE(shared);
+        RB_GC_GUARD(shared);
         }
         ptr = RSTRING(str)->as.heap.ptr += len;
     }
@@ -5729,6 +6059,7 @@ rb_str_drop_bytes(VALUE str, long len)
     }
     ENC_CODERANGE_CLEAR(str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -5771,12 +6102,16 @@ rb_str_update_1(VALUE str, long beg, long len, VALUE val, long vbeg, long vlen)
     STR_SET_LEN(str, slen);
     TERM_FILL(&sptr[slen], TERM_LEN(str));
     ENC_CODERANGE_SET(str, cr);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(val);
 }
 
 static inline void
 rb_str_update_0(VALUE str, long beg, long len, VALUE val)
 {
     rb_str_update_1(str, beg, len, val, 0, RSTRING_LEN(val));
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(val);
 }
 
 void
@@ -5818,6 +6153,8 @@ rb_str_update(VALUE str, long beg, long len, VALUE val)
     cr = ENC_CODERANGE_AND(ENC_CODERANGE(str), ENC_CODERANGE(val));
     if (cr != ENC_CODERANGE_BROKEN)
         ENC_CODERANGE_SET(str, cr);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(val);
 }
 
 static void
@@ -5852,6 +6189,11 @@ rb_str_subpat_set(VALUE str, VALUE re, VALUE backref, VALUE val)
     enc = rb_enc_check_str(str, val);
     rb_str_update_0(str, start, len, val);
     rb_enc_associate(str, enc);
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(backref);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -5888,6 +6230,9 @@ rb_str_aset(VALUE str, VALUE indx, VALUE val)
         idx = NUM2LONG(indx);
         rb_str_update(str, idx, 1, val);
         return val;
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(indx);
     }
 }
 
@@ -5932,6 +6277,7 @@ rb_str_aset_m(int argc, VALUE *argv, VALUE str)
     }
     rb_check_arity(argc, 2, 3);
     return rb_str_aset(str, argv[0], argv[1]);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -5965,6 +6311,9 @@ rb_str_insert(VALUE str, VALUE idx, VALUE str2)
     }
     rb_str_update(str, pos, 0, str2);
     return str;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(str);
 }
 
 
@@ -6013,6 +6362,7 @@ rb_str_slice_bang(int argc, VALUE *argv, VALUE str)
         beg = BEG(nth);
         len = END(nth) - beg;
         goto subseq;
+    RB_GC_GUARD(match);
     }
     else if (argc == 2) {
         beg = NUM2LONG(indx);
@@ -6075,6 +6425,9 @@ rb_str_slice_bang(int argc, VALUE *argv, VALUE str)
         }
     }
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(indx);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -6098,6 +6451,8 @@ get_pat(VALUE pat)
     }
 
     return rb_reg_regcomp(pat);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -6123,6 +6478,8 @@ get_pat_quoted(VALUE pat, int check)
         rb_exc_raise(rb_reg_check_preprocess(pat));
     }
     return pat;
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(val);
 }
 
 static long
@@ -6143,6 +6500,8 @@ rb_pat_search(VALUE pat, VALUE str, long pos, int set_backref_str)
     }
     else {
         return rb_reg_search0(pat, str, pos, 0, set_backref_str);
+        RB_GC_GUARD(pat);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -6267,8 +6626,14 @@ rb_str_sub_bang(int argc, VALUE *argv, VALUE str)
         RB_GC_GUARD(match);
 
         return str;
+    RB_GC_GUARD(match0);
+    RB_GC_GUARD(match);
     }
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(pat);
 }
 
 
@@ -6292,6 +6657,7 @@ rb_str_sub(int argc, VALUE *argv, VALUE str)
     str = str_duplicate(rb_cString, str);
     rb_str_sub_bang(argc, argv, str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -6415,6 +6781,13 @@ str_gsub(int argc, VALUE *argv, VALUE str, int bang)
     }
 
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(dest);
+    RB_GC_GUARD(match0);
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(pat);
 }
 
 
@@ -6440,6 +6813,7 @@ rb_str_gsub_bang(int argc, VALUE *argv, VALUE str)
 {
     str_modify_keep_cr(str);
     return str_gsub(argc, argv, str, 1);
+    RB_GC_GUARD(str);
 }
 
 
@@ -6463,6 +6837,7 @@ static VALUE
 rb_str_gsub(int argc, VALUE *argv, VALUE str)
 {
     return str_gsub(argc, argv, str, 0);
+    RB_GC_GUARD(str);
 }
 
 
@@ -6486,6 +6861,8 @@ rb_str_replace(VALUE str, VALUE str2)
     StringValue(str2);
     str_discard(str);
     return str_replace(str, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6511,6 +6888,7 @@ rb_str_clear(VALUE str)
     else
         ENC_CODERANGE_SET(str, ENC_CODERANGE_VALID);
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6528,6 +6906,7 @@ static VALUE
 rb_str_chr(VALUE str)
 {
     return rb_str_substr(str, 0, 1);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6554,6 +6933,8 @@ rb_str_getbyte(VALUE str, VALUE index)
         return Qnil;
 
     return INT2FIX((unsigned char)RSTRING_PTR(str)[pos]);
+    RB_GC_GUARD(index);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6621,6 +7002,11 @@ rb_str_setbyte(VALUE str, VALUE index, VALUE value)
 
   end:
     return value;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(index);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(w);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -6662,12 +7048,17 @@ str_byte_substr(VALUE str, long beg, long len, int empty)
     }
 
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 VALUE
 rb_str_byte_substr(VALUE str, VALUE beg, VALUE len)
 {
     return str_byte_substr(str, NUM2LONG(beg), NUM2LONG(len), TRUE);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -6693,6 +7084,8 @@ str_byte_aref(VALUE str, VALUE indx)
         idx = NUM2LONG(indx);
     }
     return str_byte_substr(str, idx, 1, FALSE);
+    RB_GC_GUARD(indx);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6748,6 +7141,7 @@ rb_str_byteslice(int argc, VALUE *argv, VALUE str)
     }
     rb_check_arity(argc, 1, 2);
     return str_byte_aref(str, argv[0]);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -6771,6 +7165,7 @@ str_check_beg_len(VALUE str, long *beg, long *len)
     end = *beg + *len;
     str_ensure_byte_pos(str, *beg);
     str_ensure_byte_pos(str, end);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -6854,6 +7249,8 @@ rb_str_bytesplice(int argc, VALUE *argv, VALUE str)
     if (cr != ENC_CODERANGE_BROKEN)
         ENC_CODERANGE_SET(str, cr);
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -6914,6 +7311,8 @@ rb_str_reverse(VALUE str)
     ENC_CODERANGE_SET(rev, cr);
 
     return rev;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(rev);
 }
 
 
@@ -6953,6 +7352,7 @@ rb_str_reverse_bang(VALUE str)
         str_modify_keep_cr(str);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 
@@ -6978,6 +7378,8 @@ rb_str_include(VALUE str, VALUE arg)
     i = rb_str_index(str, arg, 0);
 
     return RBOOL(i != -1);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
 }
 
 
@@ -7022,6 +7424,7 @@ rb_str_to_i(int argc, VALUE *argv, VALUE str)
         rb_raise(rb_eArgError, "invalid radix %d", base);
     }
     return rb_str_to_inum(str, base, FALSE);
+    RB_GC_GUARD(str);
 }
 
 
@@ -7048,6 +7451,7 @@ static VALUE
 rb_str_to_f(VALUE str)
 {
     return DBL2NUM(rb_str_to_dbl(str, FALSE));
+    RB_GC_GUARD(str);
 }
 
 
@@ -7066,6 +7470,7 @@ rb_str_to_s(VALUE str)
         return str_duplicate(rb_cString, str);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 #if 0
@@ -7113,6 +7518,7 @@ rb_str_buf_cat_escaped_char(VALUE result, unsigned int c, int unicode_p)
     l = (int)strlen(buf);	/* CHAR_ESC_LEN cannot exceed INT_MAX */
     rb_str_buf_cat(result, buf, l);
     return l;
+    RB_GC_GUARD(result);
 }
 
 const char *
@@ -7183,6 +7589,8 @@ rb_str_escape(VALUE str)
     ENCODING_CODERANGE_SET(result, rb_usascii_encindex(), ENC_CODERANGE_7BIT);
 
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -7293,6 +7701,8 @@ rb_str_inspect(VALUE str)
     str_buf_cat2(result, "\"");
 
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 #define IS_EVSTR(p,e) ((p) < (e) && (*(p) == '$' || *(p) == '@' || *(p) == '{'))
@@ -7457,6 +7867,8 @@ rb_str_dump(VALUE str)
     rb_enc_associate_index(result, encidx);
     ENC_CODERANGE_SET(result, ENC_CODERANGE_7BIT);
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 static int
@@ -7588,6 +8000,7 @@ undump_after_backslash(VALUE undumped, const char **ss, const char *s_end, rb_en
     }
 
     *ss = s;
+    RB_GC_GUARD(undumped);
 }
 
 static VALUE rb_str_is_ascii_only_p(VALUE str);
@@ -7696,6 +8109,8 @@ str_undump(VALUE str)
     return undumped;
 invalid_format:
     rb_raise(rb_eRuntimeError, "invalid dumped string; not wrapped with '\"' nor '\"...\".force_encoding(\"...\")' form");
+    RB_GC_GUARD(undumped);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -7713,6 +8128,7 @@ str_true_enc(VALUE str)
     rb_encoding *enc = STR_ENC_GET(str);
     rb_str_check_dummy_enc(enc);
     return enc;
+    RB_GC_GUARD(str);
 }
 
 static OnigCaseFoldType
@@ -7761,6 +8177,7 @@ case_option_single_p(OnigCaseFoldType flags, rb_encoding *enc, VALUE str)
     if ((flags & ONIGENC_CASE_ASCII_ONLY) && (enc==rb_utf8_encoding() || rb_enc_mbmaxlen(enc) == 1))
         return true;
     return !(flags & ONIGENC_CASE_FOLD_TURKISH_AZERI) && ENC_CODERANGE(str) == ENC_CODERANGE_7BIT;
+    RB_GC_GUARD(str);
 }
 
 /* 16 should be long enough to absorb any kind of single character length increase */
@@ -7869,6 +8286,9 @@ rb_str_casemap(VALUE source, OnigCaseFoldType *flags, rb_encoding *enc)
     /*ENC_CODERANGE_SET(mapped, cr);*/
 
     return target;
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(buffer_anchor);
+    RB_GC_GUARD(target);
 }
 
 static VALUE
@@ -7907,6 +8327,8 @@ rb_str_ascii_casemap(VALUE source, VALUE target, OnigCaseFoldType *flags, rb_enc
     str_enc_copy(target, source);
 
     return target;
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(source);
 }
 
 static bool
@@ -7925,6 +8347,7 @@ upcase_single(VALUE str)
         s++;
     }
     return modified;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -7966,6 +8389,7 @@ rb_str_upcase_bang(int argc, VALUE *argv, VALUE str)
 
     if (ONIGENC_CASE_MODIFIED&flags) return str;
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -8008,6 +8432,8 @@ rb_str_upcase(int argc, VALUE *argv, VALUE str)
     }
 
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ret);
 }
 
 static bool
@@ -8027,6 +8453,7 @@ downcase_single(VALUE str)
     }
 
     return modified;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -8068,6 +8495,7 @@ rb_str_downcase_bang(int argc, VALUE *argv, VALUE str)
 
     if (ONIGENC_CASE_MODIFIED&flags) return str;
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -8110,6 +8538,8 @@ rb_str_downcase(int argc, VALUE *argv, VALUE str)
     }
 
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ret);
 }
 
 
@@ -8150,6 +8580,7 @@ rb_str_capitalize_bang(int argc, VALUE *argv, VALUE str)
 
     if (ONIGENC_CASE_MODIFIED&flags) return str;
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -8189,6 +8620,8 @@ rb_str_capitalize(int argc, VALUE *argv, VALUE str)
         ret = rb_str_casemap(str, &flags, enc);
     }
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ret);
 }
 
 
@@ -8228,6 +8661,7 @@ rb_str_swapcase_bang(int argc, VALUE *argv, VALUE str)
 
     if (ONIGENC_CASE_MODIFIED&flags) return str;
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -8267,6 +8701,8 @@ rb_str_swapcase(int argc, VALUE *argv, VALUE str)
         ret = rb_str_casemap(str, &flags, enc);
     }
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ret);
 }
 
 typedef unsigned char *USTR;
@@ -8462,6 +8898,7 @@ tr_trans(VALUE str, VALUE src, VALUE repl, int sflag)
                 }
                 else if (cflag) c = errc;
                 else c = NUM2INT(tmp);
+            RB_GC_GUARD(tmp);
             }
             else {
                 c = errc;
@@ -8549,6 +8986,7 @@ tr_trans(VALUE str, VALUE src, VALUE repl, int sflag)
                 }
                 else if (cflag) c = errc;
                 else c = NUM2INT(tmp);
+            RB_GC_GUARD(tmp);
             }
             else {
                 c = cflag ? last : errc;
@@ -8594,6 +9032,10 @@ tr_trans(VALUE str, VALUE src, VALUE repl, int sflag)
         return str;
     }
     return Qnil;
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
 }
 
 
@@ -8610,6 +9052,9 @@ static VALUE
 rb_str_tr_bang(VALUE str, VALUE src, VALUE repl)
 {
     return tr_trans(str, src, repl, 0);
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
 }
 
 
@@ -8658,6 +9103,9 @@ rb_str_tr(VALUE str, VALUE src, VALUE repl)
     str = str_duplicate(rb_cString, str);
     tr_trans(str, src, repl, 0);
     return str;
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
 }
 
 #define TR_TABLE_MAX (UCHAR_MAX+1)
@@ -8714,6 +9162,7 @@ tr_setup_table(VALUE str, char stable[TR_TABLE_SIZE], int first,
             }
             if (table && (!ptable || (cflag ^ !NIL_P(rb_hash_aref(ptable, key))))) {
                 rb_hash_aset(table, key, Qtrue);
+    RB_GC_GUARD(key);
             }
         }
     }
@@ -8723,6 +9172,9 @@ tr_setup_table(VALUE str, char stable[TR_TABLE_SIZE], int first,
     if (!table && !cflag) {
         *tablep = 0;
     }
+        RB_GC_GUARD(table);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(ptable);
 }
 
 
@@ -8745,6 +9197,9 @@ tr_find(unsigned int c, const char table[TR_TABLE_SIZE], VALUE del, VALUE nodel)
             return FALSE;
         }
         return table[TR_TABLE_MAX] ? TRUE : FALSE;
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(del);
+        RB_GC_GUARD(nodel);
     }
 }
 
@@ -8775,6 +9230,7 @@ rb_str_delete_bang(int argc, VALUE *argv, VALUE str)
         StringValue(s);
         enc = rb_enc_check(str, s);
         tr_setup_table(s, squeez, i==0, &del, &nodel, enc);
+    RB_GC_GUARD(s);
     }
 
     str_modify_keep_cr(str);
@@ -8816,6 +9272,9 @@ rb_str_delete_bang(int argc, VALUE *argv, VALUE str)
 
     if (modify) return str;
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(nodel);
+    RB_GC_GUARD(del);
 }
 
 
@@ -8839,6 +9298,7 @@ rb_str_delete(int argc, VALUE *argv, VALUE str)
     str = str_duplicate(rb_cString, str);
     rb_str_delete_bang(argc, argv, str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 
@@ -8873,6 +9333,7 @@ rb_str_squeeze_bang(int argc, VALUE *argv, VALUE str)
             if (singlebyte && !single_byte_optimizable(s))
                 singlebyte = 0;
             tr_setup_table(s, squeez, i==0, &del, &nodel, enc);
+    RB_GC_GUARD(s);
         }
     }
 
@@ -8923,6 +9384,9 @@ rb_str_squeeze_bang(int argc, VALUE *argv, VALUE str)
 
     if (modify) return str;
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(nodel);
+    RB_GC_GUARD(del);
 }
 
 
@@ -8949,6 +9413,7 @@ rb_str_squeeze(int argc, VALUE *argv, VALUE str)
     str = str_duplicate(rb_cString, str);
     rb_str_squeeze_bang(argc, argv, str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 
@@ -8966,6 +9431,9 @@ static VALUE
 rb_str_tr_s_bang(VALUE str, VALUE src, VALUE repl)
 {
     return tr_trans(str, src, repl, 1);
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
 }
 
 
@@ -8990,6 +9458,9 @@ rb_str_tr_s(VALUE str, VALUE src, VALUE repl)
     str = str_duplicate(rb_cString, str);
     tr_trans(str, src, repl, 1);
     return str;
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
 }
 
 
@@ -9083,6 +9554,10 @@ rb_str_count(int argc, VALUE *argv, VALUE str)
     }
 
     return SIZET2NUM(n);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(tstr);
+    RB_GC_GUARD(nodel);
+    RB_GC_GUARD(del);
 }
 
 static VALUE
@@ -9093,6 +9568,7 @@ rb_fs_check(VALUE val)
         if (NIL_P(val)) return 0;
     }
     return val;
+    RB_GC_GUARD(val);
 }
 
 static const char isspacetable[256] = {
@@ -9143,6 +9619,8 @@ split_string(VALUE result, VALUE str, long beg, long len, long empty_count)
         rb_yield(str);
     }
     return empty_count;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 typedef enum {
@@ -9172,6 +9650,7 @@ literal_split_pattern(VALUE spat, split_type_t default_type)
         }
     }
     return default_type;
+    RB_GC_GUARD(spat);
 }
 
 /*
@@ -9400,12 +9879,18 @@ rb_str_split_m(int argc, VALUE *argv, VALUE str)
             if (!NIL_P(limit) && lim <= ++i) break;
         }
         if (match) rb_match_unbusy(match);
+    RB_GC_GUARD(match);
     }
     if (RSTRING_LEN(str) > 0 && (!NIL_P(limit) || RSTRING_LEN(str) > beg || lim < 0)) {
         SPLIT_STR(beg, RSTRING_LEN(str)-beg);
     }
 
     return result ? result : str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(limit);
+    RB_GC_GUARD(spat);
 }
 
 VALUE
@@ -9416,6 +9901,8 @@ rb_str_split(VALUE str, const char *sep0)
     StringValue(str);
     sep = rb_str_new_cstr(sep0);
     return rb_str_split_m(1, &sep, str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sep);
 }
 
 #define WANTARRAY(m, size) (!rb_block_given_p() ? rb_ary_new_capa(size) : 0)
@@ -9430,6 +9917,8 @@ enumerator_element(VALUE ary, VALUE e)
     else {
         rb_yield(e);
         return 1;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(e);
     }
 }
 
@@ -9459,6 +9948,7 @@ get_rs(void)
         rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "$/ is set to non-default value");
     }
     return rs;
+    RB_GC_GUARD(rs);
 }
 
 #define rb_rs get_rs()
@@ -9601,6 +10091,13 @@ rb_str_enumerate_lines(int argc, VALUE *argv, VALUE str, VALUE ary)
         return ary;
     else
         return orig;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(chomp);
+        RB_GC_GUARD(opts);
+        RB_GC_GUARD(orig);
+        RB_GC_GUARD(rs);
+        RB_GC_GUARD(line);
 }
 
 /*
@@ -9617,6 +10114,7 @@ rb_str_each_line(int argc, VALUE *argv, VALUE str)
 {
     RETURN_SIZED_ENUMERATOR(str, argc, argv, 0);
     return rb_str_enumerate_lines(argc, argv, str, 0);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -9633,12 +10131,17 @@ rb_str_lines(int argc, VALUE *argv, VALUE str)
 {
     VALUE ary = WANTARRAY("lines", 0);
     return rb_str_enumerate_lines(argc, argv, str, ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
 rb_str_each_byte_size(VALUE str, VALUE args, VALUE eobj)
 {
     return LONG2FIX(RSTRING_LEN(str));
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -9653,6 +10156,8 @@ rb_str_enumerate_bytes(VALUE str, VALUE ary)
         return ary;
     else
         return str;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(str);
 }
 
 /*
@@ -9669,6 +10174,7 @@ rb_str_each_byte(VALUE str)
 {
     RETURN_SIZED_ENUMERATOR(str, 0, 0, rb_str_each_byte_size);
     return rb_str_enumerate_bytes(str, 0);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -9684,12 +10190,17 @@ rb_str_bytes(VALUE str)
 {
     VALUE ary = WANTARRAY("bytes", RSTRING_LEN(str));
     return rb_str_enumerate_bytes(str, ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
 rb_str_each_char_size(VALUE str, VALUE args, VALUE eobj)
 {
     return rb_str_length(str);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -9722,6 +10233,9 @@ rb_str_enumerate_chars(VALUE str, VALUE ary)
         return ary;
     else
         return orig;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(orig);
 }
 
 /*
@@ -9738,6 +10252,7 @@ rb_str_each_char(VALUE str)
 {
     RETURN_SIZED_ENUMERATOR(str, 0, 0, rb_str_each_char_size);
     return rb_str_enumerate_chars(str, 0);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -9753,6 +10268,8 @@ rb_str_chars(VALUE str)
 {
     VALUE ary = WANTARRAY("chars", rb_str_strlen(str));
     return rb_str_enumerate_chars(str, ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -9782,6 +10299,9 @@ rb_str_enumerate_codepoints(VALUE str, VALUE ary)
         return ary;
     else
         return orig;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(orig);
 }
 
 /*
@@ -9798,6 +10318,7 @@ rb_str_each_codepoint(VALUE str)
 {
     RETURN_SIZED_ENUMERATOR(str, 0, 0, rb_str_each_char_size);
     return rb_str_enumerate_codepoints(str, 0);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -9813,6 +10334,8 @@ rb_str_codepoints(VALUE str)
 {
     VALUE ary = WANTARRAY("codepoints", rb_str_strlen(str));
     return rb_str_enumerate_codepoints(str, ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 static regex_t *
@@ -9909,6 +10432,9 @@ rb_str_each_grapheme_cluster_size(VALUE str, VALUE args, VALUE eobj)
     }
 
     return SIZET2NUM(grapheme_cluster_count);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -9952,6 +10478,9 @@ rb_str_enumerate_grapheme_clusters(VALUE str, VALUE ary)
         return ary;
     else
         return orig;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(orig);
 }
 
 /*
@@ -9968,6 +10497,7 @@ rb_str_each_grapheme_cluster(VALUE str)
 {
     RETURN_SIZED_ENUMERATOR(str, 0, 0, rb_str_each_grapheme_cluster_size);
     return rb_str_enumerate_grapheme_clusters(str, 0);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -9983,6 +10513,8 @@ rb_str_grapheme_clusters(VALUE str)
 {
     VALUE ary = WANTARRAY("grapheme_clusters", rb_str_strlen(str));
     return rb_str_enumerate_grapheme_clusters(str, ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 static long
@@ -10001,6 +10533,7 @@ chopped_length(VALUE str)
         if (p2 && rb_enc_ascget(p2, end, 0, enc) == '\r') p = p2;
     }
     return p - beg;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -10028,6 +10561,7 @@ rb_str_chop_bang(VALUE str)
         return str;
     }
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -10043,6 +10577,7 @@ static VALUE
 rb_str_chop(VALUE str)
 {
     return rb_str_subseq(str, 0, chopped_length(str));
+    RB_GC_GUARD(str);
 }
 
 static long
@@ -10075,6 +10610,7 @@ smart_chomp(VALUE str, const char *e, const char *p)
         }
     }
     return e - p;
+    RB_GC_GUARD(str);
 }
 
 static long
@@ -10147,6 +10683,8 @@ chompped_length(VALUE str, VALUE rs)
         RB_GC_GUARD(rs);
     }
     return len;
+    RB_GC_GUARD(rs);
+    RB_GC_GUARD(str);
 }
 
 /*!
@@ -10162,6 +10700,7 @@ chomp_rs(int argc, const VALUE *argv)
         VALUE rs = argv[0];
         if (!NIL_P(rs)) StringValue(rs);
         return rs;
+    RB_GC_GUARD(rs);
     }
     else {
         return rb_rs;
@@ -10181,6 +10720,8 @@ rb_str_chomp_string(VALUE str, VALUE rs)
         ENC_CODERANGE_CLEAR(str);
     }
     return str;
+    RB_GC_GUARD(rs);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -10201,6 +10742,8 @@ rb_str_chomp_bang(int argc, VALUE *argv, VALUE str)
     rs = chomp_rs(argc, argv);
     if (NIL_P(rs)) return Qnil;
     return rb_str_chomp_string(str, rs);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(rs);
 }
 
 
@@ -10218,6 +10761,8 @@ rb_str_chomp(int argc, VALUE *argv, VALUE str)
     VALUE rs = chomp_rs(argc, argv);
     if (NIL_P(rs)) return str_duplicate(rb_cString, str);
     return rb_str_subseq(str, 0, chompped_length(str, rs));
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(rs);
 }
 
 static long
@@ -10241,6 +10786,7 @@ lstrip_offset(VALUE str, const char *s, const char *e, rb_encoding *enc)
         }
     }
     return s - start;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -10273,6 +10819,7 @@ rb_str_lstrip_bang(VALUE str)
         return str;
     }
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -10300,6 +10847,7 @@ rb_str_lstrip(VALUE str)
     loffset = lstrip_offset(str, start, start+len, STR_ENC_GET(str));
     if (loffset <= 0) return str_duplicate(rb_cString, str);
     return rb_str_subseq(str, loffset, len - loffset);
+    RB_GC_GUARD(str);
 }
 
 static long
@@ -10329,6 +10877,7 @@ rstrip_offset(VALUE str, const char *s, const char *e, rb_encoding *enc)
         }
     }
     return e - t;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -10360,6 +10909,7 @@ rb_str_rstrip_bang(VALUE str)
         return str;
     }
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -10391,6 +10941,7 @@ rb_str_rstrip(VALUE str)
 
     if (roffset <= 0) return str_duplicate(rb_cString, str);
     return rb_str_subseq(str, 0, olen-roffset);
+    RB_GC_GUARD(str);
 }
 
 
@@ -10428,6 +10979,7 @@ rb_str_strip_bang(VALUE str)
         return str;
     }
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 
@@ -10459,6 +11011,7 @@ rb_str_strip(VALUE str)
 
     if (loffset <= 0 && roffset <= 0) return str_duplicate(rb_cString, str);
     return rb_str_subseq(str, loffset, olen-loffset-roffset);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -10508,6 +11061,7 @@ scan_once(VALUE str, VALUE pat, long *start, int set_backref_str)
                 }
 
                 rb_ary_push(result, s);
+        RB_GC_GUARD(s);
             }
         }
 
@@ -10515,6 +11069,9 @@ scan_once(VALUE str, VALUE pat, long *start, int set_backref_str)
     }
 
     return result;
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 
@@ -10578,6 +11135,7 @@ rb_str_scan(VALUE str, VALUE pat)
         if (last >= 0) rb_pat_search(pat, str, last, 1);
         else rb_backref_set(Qnil);
         return ary;
+    RB_GC_GUARD(ary);
     }
 
     while (!NIL_P(result = scan_once(str, pat, &start, 1))) {
@@ -10588,6 +11146,9 @@ rb_str_scan(VALUE str, VALUE pat)
     }
     if (last >= 0) rb_pat_search(pat, str, last, 1);
     return str;
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 
@@ -10613,6 +11174,7 @@ static VALUE
 rb_str_hex(VALUE str)
 {
     return rb_str_to_inum(str, 16, FALSE);
+    RB_GC_GUARD(str);
 }
 
 
@@ -10640,6 +11202,7 @@ static VALUE
 rb_str_oct(VALUE str)
 {
     return rb_str_to_inum(str, -8, FALSE);
+    RB_GC_GUARD(str);
 }
 
 #ifndef HAVE_CRYPT_R
@@ -10770,6 +11333,10 @@ rb_str_crypt(VALUE str, VALUE salt)
     result = rb_str_new_cstr(res);
     CRYPT_END();
     return result;
+    RB_GC_GUARD(salt);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(databuf);
 }
 
 
@@ -10788,6 +11355,7 @@ rb_str_ord(VALUE s)
 
     c = rb_enc_codepoint(RSTRING_PTR(s), RSTRING_END(s), STR_ENC_GET(s));
     return UINT2NUM(c);
+    RB_GC_GUARD(s);
 }
 /*
  *  call-seq:
@@ -10845,9 +11413,12 @@ rb_str_sum(int argc, VALUE *argv, VALUE str)
             mod = rb_funcall(INT2FIX(1), idLTLT, 1, INT2FIX(bits));
             mod = rb_funcall(mod, '-', 1, INT2FIX(1));
             sum = rb_funcall(sum, '&', 1, mod);
+    RB_GC_GUARD(mod);
         }
     }
     return sum;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sum);
 }
 
 static VALUE
@@ -10940,6 +11511,10 @@ rb_str_justify(int argc, VALUE *argv, VALUE str, char jflag)
 
     RB_GC_GUARD(pad);
     return res;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pad);
+    RB_GC_GUARD(res);
+    RB_GC_GUARD(w);
 }
 
 
@@ -10957,6 +11532,7 @@ static VALUE
 rb_str_ljust(int argc, VALUE *argv, VALUE str)
 {
     return rb_str_justify(argc, argv, str, 'l');
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -10973,6 +11549,7 @@ static VALUE
 rb_str_rjust(int argc, VALUE *argv, VALUE str)
 {
     return rb_str_justify(argc, argv, str, 'r');
+    RB_GC_GUARD(str);
 }
 
 
@@ -10990,6 +11567,7 @@ static VALUE
 rb_str_center(int argc, VALUE *argv, VALUE str)
 {
     return rb_str_justify(argc, argv, str, 'c');
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11015,6 +11593,7 @@ rb_str_partition(VALUE str, VALUE sep)
 
         pos = BEG(0);
         sep = rb_str_subseq(str, pos, END(0) - pos);
+    RB_GC_GUARD(match);
     }
     else {
         pos = rb_str_index(str, sep, 0);
@@ -11027,6 +11606,8 @@ rb_str_partition(VALUE str, VALUE sep)
 
   failed:
     return rb_ary_new3(3, str_duplicate(rb_cString, str), str_new_empty_String(str), str_new_empty_String(str));
+    RB_GC_GUARD(sep);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11052,6 +11633,7 @@ rb_str_rpartition(VALUE str, VALUE sep)
 
         pos = BEG(0);
         sep = rb_str_subseq(str, pos, END(0) - pos);
+    RB_GC_GUARD(match);
     }
     else {
         pos = rb_str_sublen(str, pos);
@@ -11067,6 +11649,8 @@ rb_str_rpartition(VALUE str, VALUE sep)
                                         RSTRING_LEN(str)-pos-RSTRING_LEN(sep)));
   failed:
     return rb_ary_new3(3, str_new_empty_String(str), str_new_empty_String(str), str_duplicate(rb_cString, str));
+    RB_GC_GUARD(sep);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11104,9 +11688,11 @@ rb_str_start_with(int argc, VALUE *argv, VALUE str)
                 continue;
             if (memcmp(p, RSTRING_PTR(tmp), tlen) == 0)
                 return Qtrue;
+    RB_GC_GUARD(tmp);
         }
     }
     return Qfalse;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11139,8 +11725,10 @@ rb_str_end_with(int argc, VALUE *argv, VALUE str)
             continue;
         if (memcmp(s, RSTRING_PTR(tmp), tlen) == 0)
             return Qtrue;
+    RB_GC_GUARD(tmp);
     }
     return Qfalse;
+    RB_GC_GUARD(str);
 }
 
 /*!
@@ -11190,6 +11778,8 @@ deleted_prefix_length(VALUE str, VALUE prefix)
     /* prefix part in `str` also should be valid. */
 
     return prefixlen;
+    RB_GC_GUARD(prefix);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11211,6 +11801,8 @@ rb_str_delete_prefix_bang(VALUE str, VALUE prefix)
     if (prefixlen <= 0) return Qnil;
 
     return rb_str_drop_bytes(str, prefixlen);
+    RB_GC_GUARD(prefix);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11230,6 +11822,8 @@ rb_str_delete_prefix(VALUE str, VALUE prefix)
     if (prefixlen <= 0) return str_duplicate(rb_cString, str);
 
     return rb_str_subseq(str, prefixlen, RSTRING_LEN(str) - prefixlen);
+    RB_GC_GUARD(prefix);
+    RB_GC_GUARD(str);
 }
 
 /*!
@@ -11265,6 +11859,8 @@ deleted_suffix_length(VALUE str, VALUE suffix)
     if (!at_char_boundary(strptr, before_suffix, strend, enc)) return 0;
 
     return suffixlen;
+    RB_GC_GUARD(suffix);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11294,6 +11890,8 @@ rb_str_delete_suffix_bang(VALUE str, VALUE suffix)
         ENC_CODERANGE_CLEAR(str);
     }
     return str;
+    RB_GC_GUARD(suffix);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11313,6 +11911,8 @@ rb_str_delete_suffix(VALUE str, VALUE suffix)
     if (suffixlen <= 0) return str_duplicate(rb_cString, str);
 
     return rb_str_subseq(str, 0, RSTRING_LEN(str) - suffixlen);
+    RB_GC_GUARD(suffix);
+    RB_GC_GUARD(str);
 }
 
 void
@@ -11322,6 +11922,7 @@ rb_str_setter(VALUE val, ID id, VALUE *var)
         rb_raise(rb_eTypeError, "value of %"PRIsVALUE" must be String", rb_id2str(id));
     }
     *var = val;
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -11337,6 +11938,7 @@ rb_fs_setter(VALUE val, ID id, VALUE *var)
         rb_warn_deprecated("'$;'", NULL);
     }
     *var = val;
+    RB_GC_GUARD(val);
 }
 
 
@@ -11371,6 +11973,8 @@ rb_str_force_encoding(VALUE str, VALUE enc)
 
     ENC_CODERANGE_CLEAR(str);
     return str;
+    RB_GC_GUARD(enc);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11412,6 +12016,8 @@ rb_str_b(VALUE str)
     }
 
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(str2);
 }
 
 /*
@@ -11431,6 +12037,7 @@ rb_str_valid_encoding_p(VALUE str)
     int cr = rb_enc_str_coderange(str);
 
     return RBOOL(cr != ENC_CODERANGE_BROKEN);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11451,6 +12058,7 @@ rb_str_is_ascii_only_p(VALUE str)
     int cr = rb_enc_str_coderange(str);
 
     return RBOOL(cr == ENC_CODERANGE_7BIT);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -11488,6 +12096,9 @@ rb_str_ellipsize(VALUE str, long len)
         rb_str_append(ret, estr);
     }
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(estr);
 }
 
 static VALUE
@@ -11507,6 +12118,7 @@ str_compat_and_valid(VALUE str, rb_encoding *enc)
         }
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE enc_str_scrub(rb_encoding *enc, VALUE str, VALUE repl, int cr);
@@ -11516,6 +12128,8 @@ rb_str_scrub(VALUE str, VALUE repl)
 {
     rb_encoding *enc = STR_ENC_GET(str);
     return enc_str_scrub(enc, str, repl, ENC_CODERANGE(str));
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -11528,6 +12142,8 @@ rb_enc_str_scrub(rb_encoding *enc, VALUE str, VALUE repl)
         cr = ENC_CODERANGE(str);
     }
     return enc_str_scrub(enc, str, repl, cr);
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -11770,6 +12386,9 @@ enc_str_scrub(rb_encoding *enc, VALUE str, VALUE repl, int cr)
     }
     ENCODING_CODERANGE_SET(buf, rb_enc_to_index(enc), cr);
     return buf;
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(buf);
 }
 
 /*
@@ -11786,6 +12405,9 @@ str_scrub(int argc, VALUE *argv, VALUE str)
     VALUE repl = argc ? (rb_check_arity(argc, 0, 1), argv[0]) : Qnil;
     VALUE new = rb_str_scrub(str, repl);
     return NIL_P(new) ? str_duplicate(rb_cString, str): new;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(new);
+    RB_GC_GUARD(repl);
 }
 
 /*
@@ -11804,6 +12426,9 @@ str_scrub_bang(int argc, VALUE *argv, VALUE str)
     VALUE new = rb_str_scrub(str, repl);
     if (!NIL_P(new)) rb_str_replace(str, new);
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(new);
+    RB_GC_GUARD(repl);
 }
 
 static ID id_normalize;
@@ -11823,6 +12448,7 @@ unicode_normalize_common(int argc, VALUE *argv, VALUE str, ID id)
     argv2[0] = str;
     if (rb_check_arity(argc, 0, 1)) argv2[1] = argv[0];
     return rb_funcallv(mUnicodeNormalize, id, argc+1, argv2);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11862,6 +12488,7 @@ static VALUE
 rb_str_unicode_normalize(int argc, VALUE *argv, VALUE str)
 {
     return unicode_normalize_common(argc, argv, str, id_normalize);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -11878,6 +12505,7 @@ static VALUE
 rb_str_unicode_normalize_bang(int argc, VALUE *argv, VALUE str)
 {
     return rb_str_replace(str, unicode_normalize_common(argc, argv, str, id_normalize));
+    RB_GC_GUARD(str);
 }
 
 /*  call-seq:
@@ -11907,6 +12535,7 @@ static VALUE
 rb_str_unicode_normalized_p(int argc, VALUE *argv, VALUE str)
 {
     return unicode_normalize_common(argc, argv, str, id_normalized_p);
+    RB_GC_GUARD(str);
 }
 
 /**********************************************************************
@@ -12073,6 +12702,7 @@ rb_str_symname_p(VALUE sym)
         return FALSE;
     }
     return TRUE;
+    RB_GC_GUARD(sym);
 }
 
 VALUE
@@ -12094,6 +12724,7 @@ rb_str_quote_unprintable(VALUE str)
         return rb_str_escape(str);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -12104,6 +12735,7 @@ rb_id_quote_unprintable(ID id)
         return rb_str_escape(str);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -12152,6 +12784,8 @@ sym_inspect(VALUE sym)
     RUBY_ASSERT_BUILTIN_TYPE(str, T_STRING);
 
     return str;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -12160,6 +12794,8 @@ rb_sym_to_s(VALUE sym)
     VALUE str = str_new_shared(rb_cString, rb_sym2str(sym));
     FL_SET_RAW(str, STR_CHILLED_SYMBOL_TO_S);
     return str;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -12172,6 +12808,8 @@ rb_sym_proc_call(ID mid, int argc, const VALUE *argv, int kw_splat, VALUE passed
     }
     obj = argv[0];
     return rb_funcall_with_block_kw(obj, mid, argc - 1, argv + 1, passed_proc, kw_splat);
+    RB_GC_GUARD(passed_proc);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -12189,6 +12827,7 @@ static VALUE
 sym_succ(VALUE sym)
 {
     return rb_str_intern(rb_str_succ(rb_sym2str(sym)));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12216,6 +12855,8 @@ sym_cmp(VALUE sym, VALUE other)
         return Qnil;
     }
     return rb_str_cmp_m(rb_sym2str(sym), rb_sym2str(other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12233,6 +12874,8 @@ sym_casecmp(VALUE sym, VALUE other)
         return Qnil;
     }
     return str_casecmp(rb_sym2str(sym), rb_sym2str(other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12250,6 +12893,8 @@ sym_casecmp_p(VALUE sym, VALUE other)
         return Qnil;
     }
     return str_casecmp_p(rb_sym2str(sym), rb_sym2str(other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12266,6 +12911,8 @@ static VALUE
 sym_match(VALUE sym, VALUE other)
 {
     return rb_str_match(rb_sym2str(sym), other);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12283,6 +12930,7 @@ static VALUE
 sym_match_m(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_match_m(argc, argv, rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12298,6 +12946,7 @@ static VALUE
 sym_match_m_p(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_match_m_p(argc, argv, sym);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12316,6 +12965,7 @@ static VALUE
 sym_aref(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_aref_m(argc, argv, rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12329,6 +12979,7 @@ static VALUE
 sym_length(VALUE sym)
 {
     return rb_str_length(rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12343,6 +12994,7 @@ static VALUE
 sym_empty(VALUE sym)
 {
     return rb_str_empty(rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12359,6 +13011,7 @@ static VALUE
 sym_upcase(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_intern(rb_str_upcase(argc, argv, rb_sym2str(sym)));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12377,6 +13030,7 @@ static VALUE
 sym_downcase(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_intern(rb_str_downcase(argc, argv, rb_sym2str(sym)));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12393,6 +13047,7 @@ static VALUE
 sym_capitalize(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_intern(rb_str_capitalize(argc, argv, rb_sym2str(sym)));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12409,6 +13064,7 @@ static VALUE
 sym_swapcase(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_intern(rb_str_swapcase(argc, argv, rb_sym2str(sym)));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12423,6 +13079,7 @@ static VALUE
 sym_start_with(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_start_with(argc, argv, rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12438,6 +13095,7 @@ static VALUE
 sym_end_with(int argc, VALUE *argv, VALUE sym)
 {
     return rb_str_end_with(argc, argv, rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -12452,6 +13110,7 @@ static VALUE
 sym_encoding(VALUE sym)
 {
     return rb_obj_encoding(rb_sym2str(sym));
+    RB_GC_GUARD(sym);
 }
 
 static VALUE
@@ -12464,8 +13123,10 @@ string_for_symbol(VALUE name)
                      name);
         }
         name = tmp;
+    RB_GC_GUARD(tmp);
     }
     return name;
+    RB_GC_GUARD(name);
 }
 
 ID
@@ -12476,6 +13137,7 @@ rb_to_id(VALUE name)
     }
     name = string_for_symbol(name);
     return rb_intern_str(name);
+    RB_GC_GUARD(name);
 }
 
 VALUE
@@ -12486,6 +13148,7 @@ rb_to_symbol(VALUE name)
     }
     name = string_for_symbol(name);
     return rb_str_intern(name);
+    RB_GC_GUARD(name);
 }
 
 /*
@@ -12503,12 +13166,14 @@ static VALUE
 sym_all_symbols(VALUE _)
 {
     return rb_sym_all_symbols();
+    RB_GC_GUARD(_);
 }
 
 VALUE
 rb_str_to_interned_str(VALUE str)
 {
     return rb_fstring(str);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -12566,6 +13231,8 @@ rb_yjit_str_concat_codepoint(VALUE str, VALUE codepoint)
     }
 
     rb_str_concat(str, codepoint);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(codepoint);
 }
 #endif
 

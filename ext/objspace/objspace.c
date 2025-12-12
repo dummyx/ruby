@@ -48,6 +48,8 @@ static VALUE
 memsize_of_m(VALUE self, VALUE obj)
 {
     return SIZET2NUM(rb_obj_memsize_of(obj));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 struct total_data {
@@ -65,6 +67,7 @@ total_i(VALUE v, void *ptr)
             data->total += rb_obj_memsize_of(v);
         }
     }
+            RB_GC_GUARD(v);
 }
 
 typedef void (*each_obj_with_flags)(VALUE, void*);
@@ -94,6 +97,7 @@ heap_iter(void *vstart, void *vend, size_t stride, void *ptr)
     }
 
     return 0;
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -144,6 +148,7 @@ memsize_of_all_m(int argc, VALUE *argv, VALUE self)
 
     each_object_with_flags(total_i, &data);
     return SIZET2NUM(data.total);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -153,6 +158,8 @@ set_zero_i(st_data_t key, st_data_t val, st_data_t arg)
     VALUE hash = (VALUE)arg;
     rb_hash_aset(hash, k, INT2FIX(0));
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(k);
 }
 
 static VALUE
@@ -173,6 +180,7 @@ setup_hash(int argc, VALUE *argv)
     }
 
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -180,6 +188,7 @@ cos_i(VALUE v, void *data)
 {
     size_t *counts = (size_t *)data;
     counts[BUILTIN_TYPE(v)] += rb_obj_memsize_of(v);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -219,6 +228,7 @@ type2sym(enum ruby_value_type i)
       default: rb_bug("type2sym: unknown type (%d)", i);
     }
     return type;
+    RB_GC_GUARD(type);
 }
 
 /*
@@ -263,10 +273,13 @@ count_objects_size(int argc, VALUE *argv, VALUE os)
             VALUE type = type2sym(i);
             total += counts[i];
             rb_hash_aset(hash, type, SIZET2NUM(counts[i]));
+    RB_GC_GUARD(type);
         }
     }
     rb_hash_aset(hash, ID2SYM(rb_intern("TOTAL")), SIZET2NUM(total));
     return hash;
+    RB_GC_GUARD(os);
+    RB_GC_GUARD(hash);
 }
 
 struct dynamic_symbol_counts {
@@ -288,6 +301,7 @@ cs_i(VALUE v, void *n)
             counts->immortal++;
         }
     }
+            RB_GC_GUARD(v);
 }
 
 size_t rb_sym_immortal_count(void);
@@ -333,6 +347,8 @@ count_symbols(int argc, VALUE *argv, VALUE os)
     rb_hash_aset(hash, ID2SYM(rb_intern("immortal_symbol")),         SIZET2NUM(immortal_symbols));
 
     return hash;
+    RB_GC_GUARD(os);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -362,6 +378,7 @@ static VALUE
 count_nodes(int argc, VALUE *argv, VALUE os)
 {
     return setup_hash(argc, argv);
+    RB_GC_GUARD(os);
 }
 
 static void
@@ -388,7 +405,11 @@ cto_i(VALUE v, void *data)
         }
 
         rb_hash_aset(hash, key, counter);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(counter);
     }
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(v);
 }
 
 /*
@@ -429,6 +450,8 @@ count_tdata_objects(int argc, VALUE *argv, VALUE self)
     VALUE hash = setup_hash(argc, argv);
     each_object_with_flags(cto_i, (void *)hash);
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 static ID imemo_type_ids[IMEMO_MASK+1];
@@ -452,7 +475,11 @@ count_imemo_objects_i(VALUE v, void *data)
         }
 
         rb_hash_aset(hash, key, counter);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(counter);
     }
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(v);
 }
 
 /*
@@ -510,6 +537,8 @@ count_imemo_objects(int argc, VALUE *argv, VALUE self)
     each_object_with_flags(count_imemo_objects_i, (void *)hash);
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -523,6 +552,7 @@ iow_size(const void *ptr)
 {
     VALUE obj = (VALUE)ptr;
     return rb_obj_memsize_of(obj);
+    RB_GC_GUARD(obj);
 }
 
 static const rb_data_type_t iow_data_type = {
@@ -537,6 +567,7 @@ static VALUE
 iow_newobj(VALUE obj)
 {
     return TypedData_Wrap_Struct(rb_cInternalObjectWrapper, &iow_data_type, (void *)obj);
+    RB_GC_GUARD(obj);
 }
 
 /* Returns the type of the internal object. */
@@ -545,6 +576,8 @@ iow_type(VALUE self)
 {
     VALUE obj = (VALUE)DATA_PTR(self);
     return type2sym(BUILTIN_TYPE(obj));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /* See Object#inspect. */
@@ -555,6 +588,9 @@ iow_inspect(VALUE self)
     VALUE type = type2sym(BUILTIN_TYPE(obj));
 
     return rb_sprintf("#<InternalObject:%p %"PRIsVALUE">", (void *)obj, rb_sym2str(type));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(obj);
 }
 
 /* Returns the Object#object_id of the internal object. */
@@ -563,6 +599,8 @@ iow_internal_object_id(VALUE self)
 {
     VALUE obj = (VALUE)DATA_PTR(self);
     return rb_obj_id(obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 struct rof_data {
@@ -588,6 +626,9 @@ reachable_object_from_i(VALUE obj, void *data_ptr)
             rb_ary_push(data->values, val);
         }
     }
+            RB_GC_GUARD(key);
+            RB_GC_GUARD(obj);
+            RB_GC_GUARD(val);
 }
 
 static int
@@ -596,6 +637,7 @@ collect_values(st_data_t key, st_data_t value, st_data_t data)
     VALUE ary = (VALUE)data;
     rb_ary_push(ary, (VALUE)value);
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -659,6 +701,8 @@ reachable_objects_from(VALUE self, VALUE obj)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -698,6 +742,9 @@ reachable_object_from_root_i(const char *category, VALUE obj, void *ptr)
         }
         rb_hash_aset(category_objects, obj, obj);
     }
+        RB_GC_GUARD(category_str);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(category_objects);
 }
 
 static int
@@ -707,6 +754,10 @@ collect_values_of_values(VALUE category, VALUE category_objects, VALUE categorie
     rb_hash_foreach(category_objects, collect_values, ary);
     rb_hash_aset(categories, category, ary);
     return ST_CONTINUE;
+    RB_GC_GUARD(categories);
+    RB_GC_GUARD(category_objects);
+    RB_GC_GUARD(category);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -726,6 +777,8 @@ reachable_objects_from_root(VALUE self)
     rb_hash_foreach(hash, collect_values_of_values, hash);
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -740,6 +793,7 @@ wrap_klass_iow(VALUE klass)
     }
     else {
         return klass;
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -767,6 +821,9 @@ objspace_internal_class_of(VALUE self, VALUE obj)
     else {
         klass = CLASS_OF(obj);
         return wrap_klass_iow(klass);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -799,6 +856,9 @@ objspace_internal_super_of(VALUE self, VALUE obj)
     }
 
     return wrap_klass_iow(super);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(super);
 }
 
 void Init_object_tracing(VALUE rb_mObjSpace);
@@ -861,4 +921,5 @@ Init_objspace(void)
 
     Init_object_tracing(rb_mObjSpace);
     Init_objspace_dump(rb_mObjSpace);
+    RB_GC_GUARD(rb_mObjSpace);
 }

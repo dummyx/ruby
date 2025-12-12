@@ -94,6 +94,9 @@ s3e(VALUE hash, VALUE y, VALUE m, VALUE d, int bc)
 	y = od;
 	m = oy;
 	d = om;
+    RB_GC_GUARD(od);
+    RB_GC_GUARD(om);
+    RB_GC_GUARD(oy);
     }
 
     if (NIL_P(y)) {
@@ -141,6 +144,9 @@ s3e(VALUE hash, VALUE y, VALUE m, VALUE d, int bc)
 	    y = om;
 	    m = od;
 	    d = oy;
+    RB_GC_GUARD(od);
+    RB_GC_GUARD(om);
+    RB_GC_GUARD(oy);
 	}
     }
 
@@ -154,6 +160,8 @@ s3e(VALUE hash, VALUE y, VALUE m, VALUE d, int bc)
 
 	    y = od;
 	    d = oy;
+    RB_GC_GUARD(od);
+    RB_GC_GUARD(oy);
 	}
     }
 
@@ -190,6 +198,7 @@ s3e(VALUE hash, VALUE y, VALUE m, VALUE d, int bc)
 	}
 	set_hash("year", iy);
       no_year:;
+    RB_GC_GUARD(iy);
     }
 
     if (bc)
@@ -219,6 +228,7 @@ s3e(VALUE hash, VALUE y, VALUE m, VALUE d, int bc)
 	}
 	set_hash("mon", im);
       no_month:;
+    RB_GC_GUARD(im);
     }
 
     if (!NIL_P(d)) {
@@ -245,10 +255,17 @@ s3e(VALUE hash, VALUE y, VALUE m, VALUE d, int bc)
 	}
 	set_hash("mday", id);
       no_mday:;
+    RB_GC_GUARD(id);
     }
 
     if (!NIL_P(c))
 	set_hash("_comp", c);
+	RB_GC_GUARD(vbuf);
+	RB_GC_GUARD(d);
+	RB_GC_GUARD(m);
+	RB_GC_GUARD(y);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(c);
 }
 
 #define DAYS "sunday|monday|tuesday|wednesday|thursday|friday|saturday"
@@ -284,6 +301,7 @@ regcomp(const char *source, long len, int opt)
     rb_obj_freeze(pat);
     rb_gc_register_mark_object(pat);
     return pat;
+    RB_GC_GUARD(pat);
 }
 
 #define REGCOMP(pat,opt) \
@@ -313,6 +331,10 @@ match(VALUE str, VALUE pat, VALUE hash, int (*cb)(VALUE, VALUE))
     (*cb)(m, hash);
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -332,9 +354,16 @@ subx(VALUE str, VALUE rep, VALUE pat, VALUE hash, int (*cb)(VALUE, VALUE))
 	en = f_end(m, INT2FIX(0));
 	f_aset2(str, be, LONG2NUM(NUM2LONG(en) - NUM2LONG(be)), rep);
 	(*cb)(m, hash);
+    RB_GC_GUARD(en);
+    RB_GC_GUARD(be);
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(rep);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(m);
 }
 
 #define SUBS(s,p,c) \
@@ -531,6 +560,7 @@ date_zone_to_diff(VALUE str)
 			offset = f_add(rb_rational_new(INT2FIX(sec), denom), INT2FIX(hour * 3600));
 			if (rb_rational_den(offset) == INT2FIX(1)) {
 			    offset = rb_rational_num(offset);
+		    RB_GC_GUARD(denom);
 			}
 		    }
 		    goto ok;
@@ -556,6 +586,8 @@ date_zone_to_diff(VALUE str)
     RB_GC_GUARD(str);
   ok:
     return offset;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(offset);
 }
 
 static int
@@ -567,6 +599,7 @@ day_num(VALUE s)
 	if (strncasecmp(abbr_days[i], RSTRING_PTR(s), 3) == 0)
 	    break;
     return i;
+    RB_GC_GUARD(s);
 }
 
 static int
@@ -578,6 +611,7 @@ mon_num(VALUE s)
 	if (strncasecmp(abbr_months[i], RSTRING_PTR(s), 3) == 0)
 	    break;
     return i + 1;
+    RB_GC_GUARD(s);
 }
 
 static int
@@ -588,6 +622,9 @@ parse_day_cb(VALUE m, VALUE hash)
     s = rb_reg_nth_match(1, m);
     set_hash("wday", INT2FIX(day_num(s)));
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(s);
 }
 
 static int
@@ -605,6 +642,9 @@ parse_day(VALUE str, VALUE hash)
     REGCOMP_I(pat);
 #ifndef TIGHT_PARSER
     SUBS(str, pat, parse_day_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 #else
     SUBW(str, pat, parse_day_cb);
 #endif
@@ -651,6 +691,13 @@ parse_time2_cb(VALUE m, VALUE hash)
 	set_hash("sec_fraction", f);
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(min);
+    RB_GC_GUARD(h);
 }
 
 static int
@@ -681,9 +728,15 @@ parse_time_cb(VALUE m, VALUE hash)
 	if (NIL_P(m))
 	    return 0;
 	parse_time2_cb(m, hash);
+    RB_GC_GUARD(m);
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s1);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -728,6 +781,9 @@ parse_time(VALUE str, VALUE hash)
     REGCOMP_I(pat);
 #ifndef TIGHT_PARSER
     SUBS(str, pat, parse_time_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 #else
     SUBT(str, pat, parse_time_cb);
 #endif
@@ -864,6 +920,12 @@ parse_eu_cb(VALUE m, VALUE hash)
     s3e(hash, y, mon, d, 0);
 #endif
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -912,6 +974,9 @@ parse_eu(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_eu_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -946,6 +1011,12 @@ parse_us_cb(VALUE m, VALUE hash)
     s3e(hash, y, mon, d, 0);
 #endif
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -992,6 +1063,9 @@ parse_us(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_us_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1010,6 +1084,11 @@ parse_iso_cb(VALUE m, VALUE hash)
 
     s3e(hash, y, mon, d, 0);
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1030,6 +1109,9 @@ parse_iso(VALUE str, VALUE hash)
 
     REGCOMP_0(pat);
     SUBS(str, pat, parse_iso_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1048,6 +1130,11 @@ parse_iso21_cb(VALUE m, VALUE hash)
 	set_hash("cwday", str2num(d));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(w);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1068,6 +1155,9 @@ parse_iso21(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_iso21_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1078,6 +1168,9 @@ parse_iso22_cb(VALUE m, VALUE hash)
     d = rb_reg_nth_match(1, m);
     set_hash("cwday", str2num(d));
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
 }
 
 static int
@@ -1098,6 +1191,9 @@ parse_iso22(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_iso22_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1113,6 +1209,10 @@ parse_iso23_cb(VALUE m, VALUE hash)
     set_hash("mday", str2num(d));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
 }
 
 static int
@@ -1133,6 +1233,9 @@ parse_iso23(VALUE str, VALUE hash)
 
     REGCOMP_0(pat);
     SUBS(str, pat, parse_iso23_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1148,6 +1251,10 @@ parse_iso24_cb(VALUE m, VALUE hash)
 	set_hash("mday", str2num(d));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
 }
 
 static int
@@ -1168,6 +1275,9 @@ parse_iso24(VALUE str, VALUE hash)
 
     REGCOMP_0(pat);
     SUBS(str, pat, parse_iso24_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1182,6 +1292,10 @@ parse_iso25_cb(VALUE m, VALUE hash)
     set_hash("yday", str2num(d));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1218,6 +1332,10 @@ parse_iso25(VALUE str, VALUE hash)
     if (!NIL_P(f_match(pat0, str)))
 	return 0;
     SUBS(str, pat, parse_iso25_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(pat0);
 }
 
 static int
@@ -1229,6 +1347,9 @@ parse_iso26_cb(VALUE m, VALUE hash)
     set_hash("yday", str2num(d));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
 }
 static int
 parse_iso26(VALUE str, VALUE hash)
@@ -1264,6 +1385,10 @@ parse_iso26(VALUE str, VALUE hash)
     if (!NIL_P(f_match(pat0, str)))
 	return 0;
     SUBS(str, pat, parse_iso26_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(pat0);
 }
 
 static int
@@ -1285,6 +1410,8 @@ parse_iso2(VALUE str, VALUE hash)
 
   ok:
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
 }
 
 #define JISX0301_ERA_INITIALS "mtshr"
@@ -1324,6 +1451,12 @@ parse_jis_cb(VALUE m, VALUE hash)
     set_hash("mday", str2num(d));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(e);
 }
 
 static int
@@ -1344,6 +1477,9 @@ parse_jis(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_jis_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1364,6 +1500,11 @@ parse_vms11_cb(VALUE m, VALUE hash)
 
     s3e(hash, y, mon, d, 0);
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1386,6 +1527,9 @@ parse_vms11(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_vms11_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1406,6 +1550,11 @@ parse_vms12_cb(VALUE m, VALUE hash)
 
     s3e(hash, y, mon, d, 0);
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1428,6 +1577,9 @@ parse_vms12(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_vms12_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1441,6 +1593,8 @@ parse_vms(VALUE str, VALUE hash)
 
   ok:
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -1459,6 +1613,11 @@ parse_sla_cb(VALUE m, VALUE hash)
 
     s3e(hash, y, mon, d, 0);
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1479,6 +1638,9 @@ parse_sla(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_sla_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #ifdef TIGHT_PARSER
@@ -1567,6 +1729,11 @@ parse_dot_cb(VALUE m, VALUE hash)
 
     s3e(hash, y, mon, d, 0);
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(mon);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1587,6 +1754,9 @@ parse_dot(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_dot_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #ifdef TIGHT_PARSER
@@ -1667,6 +1837,9 @@ parse_year_cb(VALUE m, VALUE hash)
     y = rb_reg_nth_match(1, m);
     set_hash("year", str2num(y));
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -1687,6 +1860,9 @@ parse_year(VALUE str, VALUE hash)
 
     REGCOMP_0(pat);
     SUBS(str, pat, parse_year_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1697,6 +1873,9 @@ parse_mon_cb(VALUE m, VALUE hash)
     mon = rb_reg_nth_match(1, m);
     set_hash("mon", INT2FIX(mon_num(mon)));
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(mon);
 }
 
 static int
@@ -1717,6 +1896,9 @@ parse_mon(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_mon_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1727,6 +1909,9 @@ parse_mday_cb(VALUE m, VALUE hash)
     d = rb_reg_nth_match(1, m);
     set_hash("mday", str2num(d));
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(d);
 }
 
 static int
@@ -1747,6 +1932,9 @@ parse_mday(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_mday_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -1958,11 +2146,19 @@ parse_ddd_cb(VALUE m, VALUE hash)
             }
 	    set_hash("zone", zone);
             set_hash("offset", date_zone_to_diff(s5));
+	RB_GC_GUARD(zone);
 	}
 	RB_GC_GUARD(s5);
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(s5);
+    RB_GC_GUARD(s4);
+    RB_GC_GUARD(s3);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s1);
 }
 
 static int
@@ -1997,6 +2193,9 @@ parse_ddd(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_ddd_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #ifndef TIGHT_PARSER
@@ -2005,6 +2204,8 @@ parse_bc_cb(VALUE m, VALUE hash)
 {
     set_hash("_bc", Qtrue);
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2016,6 +2217,9 @@ parse_bc(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_bc_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -2039,6 +2243,10 @@ parse_frag_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(s);
 }
 
 static int
@@ -2049,6 +2257,9 @@ parse_frag(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     SUBS(str, pat, parse_frag_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 #endif
 
@@ -2128,6 +2339,7 @@ check_class(VALUE s)
 	    flags |= HAVE_SLASH;
     }
     return flags;
+    RB_GC_GUARD(s);
 }
 
 #define HAVE_ELEM_P(x) ((check_class(str) & (x)) == (x))
@@ -2162,6 +2374,7 @@ date__parse(VALUE str, VALUE comp)
 	REGCOMP_0(pat);
 	str = rb_str_dup(str);
 	f_gsub_bang(str, pat, asp_string());
+    RB_GC_GUARD(pat);
     }
 
     hash = rb_hash_new();
@@ -2262,6 +2475,7 @@ date__parse(VALUE str, VALUE comp)
 	    if (!NIL_P(y)) {
 		y = f_add(f_negate(y), INT2FIX(1));
 		set_hash("year", y);
+        RB_GC_GUARD(y);
 	    }
 	}
 
@@ -2283,6 +2497,7 @@ date__parse(VALUE str, VALUE comp)
 			set_hash("year", f_add(y, INT2FIX(1900)));
 		    else
 			set_hash("year", f_add(y, INT2FIX(2000)));
+    RB_GC_GUARD(y);
 		}
 	}
 
@@ -2292,11 +2507,16 @@ date__parse(VALUE str, VALUE comp)
 	VALUE zone = ref_hash("zone");
 	if (!NIL_P(zone) && NIL_P(ref_hash("offset")))
 	    set_hash("offset", date_zone_to_diff(zone));
+    RB_GC_GUARD(zone);
     }
 
     rb_backref_set(backref);
 
     return hash;
+    RB_GC_GUARD(comp);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 static VALUE
@@ -2305,6 +2525,7 @@ comp_year69(VALUE y)
     if (f_ge_p(y, INT2FIX(69)))
 	return f_add(y, INT2FIX(1900));
     return f_add(y, INT2FIX(2000));
+    RB_GC_GUARD(y);
 }
 
 static VALUE
@@ -2313,6 +2534,7 @@ comp_year50(VALUE y)
     if (f_ge_p(y, INT2FIX(50)))
 	return f_add(y, INT2FIX(1900));
     return f_add(y, INT2FIX(2000));
+    RB_GC_GUARD(y);
 }
 
 static VALUE
@@ -2321,6 +2543,7 @@ sec_fraction(VALUE f)
     return rb_rational_new2(str2num(f),
 			    f_expt(INT2FIX(10),
 				   LONG2NUM(RSTRING_LEN(f))));
+				   RB_GC_GUARD(f);
 }
 
 #define SNUM 14
@@ -2389,6 +2612,9 @@ iso8601_ext_datetime_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2406,6 +2632,9 @@ iso8601_ext_datetime(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, iso8601_ext_datetime_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #undef SNUM
@@ -2478,6 +2707,9 @@ iso8601_bas_datetime_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2497,6 +2729,9 @@ iso8601_bas_datetime(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, iso8601_bas_datetime_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #undef SNUM
@@ -2526,6 +2761,8 @@ iso8601_ext_time_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 #define iso8601_bas_time_cb iso8601_ext_time_cb
@@ -2540,6 +2777,9 @@ iso8601_ext_time(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, iso8601_ext_time_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 static int
@@ -2552,6 +2792,9 @@ iso8601_bas_time(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, iso8601_bas_time_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 VALUE
@@ -2577,6 +2820,9 @@ date__iso8601(VALUE str)
     rb_backref_set(backref);
 
     return hash;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 #undef SNUM
@@ -2606,6 +2852,8 @@ rfc3339_cb(VALUE m, VALUE hash)
 	set_hash("sec_fraction", sec_fraction(s[7]));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2620,6 +2868,9 @@ rfc3339(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, rfc3339_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 VALUE
@@ -2634,6 +2885,9 @@ date__rfc3339(VALUE str)
     rfc3339(str, hash);
     rb_backref_set(backref);
     return hash;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 #undef SNUM
@@ -2670,6 +2924,8 @@ xmlschema_datetime_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2684,6 +2940,9 @@ xmlschema_datetime(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, xmlschema_datetime_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #undef SNUM
@@ -2713,6 +2972,8 @@ xmlschema_time_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2725,6 +2986,9 @@ xmlschema_time(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, xmlschema_time_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #undef SNUM
@@ -2754,6 +3018,8 @@ xmlschema_trunc_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2766,6 +3032,9 @@ xmlschema_trunc(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, xmlschema_trunc_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 VALUE
@@ -2789,6 +3058,9 @@ date__xmlschema(VALUE str)
     rb_backref_set(backref);
 
     return hash;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 #undef SNUM
@@ -2823,6 +3095,9 @@ rfc2822_cb(VALUE m, VALUE hash)
     set_hash("offset", date_zone_to_diff(s[8]));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2839,6 +3114,9 @@ rfc2822(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, rfc2822_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 VALUE
@@ -2853,6 +3131,9 @@ date__rfc2822(VALUE str)
     rfc2822(str, hash);
     rb_backref_set(backref);
     return hash;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 #undef SNUM
@@ -2881,6 +3162,8 @@ httpdate_type1_cb(VALUE m, VALUE hash)
     set_hash("offset", INT2FIX(0));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2897,6 +3180,9 @@ httpdate_type1(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, httpdate_type1_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #undef SNUM
@@ -2928,6 +3214,9 @@ httpdate_type2_cb(VALUE m, VALUE hash)
     set_hash("offset", INT2FIX(0));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2944,6 +3233,9 @@ httpdate_type2(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, httpdate_type2_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 #undef SNUM
@@ -2970,6 +3262,8 @@ httpdate_type3_cb(VALUE m, VALUE hash)
     set_hash("year", str2num(s[7]));
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -2985,6 +3279,9 @@ httpdate_type3(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, httpdate_type3_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 VALUE
@@ -3008,6 +3305,9 @@ date__httpdate(VALUE str)
     rb_backref_set(backref);
 
     return hash;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 #undef SNUM
@@ -3045,6 +3345,8 @@ jisx0301_cb(VALUE m, VALUE hash)
     }
 
     return 1;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -3059,6 +3361,9 @@ jisx0301(VALUE str, VALUE hash)
 
     REGCOMP_I(pat);
     MATCH(str, pat, jisx0301_cb);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(pat);
 }
 
 VALUE
@@ -3077,6 +3382,9 @@ date__jisx0301(VALUE str)
   ok:
     rb_backref_set(backref);
     return hash;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(backref);
 }
 
 /*

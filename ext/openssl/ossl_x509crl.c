@@ -55,6 +55,7 @@ GetX509CRLPtr(VALUE obj)
     GetX509CRL(obj, crl);
 
     return crl;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -69,6 +70,7 @@ ossl_x509crl_new(X509_CRL *crl)
     SetX509CRL(obj, tmp);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -87,6 +89,8 @@ ossl_x509crl_alloc(VALUE klass)
     SetX509CRL(obj, crl);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -115,6 +119,8 @@ ossl_x509crl_initialize(int argc, VALUE *argv, VALUE self)
     X509_CRL_free(crl_orig);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -133,6 +139,8 @@ ossl_x509crl_copy(VALUE self, VALUE other)
     DATA_PTR(self) = crl;
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -145,6 +153,7 @@ ossl_x509crl_get_version(VALUE self)
     ver = X509_CRL_get_version(crl);
 
     return LONG2NUM(ver);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -162,6 +171,8 @@ ossl_x509crl_set_version(VALUE self, VALUE version)
     }
 
     return version;
+    RB_GC_GUARD(version);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -182,6 +193,7 @@ ossl_x509crl_get_signature_algorithm(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -192,6 +204,7 @@ ossl_x509crl_get_issuer(VALUE self)
     GetX509CRL(self, crl);
 
     return ossl_x509name_new(X509_CRL_get_issuer(crl)); /* NO DUP - don't free */
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -205,6 +218,8 @@ ossl_x509crl_set_issuer(VALUE self, VALUE issuer)
 	ossl_raise(eX509CRLError, NULL);
     }
     return issuer;
+    RB_GC_GUARD(issuer);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -219,6 +234,7 @@ ossl_x509crl_get_last_update(VALUE self)
 	return Qnil;
 
     return asn1time_to_time(time);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -236,6 +252,8 @@ ossl_x509crl_set_last_update(VALUE self, VALUE time)
     ASN1_TIME_free(asn1time);
 
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -250,6 +268,7 @@ ossl_x509crl_get_next_update(VALUE self)
 	return Qnil;
 
     return asn1time_to_time(time);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -267,6 +286,8 @@ ossl_x509crl_set_next_update(VALUE self, VALUE time)
     ASN1_TIME_free(asn1time);
 
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -292,6 +313,9 @@ ossl_x509crl_get_revoked(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(revoked);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -322,6 +346,8 @@ ossl_x509crl_set_revoked(VALUE self, VALUE ary)
     X509_CRL_sort(crl);
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -339,6 +365,8 @@ ossl_x509crl_add_revoked(VALUE self, VALUE revoked)
     X509_CRL_sort(crl);
 
     return revoked;
+    RB_GC_GUARD(revoked);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -360,6 +388,9 @@ ossl_x509crl_sign(VALUE self, VALUE key, VALUE digest)
     }
 
     return self;
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -380,6 +411,8 @@ ossl_x509crl_verify(VALUE self, VALUE key)
       default:
 	ossl_raise(eX509CRLError, NULL);
     }
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -398,6 +431,7 @@ ossl_x509crl_to_der(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -416,6 +450,7 @@ ossl_x509crl_to_pem(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -434,6 +469,7 @@ ossl_x509crl_to_text(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -460,6 +496,8 @@ ossl_x509crl_get_extensions(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -488,6 +526,8 @@ ossl_x509crl_set_extensions(VALUE self, VALUE ary)
     }
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -503,6 +543,8 @@ ossl_x509crl_add_extension(VALUE self, VALUE extension)
     }
 
     return extension;
+    RB_GC_GUARD(extension);
+    RB_GC_GUARD(self);
 }
 
 /*

@@ -72,6 +72,7 @@ static VALUE
 asn1time_to_time_i(VALUE arg)
 {
     return asn1time_to_time((ASN1_TIME *)arg);
+    RB_GC_GUARD(arg);
 }
 
 void
@@ -88,6 +89,8 @@ ossl_time_split(VALUE time, time_t *sec, int *days)
 	*days = NUM2INT(rb_funcall(num, rb_intern("/"), 1, INT2FIX(86400)));
 	*sec = NUM2TIMET(rb_funcall(num, rb_intern("%"), 1, INT2FIX(86400)));
     }
+	RB_GC_GUARD(num);
+	RB_GC_GUARD(time);
 }
 
 /*
@@ -123,6 +126,7 @@ asn1integer_to_num(const ASN1_INTEGER *ai)
     BN_free(bn);
 
     return num;
+    RB_GC_GUARD(num);
 }
 
 ASN1_INTEGER *
@@ -139,12 +143,14 @@ num_to_asn1integer(VALUE obj, ASN1_INTEGER *ai)
 	ossl_raise(eOSSLError, NULL);
 
     return ai;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
 asn1integer_to_num_i(VALUE arg)
 {
     return asn1integer_to_num((ASN1_INTEGER *)arg);
+    RB_GC_GUARD(arg);
 }
 
 /********/
@@ -195,12 +201,14 @@ obj_to_asn1bool(VALUE obj)
 	ossl_raise(rb_eTypeError, "Can't convert nil into Boolean");
 
      return RTEST(obj) ? 0xff : 0x0;
+     RB_GC_GUARD(obj);
 }
 
 static ASN1_INTEGER*
 obj_to_asn1int(VALUE obj)
 {
     return num_to_asn1integer(obj, NULL);
+    RB_GC_GUARD(obj);
 }
 
 static ASN1_BIT_STRING*
@@ -219,6 +227,7 @@ obj_to_asn1bstr(VALUE obj, long unused_bits)
     bstr->flags |= ASN1_STRING_FLAG_BITS_LEFT | unused_bits;
 
     return bstr;
+    RB_GC_GUARD(obj);
 }
 
 static ASN1_STRING*
@@ -232,6 +241,7 @@ obj_to_asn1str(VALUE obj)
     ASN1_STRING_set(str, RSTRING_PTR(obj), RSTRING_LENINT(obj));
 
     return str;
+    RB_GC_GUARD(obj);
 }
 
 static ASN1_NULL*
@@ -245,6 +255,7 @@ obj_to_asn1null(VALUE obj)
 	ossl_raise(eASN1Error, NULL);
 
     return null;
+    RB_GC_GUARD(obj);
 }
 
 static ASN1_OBJECT*
@@ -258,6 +269,7 @@ obj_to_asn1obj(VALUE obj)
     if(!a1obj) ossl_raise(eASN1Error, "invalid OBJECT ID %"PRIsVALUE, obj);
 
     return a1obj;
+    RB_GC_GUARD(obj);
 }
 
 static ASN1_UTCTIME *
@@ -273,6 +285,7 @@ obj_to_asn1utime(VALUE time)
 	ossl_raise(eASN1Error, NULL);
 
     return t;
+    RB_GC_GUARD(time);
 }
 
 static ASN1_GENERALIZEDTIME *
@@ -288,6 +301,7 @@ obj_to_asn1gtime(VALUE time)
 	ossl_raise(eASN1Error, NULL);
 
     return t;
+    RB_GC_GUARD(time);
 }
 
 static ASN1_STRING*
@@ -302,6 +316,8 @@ obj_to_asn1derstr(VALUE obj)
     ASN1_STRING_set(a1str, RSTRING_PTR(str), RSTRING_LENINT(str));
 
     return a1str;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -337,6 +353,7 @@ decode_int(unsigned char* der, long length)
     if(status) rb_jump_tag(status);
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -358,6 +375,7 @@ decode_bstr(unsigned char* der, long length, long *unused_bits)
     ASN1_BIT_STRING_free(bstr);
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -377,6 +395,7 @@ decode_enum(unsigned char* der, long length)
     if(status) rb_jump_tag(status);
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -420,6 +439,7 @@ decode_obj(unsigned char* der, long length)
     }
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -439,6 +459,7 @@ decode_time(unsigned char* der, long length)
     if(status) rb_jump_tag(status);
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -571,6 +592,9 @@ ossl_asn1_get_asn1type(VALUE obj)
     ASN1_TYPE_set(ret, tag, ptr);
 
     return ret;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(rflag);
+    RB_GC_GUARD(value);
 }
 
 static int
@@ -587,6 +611,9 @@ ossl_asn1_default_tag(VALUE obj)
     }
 
     return -1;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tag);
+    RB_GC_GUARD(tmp_class);
 }
 
 static int
@@ -599,6 +626,8 @@ ossl_asn1_tag(VALUE obj)
 	ossl_raise(eASN1Error, "tag number not specified");
 
     return NUM2INT(tag);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tag);
 }
 
 static int
@@ -617,6 +646,8 @@ ossl_asn1_tag_class(VALUE obj)
 	return V_ASN1_PRIVATE;
     else
 	ossl_raise(eASN1Error, "invalid tag class");
+	RB_GC_GUARD(s);
+	RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -677,6 +708,9 @@ to_der_internal(VALUE self, int constructed, int indef_len, VALUE body)
     }
     assert(p - (unsigned char *)RSTRING_PTR(str) == total_length);
     return str;
+    RB_GC_GUARD(body);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 static VALUE ossl_asn1prim_to_der(VALUE);
@@ -702,6 +736,8 @@ ossl_asn1data_to_der(VALUE self)
 	    ossl_raise(eASN1Error, "indefinite length form cannot be used " \
 		       "with primitive encoding");
 	return ossl_asn1prim_to_der(self);
+	RB_GC_GUARD(value);
+	RB_GC_GUARD(self);
     }
 }
 
@@ -768,6 +804,7 @@ int_ossl_asn1_decode0_prim(unsigned char **pp, long length, long hlen, int tag,
 	}
 	if(tag == V_ASN1_BIT_STRING){
 	    rb_ivar_set(asn1data, sivUNUSED_BITS, LONG2NUM(flag));
+    RB_GC_GUARD(klass);
 	}
     }
     else {
@@ -776,6 +813,9 @@ int_ossl_asn1_decode0_prim(unsigned char **pp, long length, long hlen, int tag,
     }
 
     return asn1data;
+    RB_GC_GUARD(tc);
+    RB_GC_GUARD(asn1data);
+    RB_GC_GUARD(value);
 }
 
 static VALUE
@@ -829,6 +869,10 @@ int_ossl_asn1_decode0_cons(unsigned char **pp, long max_len, long length,
 
     *offset = off;
     return asn1data;
+    RB_GC_GUARD(tc);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(asn1data);
+    RB_GC_GUARD(value);
 }
 
 static VALUE
@@ -869,6 +913,7 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, int depth,
 	rb_ary_push(arg, ossl_asn1_class2sym(tc));
 	rb_ary_push(arg, INT2NUM(tag));
 	rb_yield(arg);
+    RB_GC_GUARD(arg);
     }
 
     if(j & V_ASN1_CONSTRUCTED) {
@@ -893,6 +938,8 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, int depth,
 
     *offset = off;
     return asn1data;
+    RB_GC_GUARD(tag_class);
+    RB_GC_GUARD(asn1data);
 }
 
 static void
@@ -941,6 +988,9 @@ ossl_asn1_traverse(VALUE self, VALUE obj)
     RB_GC_GUARD(tmp);
     int_ossl_decode_sanity_check(len, read, offset);
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -971,6 +1021,10 @@ ossl_asn1_decode(VALUE self, VALUE obj)
     RB_GC_GUARD(tmp);
     int_ossl_decode_sanity_check(len, read, offset);
     return ret;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1010,12 +1064,18 @@ ossl_asn1_decode_all(VALUE self, VALUE obj)
     RB_GC_GUARD(tmp);
     int_ossl_decode_sanity_check(len, read, offset);
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
 ossl_asn1eoc_to_der(VALUE self)
 {
     return rb_str_new("\0\0", 2);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1063,6 +1123,8 @@ ossl_asn1prim_to_der(VALUE self)
 	ossl_raise(eASN1Error, "ASN1_get_object"); /* should not happen */
 
     return to_der_internal(self, 0, 0, rb_str_drop_bytes(str, alllen - bodylen));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1098,9 +1160,13 @@ ossl_asn1cons_to_der(VALUE self)
 	item = ossl_to_der_if_possible(item);
 	StringValue(item);
 	rb_str_append(str, item);
+    RB_GC_GUARD(item);
     }
 
     return to_der_internal(self, 1, indef_len, str);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1125,6 +1191,10 @@ ossl_asn1obj_s_register(VALUE self, VALUE oid, VALUE sn, VALUE ln)
 	ossl_raise(eASN1Error, NULL);
 
     return Qtrue;
+    RB_GC_GUARD(ln);
+    RB_GC_GUARD(sn);
+    RB_GC_GUARD(oid);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1145,6 +1215,9 @@ ossl_asn1obj_get_sn(VALUE self)
 	ret = rb_str_new2(OBJ_nid2sn(nid));
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -1165,6 +1238,9 @@ ossl_asn1obj_get_ln(VALUE self)
 	ret = rb_str_new2(OBJ_nid2ln(nid));
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -1187,6 +1263,8 @@ asn1obj_get_oid_i(VALUE vobj)
     }
     rb_str_set_len(str, len);
     return str;
+    RB_GC_GUARD(vobj);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1209,6 +1287,8 @@ ossl_asn1obj_get_oid(VALUE self)
     if (state)
 	rb_jump_tag(state);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1228,6 +1308,10 @@ ossl_asn1obj_eq(VALUE self, VALUE other)
     oid1 = ossl_asn1obj_get_oid(self);
     oid2 = ossl_asn1obj_get_oid(other);
     return rb_str_equal(oid1, oid2);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(oid2);
+    RB_GC_GUARD(oid1);
 }
 
 #define OSSL_ASN1_IMPL_FACTORY_METHOD(klass) \
@@ -1692,4 +1776,5 @@ do{\
     rb_hash_aset(class_tag_map, cASN1UniversalString, INT2NUM(V_ASN1_UNIVERSALSTRING));
     rb_hash_aset(class_tag_map, cASN1BMPString, INT2NUM(V_ASN1_BMPSTRING));
     rb_define_const(mASN1, "CLASS_TAG_MAP", class_tag_map);
+    RB_GC_GUARD(ary);
 }

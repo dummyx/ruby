@@ -225,6 +225,8 @@ io_buffer_initialize(VALUE self, struct rb_io_buffer *buffer, void *base, size_t
 #if defined(_WIN32)
     buffer->mapping = NULL;
 #endif
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(source);
 }
 
 static void
@@ -322,6 +324,7 @@ io_buffer_extract_flags(VALUE argument)
 
     // We deliberately ignore unknown flags. Any future flags which are exposed this way should be safe to ignore.
     return flags & RB_IO_BUFFER_FLAGS_MASK;
+    RB_GC_GUARD(argument);
 }
 
 // Extract an offset argument, which must be a non-negative integer.
@@ -333,6 +336,7 @@ io_buffer_extract_offset(VALUE argument)
     }
 
     return NUM2SIZET(argument);
+    RB_GC_GUARD(argument);
 }
 
 // Extract a length argument, which must be a non-negative integer.
@@ -346,6 +350,7 @@ io_buffer_extract_length(VALUE argument)
     }
 
     return NUM2SIZET(argument);
+    RB_GC_GUARD(argument);
 }
 
 // Extract a size argument, which must be a non-negative integer.
@@ -358,6 +363,7 @@ io_buffer_extract_size(VALUE argument)
     }
 
     return NUM2SIZET(argument);
+    RB_GC_GUARD(argument);
 }
 
 // Extract a width argument, which must be a non-negative integer, and must be
@@ -376,6 +382,7 @@ io_buffer_extract_width(VALUE argument, size_t minimum)
     }
 
     return width;
+    RB_GC_GUARD(argument);
 }
 
 // Compute the default length for a buffer, given an offset into that buffer.
@@ -419,6 +426,7 @@ io_buffer_extract_length_offset(VALUE self, int argc, VALUE argv[], size_t *leng
     }
 
     return buffer;
+    RB_GC_GUARD(self);
 }
 
 // Extract the optional offset and length arguments, returning the buffer.
@@ -451,6 +459,7 @@ io_buffer_extract_offset_length(VALUE self, int argc, VALUE argv[], size_t *offs
     }
 
     return buffer;
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -462,6 +471,8 @@ rb_io_buffer_type_allocate(VALUE self)
     io_buffer_zero(buffer);
 
     return instance;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(instance);
 }
 
 static VALUE io_buffer_for_make_instance(VALUE klass, VALUE string, enum rb_io_buffer_flags flags)
@@ -482,6 +493,9 @@ static VALUE io_buffer_for_make_instance(VALUE klass, VALUE string, enum rb_io_b
     io_buffer_initialize(instance, buffer, RSTRING_PTR(string), RSTRING_LEN(string), flags, string);
 
     return instance;
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(instance);
 }
 
 struct io_buffer_for_yield_instance_arguments {
@@ -501,6 +515,7 @@ io_buffer_for_yield_instance(VALUE _arguments)
     rb_str_locktmp(arguments->string);
 
     return rb_yield(arguments->instance);
+    RB_GC_GUARD(_arguments);
 }
 
 static VALUE
@@ -515,6 +530,7 @@ io_buffer_for_yield_instance_ensure(VALUE _arguments)
     rb_str_unlocktmp(arguments->string);
 
     return Qnil;
+    RB_GC_GUARD(_arguments);
 }
 
 /*
@@ -574,6 +590,8 @@ rb_io_buffer_type_for(VALUE klass, VALUE string)
         // This internally returns the source string if it's already frozen.
         string = rb_str_tmp_frozen_acquire(string);
         return io_buffer_for_make_instance(klass, string, RB_IO_BUFFER_READONLY);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(string);
     }
 }
 
@@ -604,6 +622,9 @@ rb_io_buffer_type_string(VALUE klass, VALUE length)
     rb_ensure(io_buffer_for_yield_instance, (VALUE)&arguments, io_buffer_for_yield_instance_ensure, (VALUE)&arguments);
 
     return string;
+    RB_GC_GUARD(length);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(string);
 }
 
 VALUE
@@ -617,6 +638,7 @@ rb_io_buffer_new(void *base, size_t size, enum rb_io_buffer_flags flags)
     io_buffer_initialize(instance, buffer, base, size, flags, Qnil);
 
     return instance;
+    RB_GC_GUARD(instance);
 }
 
 VALUE
@@ -634,6 +656,8 @@ rb_io_buffer_map(VALUE io, size_t size, rb_off_t offset, enum rb_io_buffer_flags
     io_buffer_map_file(buffer, descriptor, size, offset, flags);
 
     return instance;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(instance);
 }
 
 /*
@@ -714,6 +738,8 @@ io_buffer_map(int argc, VALUE *argv, VALUE klass)
     }
 
     return rb_io_buffer_map(io, size, offset, flags);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(io);
 }
 
 // Compute the optimal allocation flags for a buffer of the given size.
@@ -780,6 +806,7 @@ rb_io_buffer_initialize(int argc, VALUE *argv, VALUE self)
     io_buffer_initialize(self, buffer, NULL, size, flags, Qnil);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -809,6 +836,7 @@ io_buffer_validate_slice(VALUE source, void *base, size_t size)
 
     // It seems okay:
     return 1;
+    RB_GC_GUARD(source);
 }
 
 static int
@@ -842,6 +870,7 @@ rb_io_buffer_get_bytes(VALUE self, void **base, size_t *size)
     *size = 0;
 
     return 0;
+    RB_GC_GUARD(self);
 }
 
 // Internal function for accessing bytes for writing, wil
@@ -873,6 +902,7 @@ rb_io_buffer_get_bytes_for_writing(VALUE self, void **base, size_t *size)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     io_buffer_get_bytes_for_writing(buffer, base, size);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -898,6 +928,7 @@ rb_io_buffer_get_bytes_for_reading(VALUE self, const void **base, size_t *size)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     io_buffer_get_bytes_for_reading(buffer, base, size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -965,6 +996,8 @@ rb_io_buffer_to_s(VALUE self)
     }
 
     return rb_str_cat2(result, ">");
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 // Compute the output size of a hexdump of the given width (bytes per line), total size, and whether it is the first line in the output.
@@ -1030,6 +1063,7 @@ io_buffer_hexdump(VALUE string, size_t width, const char *base, size_t length, s
     }
 
     return string;
+    RB_GC_GUARD(string);
 }
 
 /*
@@ -1070,6 +1104,8 @@ rb_io_buffer_inspect(VALUE self)
     }
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -1085,6 +1121,7 @@ rb_io_buffer_size(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return SIZET2NUM(buffer->size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1102,6 +1139,7 @@ rb_io_buffer_valid_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(io_buffer_validate(buffer));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1125,6 +1163,7 @@ rb_io_buffer_null_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->base == NULL);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1141,6 +1180,7 @@ rb_io_buffer_empty_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->size == 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1161,6 +1201,7 @@ rb_io_buffer_external_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->flags & RB_IO_BUFFER_EXTERNAL);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1186,6 +1227,7 @@ rb_io_buffer_internal_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->flags & RB_IO_BUFFER_INTERNAL);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1208,6 +1250,7 @@ rb_io_buffer_mapped_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->flags & RB_IO_BUFFER_MAPPED);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1240,6 +1283,7 @@ rb_io_buffer_shared_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->flags & RB_IO_BUFFER_SHARED);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1263,6 +1307,7 @@ rb_io_buffer_locked_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->flags & RB_IO_BUFFER_LOCKED);
+    RB_GC_GUARD(self);
 }
 
 /*  call-seq: private? -> true or false
@@ -1294,6 +1339,7 @@ rb_io_buffer_private_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return RBOOL(buffer->flags & RB_IO_BUFFER_PRIVATE);
+    RB_GC_GUARD(self);
 }
 
 int
@@ -1303,6 +1349,7 @@ rb_io_buffer_readonly_p(VALUE self)
     TypedData_Get_Struct(self, struct rb_io_buffer, &rb_io_buffer_type, buffer);
 
     return buffer->flags & RB_IO_BUFFER_READONLY;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1317,6 +1364,7 @@ static VALUE
 io_buffer_readonly_p(VALUE self)
 {
     return RBOOL(rb_io_buffer_readonly_p(self));
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -1338,6 +1386,7 @@ rb_io_buffer_lock(VALUE self)
     io_buffer_lock(buffer);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -1359,6 +1408,7 @@ rb_io_buffer_unlock(VALUE self)
     io_buffer_unlock(buffer);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 int
@@ -1373,6 +1423,7 @@ rb_io_buffer_try_unlock(VALUE self)
     }
 
     return 0;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1422,6 +1473,8 @@ rb_io_buffer_locked(VALUE self)
     buffer->flags &= ~RB_IO_BUFFER_LOCKED;
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -1462,6 +1515,7 @@ rb_io_buffer_free(VALUE self)
     io_buffer_free(buffer);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 VALUE rb_io_buffer_free_locked(VALUE self)
@@ -1473,6 +1527,7 @@ VALUE rb_io_buffer_free_locked(VALUE self)
     io_buffer_free(buffer);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 // Validate that access to the buffer is within bounds, assuming you want to
@@ -1527,6 +1582,8 @@ rb_io_buffer_hexdump(int argc, VALUE *argv, VALUE self)
     }
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -1551,6 +1608,8 @@ rb_io_buffer_slice(struct rb_io_buffer *buffer, VALUE self, size_t offset, size_
     }
 
     return instance;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(instance);
 }
 
 /*
@@ -1612,6 +1671,7 @@ io_buffer_slice(int argc, VALUE *argv, VALUE self)
     struct rb_io_buffer *buffer = io_buffer_extract_offset_length(self, argc, argv, &offset, &length);
 
     return rb_io_buffer_slice(buffer, self, offset, length);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1650,6 +1710,8 @@ rb_io_buffer_transfer(VALUE self)
     io_buffer_zero(buffer);
 
     return instance;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(instance);
 }
 
 static void
@@ -1677,6 +1739,7 @@ io_buffer_resize_copy(VALUE self, struct rb_io_buffer *buffer, size_t size)
 
     io_buffer_free(buffer);
     *buffer = resized;
+    RB_GC_GUARD(self);
 }
 
 void
@@ -1736,6 +1799,7 @@ rb_io_buffer_resize(VALUE self, size_t size)
     }
 
     io_buffer_resize_copy(self, buffer, size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1762,6 +1826,8 @@ io_buffer_resize(VALUE self, VALUE size)
     rb_io_buffer_resize(self, io_buffer_extract_size(size));
 
     return self;
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1788,6 +1854,8 @@ rb_io_buffer_compare(VALUE self, VALUE other)
     }
 
     return RB_INT2NUM(memcmp(ptr1, ptr2, size1));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -1945,6 +2013,8 @@ io_buffer_size_of(VALUE klass, VALUE buffer_type)
     }
     else {
         return SIZET2NUM(io_buffer_buffer_type_size(RB_SYM2ID(buffer_type)));
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(buffer_type);
     }
 }
 
@@ -2023,6 +2093,9 @@ io_buffer_get_value(VALUE self, VALUE type, VALUE _offset)
     rb_io_buffer_get_bytes_for_reading(self, &base, &size);
 
     return rb_io_buffer_get_value(base, size, RB_SYM2ID(type), &offset);
+    RB_GC_GUARD(_offset);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2054,9 +2127,15 @@ io_buffer_get_values(VALUE self, VALUE buffer_types, VALUE _offset)
         VALUE type = rb_ary_entry(buffer_types, i);
         VALUE value = rb_io_buffer_get_value(base, size, RB_SYM2ID(type), &offset);
         rb_ary_push(array, value);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(type);
     }
 
     return array;
+    RB_GC_GUARD(_offset);
+    RB_GC_GUARD(buffer_types);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(array);
 }
 
 // Extract a count argument, which must be a positive integer.
@@ -2069,6 +2148,7 @@ io_buffer_extract_count(VALUE argument)
     }
 
     return NUM2SIZET(argument);
+    RB_GC_GUARD(argument);
 }
 
 static inline void
@@ -2134,9 +2214,11 @@ io_buffer_each(int argc, VALUE *argv, VALUE self)
         size_t current_offset = offset;
         VALUE value = rb_io_buffer_get_value(base, size, buffer_type, &offset);
         rb_yield_values(2, SIZET2NUM(current_offset), value);
+    RB_GC_GUARD(value);
     }
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2173,9 +2255,12 @@ io_buffer_values(int argc, VALUE *argv, VALUE self)
     for (size_t i = 0; i < count; i++) {
         VALUE value = rb_io_buffer_get_value(base, size, buffer_type, &offset);
         rb_ary_push(array, value);
+    RB_GC_GUARD(value);
     }
 
     return array;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(array);
 }
 
 /*
@@ -2212,6 +2297,7 @@ io_buffer_each_byte(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static inline void
@@ -2243,6 +2329,7 @@ rb_io_buffer_set_value(const void* base, size_t size, ID buffer_type, size_t *of
 #undef IO_BUFFER_SET_VALUE
 
     rb_raise(rb_eArgError, "Invalid type name!");
+    RB_GC_GUARD(value);
 }
 
 /*
@@ -2287,6 +2374,10 @@ io_buffer_set_value(VALUE self, VALUE type, VALUE _offset, VALUE value)
     rb_io_buffer_set_value(base, size, RB_SYM2ID(type), &offset, value);
 
     return SIZET2NUM(offset);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(_offset);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2328,9 +2419,15 @@ io_buffer_set_values(VALUE self, VALUE buffer_types, VALUE _offset, VALUE values
         VALUE type = rb_ary_entry(buffer_types, i);
         VALUE value = rb_ary_entry(values, i);
         rb_io_buffer_set_value(base, size, RB_SYM2ID(type), &offset, value);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(type);
     }
 
     return SIZET2NUM(offset);
+    RB_GC_GUARD(values);
+    RB_GC_GUARD(_offset);
+    RB_GC_GUARD(buffer_types);
+    RB_GC_GUARD(self);
 }
 
 static size_t IO_BUFFER_BLOCKING_SIZE = 1024*1024;
@@ -2453,6 +2550,8 @@ rb_io_buffer_initialize_copy(VALUE self, VALUE source)
     io_buffer_initialize(self, buffer, NULL, source_size, io_flags_for_size(source_size), Qnil);
 
     return io_buffer_copy_from(buffer, source_base, source_size, 0, NULL);
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2538,6 +2637,8 @@ io_buffer_copy(int argc, VALUE *argv, VALUE self)
     rb_io_buffer_get_bytes_for_reading(source, &source_base, &source_size);
 
     return io_buffer_copy_from(buffer, source_base, source_size, argc-1, argv+1);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(source);
 }
 
 /*
@@ -2577,6 +2678,7 @@ io_buffer_get_string(int argc, VALUE *argv, VALUE self)
     io_buffer_validate_range(buffer, offset, length);
 
     return rb_enc_str_new((const char*)base + offset, length, encoding);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2616,6 +2718,8 @@ io_buffer_set_string(int argc, VALUE *argv, VALUE self)
     size_t source_size = RSTRING_LEN(string);
 
     return io_buffer_copy_from(buffer, source_base, source_size, argc-1, argv+1);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(string);
 }
 
 void
@@ -2631,6 +2735,7 @@ rb_io_buffer_clear(VALUE self, uint8_t value, size_t offset, size_t length)
     io_buffer_validate_range(buffer, offset, length);
 
     memset((char*)base + offset, value, length);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2680,6 +2785,7 @@ io_buffer_clear(int argc, VALUE *argv, VALUE self)
     rb_io_buffer_clear(self, value, offset, length);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static size_t
@@ -2720,6 +2826,7 @@ io_buffer_blocking_region_begin(VALUE _argument)
     struct io_buffer_blocking_region_argument *argument = (void*)_argument;
 
     return rb_io_blocking_region(argument->io, argument->function, argument->data);
+    RB_GC_GUARD(_argument);
 }
 
 static VALUE
@@ -2730,6 +2837,7 @@ io_buffer_blocking_region_ensure(VALUE _argument)
     io_buffer_unlock(argument->buffer);
 
     return Qnil;
+    RB_GC_GUARD(_argument);
 }
 
 static VALUE
@@ -2755,6 +2863,7 @@ io_buffer_blocking_region(VALUE io, struct rb_io_buffer *buffer, rb_blocking_fun
         io_buffer_lock(buffer);
 
         return rb_ensure(io_buffer_blocking_region_begin, (VALUE)&argument, io_buffer_blocking_region_ensure, (VALUE)&argument);
+        RB_GC_GUARD(io);
     }
 }
 
@@ -2806,6 +2915,7 @@ rb_io_buffer_read(VALUE self, VALUE io, size_t length, size_t offset)
 
         if (!UNDEF_P(result)) {
             return result;
+    RB_GC_GUARD(result);
         }
     }
 
@@ -2831,6 +2941,9 @@ rb_io_buffer_read(VALUE self, VALUE io, size_t length, size_t offset)
     };
 
     return io_buffer_blocking_region(io, buffer, io_buffer_read_internal, &argument);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -2870,6 +2983,8 @@ io_buffer_read(int argc, VALUE *argv, VALUE self)
     io_buffer_extract_length_offset(self, argc-1, argv+1, &length, &offset);
 
     return rb_io_buffer_read(self, io, length, offset);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
 }
 
 struct io_buffer_pread_internal_argument {
@@ -2923,6 +3038,7 @@ rb_io_buffer_pread(VALUE self, VALUE io, rb_off_t from, size_t length, size_t of
 
         if (!UNDEF_P(result)) {
             return result;
+    RB_GC_GUARD(result);
         }
     }
 
@@ -2949,6 +3065,9 @@ rb_io_buffer_pread(VALUE self, VALUE io, rb_off_t from, size_t length, size_t of
     };
 
     return io_buffer_blocking_region(io, buffer, io_buffer_pread_internal, &argument);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -2993,6 +3112,8 @@ io_buffer_pread(int argc, VALUE *argv, VALUE self)
     io_buffer_extract_length_offset(self, argc-2, argv+2, &length, &offset);
 
     return rb_io_buffer_pread(self, io, from, length, offset);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
 }
 
 struct io_buffer_write_internal_argument {
@@ -3043,6 +3164,7 @@ rb_io_buffer_write(VALUE self, VALUE io, size_t length, size_t offset)
 
         if (!UNDEF_P(result)) {
             return result;
+    RB_GC_GUARD(result);
         }
     }
 
@@ -3068,6 +3190,9 @@ rb_io_buffer_write(VALUE self, VALUE io, size_t length, size_t offset)
     };
 
     return io_buffer_blocking_region(io, buffer, io_buffer_write_internal, &argument);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -3100,6 +3225,8 @@ io_buffer_write(int argc, VALUE *argv, VALUE self)
     io_buffer_extract_length_offset(self, argc-1, argv+1, &length, &offset);
 
     return rb_io_buffer_write(self, io, length, offset);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
 }
 struct io_buffer_pwrite_internal_argument {
     // The file descriptor to write to:
@@ -3152,6 +3279,7 @@ rb_io_buffer_pwrite(VALUE self, VALUE io, rb_off_t from, size_t length, size_t o
 
         if (!UNDEF_P(result)) {
             return result;
+    RB_GC_GUARD(result);
         }
     }
 
@@ -3186,6 +3314,9 @@ rb_io_buffer_pwrite(VALUE self, VALUE io, rb_off_t from, size_t length, size_t o
     };
 
     return io_buffer_blocking_region(io, buffer, io_buffer_pwrite_internal, &argument);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -3224,6 +3355,8 @@ io_buffer_pwrite(int argc, VALUE *argv, VALUE self)
     io_buffer_extract_length_offset(self, argc-2, argv+2, &length, &offset);
 
     return rb_io_buffer_pwrite(self, io, from, length, offset);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
 }
 
 static inline void
@@ -3271,6 +3404,9 @@ io_buffer_and(VALUE self, VALUE mask)
     memory_and(output_buffer->base, buffer->base, buffer->size, mask_buffer->base, mask_buffer->size);
 
     return output;
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(output);
 }
 
 static void
@@ -3311,6 +3447,9 @@ io_buffer_or(VALUE self, VALUE mask)
     memory_or(output_buffer->base, buffer->base, buffer->size, mask_buffer->base, mask_buffer->size);
 
     return output;
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(output);
 }
 
 static void
@@ -3351,6 +3490,9 @@ io_buffer_xor(VALUE self, VALUE mask)
     memory_xor(output_buffer->base, buffer->base, buffer->size, mask_buffer->base, mask_buffer->size);
 
     return output;
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(output);
 }
 
 static void
@@ -3386,6 +3528,8 @@ io_buffer_not(VALUE self)
     memory_not(output_buffer->base, buffer->base, buffer->size);
 
     return output;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(output);
 }
 
 static inline int
@@ -3449,6 +3593,8 @@ io_buffer_and_inplace(VALUE self, VALUE mask)
     memory_and_inplace(base, size, mask_buffer->base, mask_buffer->size);
 
     return self;
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -3495,6 +3641,8 @@ io_buffer_or_inplace(VALUE self, VALUE mask)
     memory_or_inplace(base, size, mask_buffer->base, mask_buffer->size);
 
     return self;
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -3541,6 +3689,8 @@ io_buffer_xor_inplace(VALUE self, VALUE mask)
     memory_xor_inplace(base, size, mask_buffer->base, mask_buffer->size);
 
     return self;
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -3581,6 +3731,7 @@ io_buffer_not_inplace(VALUE self)
     memory_not_inplace(base, size);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*

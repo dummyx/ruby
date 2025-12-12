@@ -33,24 +33,32 @@ bug_sym_attrset(VALUE self, VALUE name)
     ID id = rb_to_id(name);
     id = rb_id_attrset(id);
     return ID2SYM(id);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 bug_id2str(VALUE self, VALUE sym)
 {
     return rb_sym2str(sym);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 bug_static_p(VALUE self, VALUE sym)
 {
     return STATIC_SYM_P(sym) ? Qtrue : Qfalse;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 bug_dynamic_p(VALUE self, VALUE sym)
 {
     return DYNAMIC_SYM_P(sym) ? Qtrue : Qfalse;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_RB_PIN_DYNAMIC_SYMBOL

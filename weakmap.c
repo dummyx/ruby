@@ -38,6 +38,7 @@ static bool
 wmap_live_p(VALUE obj)
 {
     return !UNDEF_P(obj);
+    RB_GC_GUARD(obj);
 }
 
 struct wmap_foreach_data {
@@ -70,6 +71,8 @@ wmap_foreach_i(st_data_t key, st_data_t val, st_data_t arg)
         RB_GC_GUARD(v);
 
         return ret;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(k);
     }
     else {
         /* We cannot free the weakmap_entry here because the ST_DELETE could
@@ -188,6 +191,7 @@ wmap_compact_table_i(st_data_t key, st_data_t val, st_data_t d)
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(new_key);
 }
 
 static void
@@ -229,6 +233,8 @@ wmap_cmp(st_data_t x, st_data_t y)
     }
     else {
         return x_obj != y_obj;
+        RB_GC_GUARD(x_obj);
+        RB_GC_GUARD(y_obj);
     }
 }
 
@@ -250,6 +256,8 @@ wmap_allocate(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, struct weakmap, &weakmap_type, w);
     w->table = st_init_table(&wmap_hash_type);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -260,6 +268,8 @@ wmap_inspect_append(VALUE str, VALUE obj)
     }
     else {
         return rb_str_append(str, rb_any_to_s(obj));
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -281,6 +291,7 @@ wmap_inspect_i(struct weakmap_entry *entry, st_data_t data)
     wmap_inspect_append(str, entry->val);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -298,6 +309,9 @@ wmap_inspect(VALUE self)
     rb_str_cat2(str, ">");
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(c);
 }
 
 static int
@@ -325,6 +339,7 @@ wmap_each(VALUE self)
     wmap_foreach(w, wmap_each_i, (st_data_t)0);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -352,6 +367,7 @@ wmap_each_key(VALUE self)
     wmap_foreach(w, wmap_each_key_i, (st_data_t)0);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -379,6 +395,7 @@ wmap_each_value(VALUE self)
     wmap_foreach(w, wmap_each_value_i, (st_data_t)0);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -389,6 +406,7 @@ wmap_keys_i(struct weakmap_entry *entry, st_data_t arg)
     rb_ary_push(ary, entry->key);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -408,6 +426,8 @@ wmap_keys(VALUE self)
     wmap_foreach(w, wmap_keys_i, (st_data_t)ary);
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -418,6 +438,7 @@ wmap_values_i(struct weakmap_entry *entry, st_data_t arg)
     rb_ary_push(ary, entry->val);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -437,6 +458,8 @@ wmap_values(VALUE self)
     wmap_foreach(w, wmap_values_i, (st_data_t)ary);
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -459,6 +482,8 @@ wmap_aset_replace(st_data_t *key, st_data_t *val, st_data_t new_key_ptr, int exi
     *(VALUE *)*val = new_val;
 
     return ST_CONTINUE;
+    RB_GC_GUARD(new_val);
+    RB_GC_GUARD(new_key);
 }
 
 /*
@@ -484,6 +509,9 @@ wmap_aset(VALUE self, VALUE key, VALUE val)
     RB_OBJ_WRITTEN(self, Qundef, val);
 
     return Qnil;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /* Retrieves a weakly referenced object with the given key */
@@ -501,6 +529,8 @@ wmap_lookup(VALUE self, VALUE key)
     if (!wmap_live_p(*(VALUE *)data)) return Qundef;
 
     return *(VALUE *)data;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -516,6 +546,9 @@ wmap_aref(VALUE self, VALUE key)
 {
     VALUE obj = wmap_lookup(self, key);
     return !UNDEF_P(obj) ? obj : Qnil;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -566,6 +599,7 @@ wmap_delete(VALUE self, VALUE key)
 
         if (wmap_live_p(orig_val)) {
             return orig_val;
+    RB_GC_GUARD(orig_val);
         }
     }
 
@@ -574,6 +608,9 @@ wmap_delete(VALUE self, VALUE key)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(orig_key);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -587,6 +624,8 @@ static VALUE
 wmap_has_key(VALUE self, VALUE key)
 {
     return RBOOL(!UNDEF_P(wmap_lookup(self, key)));
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -605,6 +644,7 @@ wmap_size(VALUE self)
 
 #if SIZEOF_ST_INDEX_T <= SIZEOF_LONG
     return ULONG2NUM(n);
+    RB_GC_GUARD(self);
 #else
     return ULL2NUM(n);
 #endif
@@ -767,6 +807,8 @@ wkmap_cmp(st_data_t x, st_data_t y)
     else {
         /* If one of the objects is dead, then they cannot be the same. */
         return 1;
+        RB_GC_GUARD(x_obj);
+        RB_GC_GUARD(y_obj);
     }
 }
 
@@ -777,6 +819,7 @@ wkmap_hash(st_data_t n)
     RUBY_ASSERT(wmap_live_p(obj));
 
     return rb_any_hash(obj);
+    RB_GC_GUARD(obj);
 }
 
 static const struct st_hash_type wkmap_hash_type = {
@@ -791,6 +834,8 @@ wkmap_allocate(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, struct weakkeymap, &weakkeymap_type, w);
     w->table = st_init_table(&wkmap_hash_type);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -803,6 +848,8 @@ wkmap_lookup(VALUE self, VALUE key)
     if (!st_lookup(w->table, (st_data_t)&key, &data)) return Qundef;
 
     return (VALUE)data;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -818,6 +865,9 @@ wkmap_aref(VALUE self, VALUE key)
 {
     VALUE obj = wkmap_lookup(self, key);
     return !UNDEF_P(obj) ? obj : Qnil;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 struct wkmap_aset_args {
@@ -874,6 +924,9 @@ wkmap_aset(VALUE self, VALUE key, VALUE val)
     RB_OBJ_WRITTEN(self, Qundef, val);
 
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -922,6 +975,7 @@ wkmap_delete(VALUE self, VALUE key)
         ruby_sized_xfree((VALUE *)orig_key_data, sizeof(VALUE));
 
         return orig_val;
+    RB_GC_GUARD(orig_val);
     }
 
     if (rb_block_given_p()) {
@@ -929,6 +983,9 @@ wkmap_delete(VALUE self, VALUE key)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(orig_key);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -961,6 +1018,8 @@ wkmap_getkey(VALUE self, VALUE key)
     if (!st_get_key(w->table, (st_data_t)&key, &orig_key)) return Qnil;
 
     return *(VALUE *)orig_key;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -973,6 +1032,8 @@ static VALUE
 wkmap_has_key(VALUE self, VALUE key)
 {
     return RBOOL(!UNDEF_P(wkmap_lookup(self, key)));
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -984,6 +1045,7 @@ wkmap_clear_i(st_data_t key, st_data_t val, st_data_t data)
      * keys to prevent a use-after-free. */
     rb_gc_remove_weak(self, (VALUE *)key);
     return wkmap_free_table_i(key, val, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1002,6 +1064,7 @@ wkmap_clear(VALUE self)
     st_clear(w->table);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1031,6 +1094,8 @@ wkmap_inspect(VALUE self)
 
     VALUE str = rb_sprintf(format, rb_class_name(CLASS_OF(self)), (void *)self, n);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1166,4 +1231,7 @@ Init_WeakMap(void)
     rb_define_method(rb_cWeakKeyMap, "key?", wkmap_has_key, 1);
     rb_define_method(rb_cWeakKeyMap, "clear", wkmap_clear, 0);
     rb_define_method(rb_cWeakKeyMap, "inspect", wkmap_inspect, 0);
+    RB_GC_GUARD(rb_mObjectSpace);
+    RB_GC_GUARD(rb_cWeakKeyMap);
+    RB_GC_GUARD(rb_cWeakMap);
 }

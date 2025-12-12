@@ -13,6 +13,10 @@ static VALUE build_exception(VALUE self, VALUE klass, VALUE mesg)
     rb_iv_set(e, "mesg", mesg);
 
     return e;
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(e);
 }
 
 /* call-seq: vis.path2class(path)
@@ -22,6 +26,8 @@ static VALUE build_exception(VALUE self, VALUE klass, VALUE mesg)
 static VALUE path2class(VALUE self, VALUE path)
 {
     return rb_path_to_class(path);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(self);
 }
 
 void Init_psych_to_ruby(void)
@@ -35,5 +41,9 @@ void Init_psych_to_ruby(void)
 
     rb_define_private_method(cPsychVisitorsToRuby, "build_exception", build_exception, 2);
     rb_define_private_method(class_loader, "path2class", path2class, 1);
+    RB_GC_GUARD(psych);
+    RB_GC_GUARD(visitor);
+    RB_GC_GUARD(visitors);
+    RB_GC_GUARD(class_loader);
 }
 /* vim: set noet sws=4 sw=4: */

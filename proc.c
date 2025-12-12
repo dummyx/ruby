@@ -114,12 +114,14 @@ rb_proc_alloc(VALUE klass)
 {
     rb_proc_t *proc;
     return TypedData_Make_Struct(klass, rb_proc_t, &proc_data_type, proc);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_obj_is_proc(VALUE proc)
 {
     return RBOOL(rb_typeddata_is_kind_of(proc, &proc_data_type));
+    RB_GC_GUARD(proc);
 }
 
 /* :nodoc: */
@@ -128,6 +130,8 @@ proc_clone(VALUE self)
 {
     VALUE procval = rb_proc_dup(self);
     return rb_obj_clone_setup(self, procval, Qnil);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(procval);
 }
 
 /* :nodoc: */
@@ -136,6 +140,8 @@ proc_dup(VALUE self)
 {
     VALUE procval = rb_proc_dup(self);
     return rb_obj_dup_setup(self, procval);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(procval);
 }
 
 /*
@@ -248,6 +254,7 @@ rb_proc_lambda_p(VALUE procval)
     GetProcPtr(procval, proc);
 
     return RBOOL(proc->is_lambda);
+    RB_GC_GUARD(procval);
 }
 
 /* Binding */
@@ -296,6 +303,8 @@ rb_binding_alloc(VALUE klass)
     rb_yjit_collect_binding_alloc();
 #endif
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -311,6 +320,8 @@ binding_dup(VALUE self)
     RB_OBJ_WRITE(bindval, &dst->pathobj, src->pathobj);
     dst->first_lineno = src->first_lineno;
     return rb_obj_dup_setup(self, bindval);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(bindval);
 }
 
 /* :nodoc: */
@@ -319,6 +330,8 @@ binding_clone(VALUE self)
 {
     VALUE bindval = binding_dup(self);
     return rb_obj_clone_setup(self, bindval, Qnil);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(bindval);
 }
 
 VALUE
@@ -376,6 +389,7 @@ static VALUE
 rb_f_binding(VALUE self)
 {
     return rb_binding_new();
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -402,6 +416,7 @@ bind_eval(int argc, VALUE *argv, VALUE bindval)
     rb_scan_args(argc, argv, "12", &args[0], &args[2], &args[3]);
     args[1] = bindval;
     return rb_f_eval(argc+1, args, Qnil /* self will be searched in eval */);
+    RB_GC_GUARD(bindval);
 }
 
 static const VALUE *
@@ -473,6 +488,8 @@ check_local_id(VALUE bindval, volatile VALUE *pname)
         return 0;
     }
     return lid;
+    RB_GC_GUARD(bindval);
+    RB_GC_GUARD(name);
 }
 
 /*
@@ -502,6 +519,7 @@ bind_local_variables(VALUE bindval)
     GetBindingPtr(bindval, bind);
     env = VM_ENV_ENVVAL_PTR(vm_block_ep(&bind->block));
     return rb_vm_env_local_variables(env);
+    RB_GC_GUARD(bindval);
 }
 
 /*
@@ -543,6 +561,8 @@ bind_local_variable_get(VALUE bindval, VALUE sym)
     rb_name_err_raise("local variable '%1$s' is not defined for %2$s",
                       bindval, sym);
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(bindval);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -595,6 +615,9 @@ bind_local_variable_set(VALUE bindval, VALUE sym, VALUE val)
     RB_OBJ_WRITE(env, ptr, val);
 
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(bindval);
 }
 
 /*
@@ -626,6 +649,8 @@ bind_local_variable_defined_p(VALUE bindval, VALUE sym)
     GetBindingPtr(bindval, bind);
     env = VM_ENV_ENVVAL_PTR(vm_block_ep(&bind->block));
     return RBOOL(get_local_variable_ptr(&env, lid));
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(bindval);
 }
 
 /*
@@ -640,6 +665,7 @@ bind_receiver(VALUE bindval)
     const rb_binding_t *bind;
     GetBindingPtr(bindval, bind);
     return vm_block_self(&bind->block);
+    RB_GC_GUARD(bindval);
 }
 
 /*
@@ -658,6 +684,7 @@ bind_location(VALUE bindval)
     loc[1] = INT2FIX(bind->first_lineno);
 
     return rb_ary_new4(2, loc);
+    RB_GC_GUARD(bindval);
 }
 
 static VALUE
@@ -681,6 +708,9 @@ cfunc_proc_new(VALUE klass, VALUE ifunc)
     RB_OBJ_WRITE(procval, &proc->block.as.captured.code.ifunc, ifunc);
     proc->is_lambda = TRUE;
     return procval;
+    RB_GC_GUARD(ifunc);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(procval);
 }
 
 VALUE
@@ -704,6 +734,8 @@ rb_func_proc_dup(VALUE src_obj)
     ep[VM_ENV_DATA_INDEX_ENV]     = src_proc->block.as.captured.ep[VM_ENV_DATA_INDEX_ENV];
 
     return proc_obj;
+    RB_GC_GUARD(src_obj);
+    RB_GC_GUARD(proc_obj);
 }
 
 static VALUE
@@ -717,6 +749,9 @@ sym_proc_new(VALUE klass, VALUE sym)
     proc->is_lambda = TRUE;
     RB_OBJ_WRITE(procval, &proc->block.as.symbol, sym);
     return procval;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(procval);
 }
 
 struct vm_ifunc *
@@ -760,6 +795,7 @@ rb_func_proc_new(rb_block_call_func_t func, VALUE val)
 {
     struct vm_ifunc *ifunc = rb_vm_ifunc_proc_new(func, (void *)val);
     return cfunc_proc_new(rb_cProc, (VALUE)ifunc);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -767,6 +803,7 @@ rb_func_lambda_new(rb_block_call_func_t func, VALUE val, int min_argc, int max_a
 {
     struct vm_ifunc *ifunc = rb_vm_ifunc_new(func, (void *)val, min_argc, max_argc);
     return cfunc_proc_new(rb_cProc, (VALUE)ifunc);
+    RB_GC_GUARD(val);
 }
 
 static const char proc_without_block[] = "tried to create Proc object without a block";
@@ -795,6 +832,7 @@ proc_new(VALUE klass, int8_t is_lambda)
             VALUE newprocval = rb_proc_dup(procval);
             RBASIC_SET_CLASS(newprocval, klass);
             return newprocval;
+        RB_GC_GUARD(newprocval);
         }
         break;
 
@@ -810,6 +848,9 @@ proc_new(VALUE klass, int8_t is_lambda)
     }
     VM_UNREACHABLE(proc_new);
     return Qnil;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(block_handler);
+    RB_GC_GUARD(procval);
 }
 
 /*
@@ -833,6 +874,8 @@ rb_proc_s_new(int argc, VALUE *argv, VALUE klass)
 
     rb_obj_call_init_kw(block, argc, argv, RB_PASS_CALLED_KEYWORDS);
     return block;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(block);
 }
 
 VALUE
@@ -852,6 +895,7 @@ static VALUE
 f_proc(VALUE _)
 {
     return proc_new(rb_cProc, FALSE);
+    RB_GC_GUARD(_);
 }
 
 VALUE
@@ -889,6 +933,7 @@ f_lambda_filter_non_literal(void)
     }
 
     rb_raise(rb_eArgError, "the lambda method requires a literal block");
+    RB_GC_GUARD(block_handler);
 }
 
 /*
@@ -904,6 +949,7 @@ f_lambda(VALUE _)
 {
     f_lambda_filter_non_literal();
     return rb_block_lambda();
+    RB_GC_GUARD(_);
 }
 
 /*  Document-method: Proc#===
@@ -991,18 +1037,24 @@ rb_proc_call_kw(VALUE self, VALUE args, int kw_splat)
     RB_GC_GUARD(self);
     RB_GC_GUARD(args);
     return vret;
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vret);
 }
 
 VALUE
 rb_proc_call(VALUE self, VALUE args)
 {
     return rb_proc_call_kw(self, args, RB_NO_KEYWORDS);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 proc_to_block_handler(VALUE procval)
 {
     return NIL_P(procval) ? VM_BLOCK_HANDLER_NONE : procval;
+    RB_GC_GUARD(procval);
 }
 
 VALUE
@@ -1015,12 +1067,17 @@ rb_proc_call_with_block_kw(VALUE self, int argc, const VALUE *argv, VALUE passed
     vret = rb_vm_invoke_proc(ec, proc, argc, argv, kw_splat, proc_to_block_handler(passed_procval));
     RB_GC_GUARD(self);
     return vret;
+    RB_GC_GUARD(passed_procval);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vret);
 }
 
 VALUE
 rb_proc_call_with_block(VALUE self, int argc, const VALUE *argv, VALUE passed_procval)
 {
     return rb_proc_call_with_block_kw(self, argc, argv, passed_procval, RB_NO_KEYWORDS);
+    RB_GC_GUARD(passed_procval);
+    RB_GC_GUARD(self);
 }
 
 
@@ -1070,6 +1127,7 @@ proc_arity(VALUE self)
 {
     int arity = rb_proc_arity(self);
     return INT2FIX(arity);
+    RB_GC_GUARD(self);
 }
 
 static inline int
@@ -1122,6 +1180,7 @@ rb_proc_min_max_arity(VALUE self, int *max)
     rb_proc_t *proc;
     GetProcPtr(self, proc);
     return rb_vm_block_min_max_arity(&proc->block, max);
+    RB_GC_GUARD(self);
 }
 
 int
@@ -1132,6 +1191,7 @@ rb_proc_arity(VALUE self)
     GetProcPtr(self, proc);
     min = rb_vm_block_min_max_arity(&proc->block, &max);
     return (proc->is_lambda ? min == max : max != UNLIMITED_ARGUMENTS) ? min : -min-1;
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -1154,6 +1214,7 @@ block_setup(struct rb_block *block, VALUE block_handler)
         block->type = block_type_proc;
         block->as.proc = VM_BH_TO_PROC(block_handler);
     }
+        RB_GC_GUARD(block_handler);
 }
 
 int
@@ -1184,6 +1245,7 @@ rb_block_pair_yield_optimizable(void)
             if (proc->is_lambda) return 0;
             if (min != max) return 0;
             return min > 1;
+      RB_GC_GUARD(procval);
         }
 
       case block_handler_type_ifunc:
@@ -1194,6 +1256,7 @@ rb_block_pair_yield_optimizable(void)
 
       default:
         return min > 1;
+        RB_GC_GUARD(block_handler);
     }
 }
 
@@ -1222,6 +1285,7 @@ rb_block_arity(void)
       default:
         min = rb_vm_block_min_max_arity(&block, &max);
         return max != UNLIMITED_ARGUMENTS ? min : -min-1;
+        RB_GC_GUARD(block_handler);
     }
 }
 
@@ -1239,6 +1303,7 @@ rb_block_min_max_arity(int *max)
 
     block_setup(&block, block_handler);
     return rb_vm_block_min_max_arity(&block, max);
+    RB_GC_GUARD(block_handler);
 }
 
 const rb_iseq_t *
@@ -1274,6 +1339,7 @@ rb_proc_get_iseq(VALUE self, int *is_proc)
 
     VM_UNREACHABLE(rb_proc_get_iseq);
     return NULL;
+    RB_GC_GUARD(self);
 }
 
 /* call-seq:
@@ -1362,6 +1428,8 @@ proc_eq(VALUE self, VALUE other)
     }
 
     return Qtrue;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1395,6 +1463,7 @@ VALUE
 rb_proc_location(VALUE self)
 {
     return iseq_location(rb_proc_get_iseq(self, 0));
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1414,6 +1483,8 @@ rb_unnamed_parameters(int arity)
         rb_ary_store(param, ~arity, rb_ary_new3(1, ID2SYM(rest)));
     }
     return param;
+    RB_GC_GUARD(param);
+    RB_GC_GUARD(a);
 }
 
 /*
@@ -1462,6 +1533,9 @@ rb_proc_parameters(int argc, VALUE *argv, VALUE self)
         return rb_unnamed_parameters(rb_proc_arity(self));
     }
     return rb_iseq_parameters(iseq, is_proc);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(lambda);
+    RB_GC_GUARD(opt);
 }
 
 st_index_t
@@ -1496,6 +1570,7 @@ rb_hash_proc(st_index_t hash, VALUE prc)
     }
 
     return hash;
+    RB_GC_GUARD(prc);
 }
 
 
@@ -1542,6 +1617,9 @@ rb_sym_to_proc(VALUE sym)
         }
     } else {
         return sym_proc_new(rb_cProc, ID2SYM(id));
+        RB_GC_GUARD(sym_proc_cache);
+        RB_GC_GUARD(sym);
+        RB_GC_GUARD(proc);
     }
 }
 
@@ -1562,6 +1640,7 @@ proc_hash(VALUE self)
     hash = rb_hash_proc(hash, self);
     hash = rb_hash_end(hash);
     return ST2FIX(hash);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1594,6 +1673,9 @@ rb_block_to_s(VALUE self, const struct rb_block *block, const char *additional_i
     if (additional_info) rb_str_cat_cstr(str, additional_info);
     rb_str_cat_cstr(str, ">");
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(cname);
 }
 
 /*
@@ -1610,6 +1692,7 @@ proc_to_s(VALUE self)
     const rb_proc_t *proc;
     GetProcPtr(self, proc);
     return rb_block_to_s(self, &proc->block, proc->is_lambda ? " (lambda)" : NULL);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1624,6 +1707,7 @@ static VALUE
 proc_to_proc(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -1652,6 +1736,7 @@ VALUE
 rb_obj_is_method(VALUE m)
 {
     return RBOOL(rb_typeddata_is_kind_of(m, &method_data_type));
+    RB_GC_GUARD(m);
 }
 
 static int
@@ -1663,6 +1748,9 @@ respond_to_missing_p(VALUE klass, VALUE obj, VALUE sym, int scope)
     if (UNDEF_P(obj)) return 0;
     if (rb_method_basic_definition_p(klass, rmiss)) return 0;
     return RTEST(rb_funcall(obj, rmiss, 2, sym, RBOOL(!scope)));
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 
@@ -1687,6 +1775,10 @@ mnew_missing(VALUE klass, VALUE obj, ID id, VALUE mclass)
     RB_OBJ_WRITE(method, &data->me, me);
 
     return method;
+    RB_GC_GUARD(mclass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(method);
 }
 
 static VALUE
@@ -1696,6 +1788,10 @@ mnew_missing_by_name(VALUE klass, VALUE obj, VALUE *name, int scope, VALUE mclas
     *name = vid;
     if (!respond_to_missing_p(klass, obj, vid, scope)) return Qfalse;
     return mnew_missing(klass, obj, SYM2ID(vid), mclass);
+    RB_GC_GUARD(mclass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(vid);
 }
 
 static VALUE
@@ -1728,11 +1824,13 @@ mnew_internal(const rb_method_entry_t *me, VALUE klass, VALUE iclass,
             VALUE klass = RCLASS_SUPER(RCLASS_ORIGIN(me->defined_class));
             id = me->def->original_id;
             me = (rb_method_entry_t *)rb_callable_method_entry_with_refinements(klass, id, &iclass);
+        RB_GC_GUARD(klass);
         }
         else {
             VALUE klass = RCLASS_SUPER(RCLASS_ORIGIN(me->owner));
             id = me->def->original_id;
             me = rb_method_entry_without_refinements(klass, id, &iclass);
+        RB_GC_GUARD(klass);
         }
         goto again;
     }
@@ -1752,6 +1850,11 @@ mnew_internal(const rb_method_entry_t *me, VALUE klass, VALUE iclass,
     RB_OBJ_WRITE(method, &data->me, me);
 
     return method;
+    RB_GC_GUARD(mclass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(method);
 }
 
 static VALUE
@@ -1759,6 +1862,10 @@ mnew_from_me(const rb_method_entry_t *me, VALUE klass, VALUE iclass,
              VALUE obj, ID id, VALUE mclass, int scope)
 {
     return mnew_internal(me, klass, iclass, obj, id, mclass, scope, TRUE);
+    RB_GC_GUARD(mclass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -1770,6 +1877,10 @@ mnew_callable(VALUE klass, VALUE obj, ID id, VALUE mclass, int scope)
     ASSUME(!UNDEF_P(obj));
     me = (rb_method_entry_t *)rb_callable_method_entry_with_refinements(klass, id, &iclass);
     return mnew_from_me(me, klass, iclass, obj, id, mclass, scope);
+    RB_GC_GUARD(mclass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(iclass);
 }
 
 static VALUE
@@ -1780,6 +1891,9 @@ mnew_unbound(VALUE klass, ID id, VALUE mclass, int scope)
 
     me = rb_method_entry_with_refinements(klass, id, &iclass);
     return mnew_from_me(me, klass, iclass, Qundef, id, mclass, scope);
+    RB_GC_GUARD(mclass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(iclass);
 }
 
 static inline VALUE
@@ -1787,6 +1901,7 @@ method_entry_defined_class(const rb_method_entry_t *me)
 {
     VALUE defined_class = me->defined_class;
     return defined_class ? defined_class : me->owner;
+    RB_GC_GUARD(defined_class);
 }
 
 /**********************************************************************
@@ -1853,6 +1968,10 @@ method_eq(VALUE method, VALUE other)
     }
 
     return Qtrue;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(klass2);
+    RB_GC_GUARD(klass1);
 }
 
 /*
@@ -1892,6 +2011,7 @@ method_hash(VALUE method)
     hash = rb_hash_end(hash);
 
     return ST2FIX(hash);
+    RB_GC_GUARD(method);
 }
 
 /*
@@ -1919,6 +2039,8 @@ method_unbind(VALUE obj)
     RB_OBJ_WRITE(method, &data->me, rb_method_entry_clone(orig->me));
 
     return method;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(method);
 }
 
 /*
@@ -1937,6 +2059,7 @@ method_receiver(VALUE obj)
 
     TypedData_Get_Struct(obj, struct METHOD, &method_data_type, data);
     return data->recv;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1953,6 +2076,7 @@ method_name(VALUE obj)
 
     TypedData_Get_Struct(obj, struct METHOD, &method_data_type, data);
     return ID2SYM(data->me->called_id);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1975,6 +2099,7 @@ method_original_name(VALUE obj)
 
     TypedData_Get_Struct(obj, struct METHOD, &method_data_type, data);
     return ID2SYM(data->me->def->original_id);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2001,6 +2126,7 @@ method_owner(VALUE obj)
     struct METHOD *data;
     TypedData_Get_Struct(obj, struct METHOD, &method_data_type, data);
     return data->owner;
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -2014,6 +2140,7 @@ rb_method_name_error(VALUE klass, VALUE str)
         VALUE obj = RCLASS_ATTACHED_OBJECT(klass);
 
         switch (BUILTIN_TYPE(obj)) {
+          RB_GC_GUARD(obj);
           case T_MODULE:
           case T_CLASS:
             c = obj;
@@ -2030,6 +2157,10 @@ rb_method_name_error(VALUE klass, VALUE str)
     }
     rb_name_err_raise_str(s, c, str);
 #undef MSG
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -2043,8 +2174,11 @@ obj_method(VALUE obj, VALUE vid, int scope)
         VALUE m = mnew_missing_by_name(klass, obj, &vid, scope, mclass);
         if (m) return m;
         rb_method_name_error(klass, vid);
+    RB_GC_GUARD(m);
     }
     return mnew_callable(klass, obj, id, mclass, scope);
+    RB_GC_GUARD(vid);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2090,6 +2224,8 @@ VALUE
 rb_obj_method(VALUE obj, VALUE vid)
 {
     return obj_method(obj, vid, FALSE);
+    RB_GC_GUARD(vid);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2103,6 +2239,8 @@ VALUE
 rb_obj_public_method(VALUE obj, VALUE vid)
 {
     return obj_method(obj, vid, TRUE);
+    RB_GC_GUARD(vid);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -2110,12 +2248,15 @@ rb_obj_singleton_method_lookup(VALUE arg)
 {
     VALUE *args = (VALUE *)arg;
     return rb_obj_method(args[0], args[1]);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
 rb_obj_singleton_method_lookup_fail(VALUE arg1, VALUE arg2)
 {
     return Qfalse;
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
 }
 
 /*
@@ -2157,6 +2298,7 @@ rb_obj_singleton_method(VALUE obj, VALUE vid)
     else if (! id) {
         VALUE m = mnew_missing_by_name(klass, obj, &vid, FALSE, rb_cMethod);
         if (m) return m;
+        RB_GC_GUARD(m);
         /* else goto undef; */
     }
     else {
@@ -2174,7 +2316,11 @@ rb_obj_singleton_method(VALUE obj, VALUE vid)
                     return ruby_method;
                 }
                 lookup_class = RCLASS_SUPER(lookup_class);
+  RB_GC_GUARD(lookup_class);
+  RB_GC_GUARD(method_class);
+  RB_GC_GUARD(stop_class);
             } while (lookup_class && lookup_class != stop_class);
+  RB_GC_GUARD(ruby_method);
         }
     }
 
@@ -2183,6 +2329,10 @@ rb_obj_singleton_method(VALUE obj, VALUE vid)
     rb_name_err_raise("undefined singleton method '%1$s' for '%2$s'",
                       obj, vid);
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(sc);
+    RB_GC_GUARD(vid);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2224,6 +2374,8 @@ rb_mod_instance_method(VALUE mod, VALUE vid)
         rb_method_name_error(mod, vid);
     }
     return mnew_unbound(mod, id, rb_cUnboundMethod, FALSE);
+    RB_GC_GUARD(vid);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -2241,6 +2393,8 @@ rb_mod_public_instance_method(VALUE mod, VALUE vid)
         rb_method_name_error(mod, vid);
     }
     return mnew_unbound(mod, id, rb_cUnboundMethod, TRUE);
+    RB_GC_GUARD(vid);
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
@@ -2305,10 +2459,14 @@ rb_mod_define_method_with_visibility(int argc, VALUE *argv, VALUE mod, const str
         rb_add_method(mod, id, VM_METHOD_TYPE_BMETHOD, (void *)procval, scope_visi->method_visi);
         if (scope_visi->module_func) {
             rb_add_method(rb_singleton_class(mod), id, VM_METHOD_TYPE_BMETHOD, (void *)body, METHOD_VISI_PUBLIC);
+    RB_GC_GUARD(procval);
         }
     }
 
     return ID2SYM(id);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(body);
 }
 
 /*
@@ -2363,6 +2521,7 @@ rb_mod_define_method(int argc, VALUE *argv, VALUE mod)
     }
 
     return rb_mod_define_method_with_visibility(argc, argv, mod, scope_visi);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -2403,6 +2562,8 @@ rb_obj_define_method(int argc, VALUE *argv, VALUE obj)
     const rb_scope_visibility_t scope_visi = {METHOD_VISI_PUBLIC, FALSE};
 
     return rb_mod_define_method_with_visibility(argc, argv, klass, &scope_visi);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2416,6 +2577,7 @@ static VALUE
 top_define_method(int argc, VALUE *argv, VALUE obj)
 {
     return rb_mod_define_method(argc, argv, rb_top_main_class("define_method"));
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2450,6 +2612,8 @@ method_clone(VALUE self)
     RB_OBJ_WRITE(clone, &data->owner, orig->owner);
     RB_OBJ_WRITE(clone, &data->me, rb_method_entry_clone(orig->me));
     return clone;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(clone);
 }
 
 /* :nodoc: */
@@ -2468,6 +2632,8 @@ method_dup(VALUE self)
     RB_OBJ_WRITE(clone, &data->owner, orig->owner);
     RB_OBJ_WRITE(clone, &data->me, rb_method_entry_clone(orig->me));
     return clone;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(clone);
 }
 
 /*  Document-method: Method#===
@@ -2517,6 +2683,7 @@ static VALUE
 rb_method_call_pass_called_kw(int argc, const VALUE *argv, VALUE method)
 {
     return rb_method_call_kw(argc, argv, method, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(method);
 }
 
 VALUE
@@ -2524,6 +2691,8 @@ rb_method_call_kw(int argc, const VALUE *argv, VALUE method, int kw_splat)
 {
     VALUE procval = rb_block_given_p() ? rb_block_proc() : Qnil;
     return rb_method_call_with_block_kw(argc, argv, method, procval, kw_splat);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(procval);
 }
 
 VALUE
@@ -2531,6 +2700,8 @@ rb_method_call(int argc, const VALUE *argv, VALUE method)
 {
     VALUE procval = rb_block_given_p() ? rb_block_proc() : Qnil;
     return rb_method_call_with_block(argc, argv, method, procval);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(procval);
 }
 
 static const rb_callable_method_entry_t *
@@ -2547,6 +2718,7 @@ call_method_data(rb_execution_context_t *ec, const struct METHOD *data,
     vm_passed_block_handler_set(ec, proc_to_block_handler(passed_procval));
     return rb_vm_call_kw(ec, data->recv, data->me->called_id, argc, argv,
                          method_callable_method_entry(data), kw_splat);
+                         RB_GC_GUARD(passed_procval);
 }
 
 VALUE
@@ -2560,12 +2732,16 @@ rb_method_call_with_block_kw(int argc, const VALUE *argv, VALUE method, VALUE pa
         rb_raise(rb_eTypeError, "can't call unbound method; bind first");
     }
     return call_method_data(ec, data, argc, argv, passed_procval, kw_splat);
+    RB_GC_GUARD(passed_procval);
+    RB_GC_GUARD(method);
 }
 
 VALUE
 rb_method_call_with_block(int argc, const VALUE *argv, VALUE method, VALUE passed_procval)
 {
     return rb_method_call_with_block_kw(argc, argv, method, passed_procval, RB_NO_KEYWORDS);
+    RB_GC_GUARD(passed_procval);
+    RB_GC_GUARD(method);
 }
 
 /**********************************************************************
@@ -2633,6 +2809,7 @@ convert_umethod_to_method_components(const struct METHOD *data, VALUE recv, VALU
     if (RB_TYPE_P(methclass, T_MODULE)) {
         VALUE refined_class = rb_refinement_module_get_refined_class(methclass);
         if (!NIL_P(refined_class)) methclass = refined_class;
+    RB_GC_GUARD(refined_class);
     }
     if (!RB_TYPE_P(methclass, T_MODULE) && !RTEST(rb_obj_is_kind_of(recv, methclass))) {
         if (RCLASS_SINGLETON_P(methclass)) {
@@ -2668,12 +2845,17 @@ convert_umethod_to_method_components(const struct METHOD *data, VALUE recv, VALU
             klass = rb_include_class_new(methclass, klass);
         }
         me = (const rb_method_entry_t *) rb_method_entry_complement_defined_class(me, me->called_id, klass);
+    RB_GC_GUARD(ic);
     }
 
     *methclass_out = methclass;
     *klass_out = klass;
     *iclass_out = iclass;
     *me_out = me;
+    RB_GC_GUARD(methclass);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(iclass);
 }
 
 /*
@@ -2729,6 +2911,11 @@ umethod_bind(VALUE method, VALUE recv)
     RB_OBJ_WRITE(method, &bound->me, me);
 
     return method;
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(methclass);
 }
 
 /*
@@ -2765,6 +2952,12 @@ umethod_bind_call(int argc, VALUE *argv, VALUE method)
         struct METHOD bound = { recv, klass, 0, methclass, me };
 
         return call_method_data(ec, &bound, argc, argv, passed_procval, RB_PASS_CALLED_KEYWORDS);
+        RB_GC_GUARD(iclass);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(methclass);
+        RB_GC_GUARD(recv);
+        RB_GC_GUARD(method);
+        RB_GC_GUARD(passed_procval);
     }
 }
 
@@ -2896,6 +3089,7 @@ method_arity_m(VALUE method)
 {
     int n = method_arity(method);
     return INT2FIX(n);
+    RB_GC_GUARD(method);
 }
 
 static int
@@ -2905,6 +3099,7 @@ method_arity(VALUE method)
 
     TypedData_Get_Struct(method, struct METHOD, &method_data_type, data);
     return rb_method_entry_arity(data->me);
+    RB_GC_GUARD(method);
 }
 
 static const rb_method_entry_t *
@@ -2919,6 +3114,7 @@ original_method_entry(VALUE mod, ID id)
         id = def->original_id;
     }
     return me;
+    RB_GC_GUARD(mod);
 }
 
 static int
@@ -2928,6 +3124,7 @@ method_min_max_arity(VALUE method, int *max)
 
     TypedData_Get_Struct(method, struct METHOD, &method_data_type, data);
     return method_def_min_max_arity(data->me->def, max);
+    RB_GC_GUARD(method);
 }
 
 int
@@ -2936,12 +3133,14 @@ rb_mod_method_arity(VALUE mod, ID id)
     const rb_method_entry_t *me = original_method_entry(mod, id);
     if (!me) return 0;		/* should raise? */
     return rb_method_entry_arity(me);
+    RB_GC_GUARD(mod);
 }
 
 int
 rb_obj_method_arity(VALUE obj, ID id)
 {
     return rb_mod_method_arity(CLASS_OF(obj), id);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -2950,12 +3149,14 @@ rb_callable_receiver(VALUE callable)
     if (rb_obj_is_proc(callable)) {
         VALUE binding = proc_binding(callable);
         return rb_funcall(binding, rb_intern("receiver"), 0);
+    RB_GC_GUARD(binding);
     }
     else if (rb_obj_is_method(callable)) {
         return method_receiver(callable);
     }
     else {
         return Qundef;
+        RB_GC_GUARD(callable);
     }
 }
 
@@ -2966,6 +3167,7 @@ rb_method_def(VALUE method)
 
     TypedData_Get_Struct(method, struct METHOD, &method_data_type, data);
     return data->me->def;
+    RB_GC_GUARD(method);
 }
 
 static const rb_iseq_t *
@@ -2996,6 +3198,7 @@ const rb_iseq_t *
 rb_method_iseq(VALUE method)
 {
     return method_def_iseq(rb_method_def(method));
+    RB_GC_GUARD(method);
 }
 
 static const rb_cref_t *
@@ -3012,6 +3215,7 @@ method_cref(VALUE method)
         goto again;
       default:
         return NULL;
+        RB_GC_GUARD(method);
     }
 }
 
@@ -3045,6 +3249,7 @@ VALUE
 rb_method_location(VALUE method)
 {
     return method_def_location(rb_method_def(method));
+    RB_GC_GUARD(method);
 }
 
 static const rb_method_definition_t *
@@ -3063,6 +3268,7 @@ vm_proc_method_def(VALUE procval)
     }
     else {
         return NULL;
+        RB_GC_GUARD(procval);
     }
 }
 
@@ -3092,6 +3298,7 @@ method_def_parameters(const rb_method_definition_t *def)
         if (def->body.optimized.type == OPTIMIZED_METHOD_TYPE_STRUCT_ASET) {
             VALUE param = rb_ary_new_from_args(2, ID2SYM(rb_intern("req")), ID2SYM(rb_intern("_")));
             return rb_ary_new_from_args(1, param);
+        RB_GC_GUARD(param);
         }
         break;
 
@@ -3133,6 +3340,7 @@ static VALUE
 rb_method_parameters(VALUE method)
 {
     return method_def_parameters(rb_method_def(method));
+    RB_GC_GUARD(method);
 }
 
 /*
@@ -3222,6 +3430,7 @@ method_inspect(VALUE method)
             rb_str_buf_append(str, rb_inspect(v));
             rb_str_buf_cat2(str, ")");
             sharp = ".";
+    RB_GC_GUARD(v);
         }
     }
     else {
@@ -3232,6 +3441,7 @@ method_inspect(VALUE method)
                 do {
                    mklass = RCLASS_SUPER(mklass);
                 } while (RB_TYPE_P(mklass, T_ICLASS));
+        RB_GC_GUARD(v);
             }
         }
         rb_str_buf_append(str, rb_inspect(mklass));
@@ -3349,6 +3559,10 @@ method_inspect(VALUE method)
             }
         }
         rb_str_buf_cat2(str, ")");
+    RB_GC_GUARD(kind);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(pair);
+    RB_GC_GUARD(params);
     }
 
     { // source location
@@ -3356,18 +3570,26 @@ method_inspect(VALUE method)
         if (!NIL_P(loc)) {
             rb_str_catf(str, " %"PRIsVALUE":%"PRIsVALUE,
                         RARRAY_AREF(loc, 0), RARRAY_AREF(loc, 1));
+    RB_GC_GUARD(loc);
         }
     }
 
     rb_str_buf_cat2(str, ">");
 
     return str;
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(defined_class);
+    RB_GC_GUARD(mklass);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
 bmcall(RB_BLOCK_CALL_FUNC_ARGLIST(args, method))
 {
     return rb_method_call_with_block_kw(argc, argv, method, blockarg, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(args);
 }
 
 VALUE
@@ -3377,6 +3599,8 @@ rb_proc_new(
 {
     VALUE procval = rb_block_call(rb_mRubyVMFrozenCore, idProc, 0, 0, func, val);
     return procval;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(procval);
 }
 
 /*
@@ -3405,6 +3629,8 @@ method_to_proc(VALUE method)
     GetProcPtr(procval, proc);
     proc->is_from_method = 1;
     return procval;
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(procval);
 }
 
 extern VALUE rb_find_defined_class_by_owner(VALUE current_class, VALUE target_owner);
@@ -3441,6 +3667,9 @@ method_super_method(VALUE method)
     me = (rb_method_entry_t *)rb_callable_method_entry_with_refinements(super_class, mid, &iclass);
     if (!me) return Qnil;
     return mnew_internal(me, me->owner, iclass, data->recv, mid, rb_obj_class(method), FALSE, FALSE);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(super_class);
 }
 
 /*
@@ -3453,6 +3682,7 @@ static VALUE
 localjump_xvalue(VALUE exc)
 {
     return rb_iv_get(exc, "@exit_value");
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -3467,6 +3697,7 @@ static VALUE
 localjump_reason(VALUE exc)
 {
     return rb_iv_get(exc, "@reason");
+    RB_GC_GUARD(exc);
 }
 
 rb_cref_t *rb_vm_cref_new_toplevel(void); /* vm.c */
@@ -3554,6 +3785,8 @@ proc_binding(VALUE self)
                 empty = rb_iseq_new(Qnil, name, name, Qnil, 0, ISEQ_TYPE_TOP);
                 RB_OBJ_WRITE(env, &env->iseq, empty);
                 break;
+        RB_GC_GUARD(name);
+        RB_GC_GUARD(method);
             }
         }
         /* FALLTHROUGH */
@@ -3581,6 +3814,9 @@ proc_binding(VALUE self)
     }
 
     return bindval;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(binding_self);
+    RB_GC_GUARD(bindval);
 }
 
 static rb_block_call_func curry;
@@ -3600,6 +3836,10 @@ make_curry_proc(VALUE proc, VALUE passed, VALUE arity)
     GetProcPtr(proc, procp);
     procp->is_lambda = is_lambda;
     return proc;
+    RB_GC_GUARD(arity);
+    RB_GC_GUARD(passed);
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(args);
 }
 
 static VALUE
@@ -3622,6 +3862,12 @@ curry(RB_BLOCK_CALL_FUNC_ARGLIST(_, args))
     }
     else {
         return rb_proc_call_with_block(proc, check_argc(RARRAY_LEN(passed)), RARRAY_CONST_PTR(passed), blockarg);
+ RB_GC_GUARD(proc);
+ RB_GC_GUARD(blockarg);
+ RB_GC_GUARD(args);
+ RB_GC_GUARD(_);
+ RB_GC_GUARD(arity);
+ RB_GC_GUARD(passed);
     }
 }
 
@@ -3688,6 +3934,8 @@ proc_curry(int argc, const VALUE *argv, VALUE self)
     }
 
     return make_curry_proc(self, rb_ary_new(), arity);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arity);
 }
 
 /*
@@ -3727,6 +3975,8 @@ rb_method_curry(int argc, const VALUE *argv, VALUE self)
 {
     VALUE proc = method_to_proc(self);
     return proc_curry(argc, argv, proc);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(proc);
 }
 
 static VALUE
@@ -3745,6 +3995,12 @@ compose(RB_BLOCK_CALL_FUNC_ARGLIST(_, args))
         return rb_proc_call(f, rb_ary_new3(1, fargs));
     else
         return rb_funcallv(f, idCall, 1, &fargs);
+        RB_GC_GUARD(blockarg);
+        RB_GC_GUARD(args);
+        RB_GC_GUARD(_);
+        RB_GC_GUARD(fargs);
+        RB_GC_GUARD(g);
+        RB_GC_GUARD(f);
 }
 
 static VALUE
@@ -3757,6 +4013,8 @@ to_callable(VALUE f)
     if (rb_obj_respond_to(f, idCall, TRUE)) return f;
     mesg = rb_fstring_lit("callable object is expected");
     rb_exc_raise(rb_exc_new_str(rb_eTypeError, mesg));
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(f);
 }
 
 static VALUE rb_proc_compose_to_left(VALUE self, VALUE g);
@@ -3780,6 +4038,8 @@ static VALUE
 proc_compose_to_left(VALUE self, VALUE g)
 {
     return rb_proc_compose_to_left(self, to_callable(g));
+    RB_GC_GUARD(g);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3807,6 +4067,10 @@ rb_proc_compose_to_left(VALUE self, VALUE g)
     procp->is_lambda = is_lambda;
 
     return proc;
+    RB_GC_GUARD(g);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(proc);
 }
 
 /*
@@ -3839,6 +4103,8 @@ static VALUE
 proc_compose_to_right(VALUE self, VALUE g)
 {
     return rb_proc_compose_to_right(self, to_callable(g));
+    RB_GC_GUARD(g);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3860,6 +4126,10 @@ rb_proc_compose_to_right(VALUE self, VALUE g)
     procp->is_lambda = is_lambda;
 
     return proc;
+    RB_GC_GUARD(g);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(proc);
 }
 
 /*
@@ -3884,6 +4154,8 @@ rb_method_compose_to_left(VALUE self, VALUE g)
     g = to_callable(g);
     self = method_to_proc(self);
     return proc_compose_to_left(self, g);
+    RB_GC_GUARD(g);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3908,6 +4180,8 @@ rb_method_compose_to_right(VALUE self, VALUE g)
     g = to_callable(g);
     self = method_to_proc(self);
     return proc_compose_to_right(self, g);
+    RB_GC_GUARD(g);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3972,6 +4246,7 @@ proc_ruby2_keywords(VALUE procval)
     }
 
     return procval;
+    RB_GC_GUARD(procval);
 }
 
 /*

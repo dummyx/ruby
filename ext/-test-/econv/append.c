@@ -8,6 +8,9 @@ econv_append(VALUE self, VALUE src, VALUE dst)
     StringValue(src);
     StringValue(dst);
     return rb_econv_str_append(ec, src, dst, 0);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(self);
 }
 
 void

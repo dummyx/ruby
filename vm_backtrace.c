@@ -28,6 +28,7 @@ id2str(ID id)
     VALUE str = rb_id2str(id);
     if (!str) return Qnil;
     return str;
+    RB_GC_GUARD(str);
 }
 #define rb_id2str(id) id2str(id)
 
@@ -166,6 +167,7 @@ int
 rb_frame_info_p(VALUE obj)
 {
     return rb_typeddata_is_kind_of(obj, &location_data_type);
+    RB_GC_GUARD(obj);
 }
 
 static inline rb_backtrace_location_t *
@@ -174,6 +176,7 @@ location_ptr(VALUE locobj)
     struct valued_frame_info *vloc;
     TypedData_Get_Struct(locobj, struct valued_frame_info, &location_data_type, vloc);
     return vloc->loc;
+    RB_GC_GUARD(locobj);
 }
 
 static int
@@ -197,6 +200,7 @@ static VALUE
 location_lineno_m(VALUE self)
 {
     return INT2FIX(location_lineno(location_ptr(self)));
+    RB_GC_GUARD(self);
 }
 
 VALUE rb_mod_name0(VALUE klass, bool *permanent);
@@ -213,6 +217,7 @@ rb_gen_method_name(VALUE owner, VALUE name)
                 if (permanent && !NIL_P(v)) {
                     return rb_sprintf("%"PRIsVALUE".%"PRIsVALUE, v, name);
                 }
+        RB_GC_GUARD(v);
             }
         }
         else {
@@ -223,6 +228,8 @@ rb_gen_method_name(VALUE owner, VALUE name)
         }
     }
     return name;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(owner);
 }
 
 static VALUE
@@ -263,6 +270,7 @@ retry:
       default:
         rb_bug("calculate_iseq_label: unreachable");
     }
+        RB_GC_GUARD(owner);
 }
 
 // Return true if a given location is a C method or supposed to behave like one.
@@ -293,6 +301,7 @@ location_label(rb_backtrace_location_t *loc)
             owner = loc->cme->owner;
         }
         return calculate_iseq_label(owner, loc->iseq);
+        RB_GC_GUARD(owner);
     }
 }
 /*
@@ -325,6 +334,7 @@ static VALUE
 location_label_m(VALUE self)
 {
     return location_label(location_ptr(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -365,6 +375,7 @@ static VALUE
 location_base_label_m(VALUE self)
 {
     return location_base_label(location_ptr(self));
+    RB_GC_GUARD(self);
 }
 
 static const rb_iseq_t *
@@ -388,6 +399,7 @@ location_path_m(VALUE self)
 {
     const rb_iseq_t *iseq = location_iseq(location_ptr(self));
     return iseq ? rb_iseq_path(iseq) : Qnil;
+    RB_GC_GUARD(self);
 }
 
 #ifdef USE_ISEQ_NODE_ID
@@ -407,6 +419,7 @@ rb_get_node_id_from_frame_info(VALUE obj)
 #ifdef USE_ISEQ_NODE_ID
     rb_backtrace_location_t *loc = location_ptr(obj);
     return location_node_id(loc);
+    RB_GC_GUARD(obj);
 #else
     return -1;
 #endif
@@ -418,6 +431,7 @@ rb_get_iseq_from_frame_info(VALUE obj)
     rb_backtrace_location_t *loc = location_ptr(obj);
     const rb_iseq_t *iseq = location_iseq(loc);
     return iseq;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -439,6 +453,7 @@ static VALUE
 location_absolute_path_m(VALUE self)
 {
     return location_realpath(location_ptr(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -456,6 +471,9 @@ location_format(VALUE file, int lineno, VALUE name)
         rb_str_catf(s, "'%s'", RSTRING_PTR(name));
     }
     return s;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -485,6 +503,9 @@ location_to_str(rb_backtrace_location_t *loc)
     }
 
     return location_format(file, lineno, name);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(owner);
+    RB_GC_GUARD(file);
 }
 
 /*
@@ -494,6 +515,7 @@ static VALUE
 location_to_str_m(VALUE self)
 {
     return location_to_str(location_ptr(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -504,6 +526,7 @@ static VALUE
 location_inspect_m(VALUE self)
 {
     return rb_str_inspect(location_to_str(location_ptr(self)));
+    RB_GC_GUARD(self);
 }
 
 typedef struct rb_backtrace_struct {
@@ -566,6 +589,7 @@ int
 rb_backtrace_p(VALUE obj)
 {
     return rb_typeddata_is_kind_of(obj, &backtrace_data_type);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -574,6 +598,8 @@ backtrace_alloc(VALUE klass)
     rb_backtrace_t *bt;
     VALUE obj = TypedData_Make_Struct(klass, rb_backtrace_t, &backtrace_data_type, bt);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -583,6 +609,7 @@ backtrace_alloc_capa(long num_frames, rb_backtrace_t **backtrace)
     VALUE btobj = rb_data_typed_object_zalloc(rb_cBacktrace, memsize, &backtrace_data_type);
     TypedData_Get_Struct(btobj, rb_backtrace_t, &backtrace_data_type, *backtrace);
     return btobj;
+    RB_GC_GUARD(btobj);
 }
 
 
@@ -614,6 +641,7 @@ is_internal_location(const rb_control_frame_t *cfp)
     const size_t prefix_len = sizeof(prefix) - 1;
     VALUE file = rb_iseq_path(cfp->iseq);
     return strncmp(prefix, RSTRING_PTR(file), prefix_len) == 0;
+    RB_GC_GUARD(file);
 }
 
 static bool
@@ -640,6 +668,7 @@ bt_yield_loc(rb_backtrace_location_t *loc, long num_frames, VALUE btobj)
     for (; num_frames > 0; num_frames--, loc++) {
         rb_yield(location_create(loc, (void *)btobj));
     }
+        RB_GC_GUARD(btobj);
 }
 
 static VALUE
@@ -753,6 +782,7 @@ rb_ec_partial_backtrace_object(const rb_execution_context_t *ec, long start_fram
 
     if (start_too_large) *start_too_large = (start_frame > 0 ? -1 : 0);
     return btobj;
+    RB_GC_GUARD(btobj);
 }
 
 VALUE
@@ -775,6 +805,7 @@ backtrace_collect(rb_backtrace_t *bt, VALUE (*func)(rb_backtrace_location_t *, v
     }
 
     return btary;
+    RB_GC_GUARD(btary);
 }
 
 static VALUE
@@ -792,6 +823,8 @@ backtrace_to_str_ary(VALUE self)
     r = backtrace_collect(bt, location_to_str_dmyarg, 0);
     RB_GC_GUARD(self);
     return r;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(r);
 }
 
 VALUE
@@ -804,6 +837,7 @@ rb_backtrace_to_str_ary(VALUE self)
         RB_OBJ_WRITE(self, &bt->strary, backtrace_to_str_ary(self));
     }
     return bt->strary;
+    RB_GC_GUARD(self);
 }
 
 void
@@ -820,6 +854,7 @@ rb_backtrace_use_iseq_first_lineno_for_last_location(VALUE self)
     VM_ASSERT(!loc->cme || loc->cme->def->type == VM_METHOD_TYPE_ISEQ);
 
     loc->pc = NULL; // means location.first_lineno
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -833,6 +868,7 @@ location_create(rb_backtrace_location_t *srcloc, void *btobj)
     RB_OBJ_WRITE(obj, &vloc->btobj, (VALUE)btobj);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -844,6 +880,8 @@ backtrace_to_location_ary(VALUE self)
     r = backtrace_collect(bt, location_create, (void *)self);
     RB_GC_GUARD(self);
     return r;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(r);
 }
 
 VALUE
@@ -856,6 +894,7 @@ rb_backtrace_to_location_ary(VALUE self)
         RB_OBJ_WRITE(self, &bt->locary, backtrace_to_location_ary(self));
     }
     return bt->locary;
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -890,6 +929,8 @@ rb_location_ary_to_backtrace(VALUE ary)
     }
 
     return btobj;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(btobj);
 }
 
 static VALUE
@@ -897,6 +938,8 @@ backtrace_dump_data(VALUE self)
 {
     VALUE str = rb_backtrace_to_str_ary(self);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -906,6 +949,8 @@ backtrace_load_data(VALUE self, VALUE str)
     TypedData_Get_Struct(self, rb_backtrace_t, &backtrace_data_type, bt);
     RB_OBJ_WRITE(self, &bt->strary, str);
     return self;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -962,6 +1007,7 @@ static VALUE
 backtrace_limit(VALUE self)
 {
     return LONG2NUM(rb_backtrace_length_limit);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1063,6 +1109,8 @@ oldbt_iter_iseq(void *ptr, const rb_control_frame_t *cfp)
     int lineno = arg->lineno = calc_lineno(iseq, pc);
 
     (arg->func)(arg->data, file, lineno, name);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(name);
 }
 
 static void
@@ -1074,6 +1122,8 @@ oldbt_iter_cfunc(void *ptr, const rb_control_frame_t *cfp, ID mid)
     int lineno = arg->lineno;
 
     (arg->func)(arg->data, file, lineno, name);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(name);
 }
 
 static void
@@ -1089,6 +1139,8 @@ oldbt_print(void *data, VALUE file, int lineno, VALUE name)
         fprintf(fp, "\tfrom %s:%d:in '%s'\n",
                 RSTRING_PTR(file), lineno, RSTRING_PTR(name));
     }
+                RB_GC_GUARD(file);
+                RB_GC_GUARD(name);
 }
 
 static void
@@ -1127,6 +1179,8 @@ oldbt_bugreport(void *arg, VALUE file, int line, VALUE method)
     else {
         fprintf(fp, "%s:%d:in '%s'\n", filename, line, RSTRING_PTR(method));
     }
+        RB_GC_GUARD(file);
+        RB_GC_GUARD(method);
 }
 
 void
@@ -1169,6 +1223,9 @@ oldbt_print_to(void *data, VALUE file, int lineno, VALUE name)
         rb_str_catf(str, " '%"PRIsVALUE"'\n", name);
     }
     (*arg->iter)(arg->output, str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(file);
 }
 
 void
@@ -1186,6 +1243,7 @@ rb_backtrace_each(VALUE (*iter)(VALUE recv, VALUE str), VALUE output)
                    oldbt_iter_iseq,
                    oldbt_iter_cfunc,
                    &arg);
+                   RB_GC_GUARD(output);
 }
 
 VALUE
@@ -1251,6 +1309,9 @@ ec_backtrace_range(const rb_execution_context_t *ec, int argc, const VALUE *argv
 
     *len_ptr = n;
     return lev;
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(vn);
+    RB_GC_GUARD(level);
 }
 
 static VALUE
@@ -1281,6 +1342,8 @@ ec_backtrace_to_ary(const rb_execution_context_t *ec, int argc, const VALUE *arg
     }
     RB_GC_GUARD(btval);
     return r;
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(btval);
 }
 
 static VALUE
@@ -1292,18 +1355,21 @@ thread_backtrace_to_ary(int argc, const VALUE *argv, VALUE thval, int to_str)
       return Qnil;
 
     return ec_backtrace_to_ary(target_th->ec, argc, argv, 0, 0, to_str);
+    RB_GC_GUARD(thval);
 }
 
 VALUE
 rb_vm_thread_backtrace(int argc, const VALUE *argv, VALUE thval)
 {
     return thread_backtrace_to_ary(argc, argv, thval, 1);
+    RB_GC_GUARD(thval);
 }
 
 VALUE
 rb_vm_thread_backtrace_locations(int argc, const VALUE *argv, VALUE thval)
 {
     return thread_backtrace_to_ary(argc, argv, thval, 0);
+    RB_GC_GUARD(thval);
 }
 
 VALUE
@@ -1360,6 +1426,7 @@ static VALUE
 rb_f_caller(int argc, VALUE *argv, VALUE _)
 {
     return ec_backtrace_to_ary(GET_EC(), argc, argv, 1, 1, 1);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -1388,6 +1455,7 @@ static VALUE
 rb_f_caller_locations(int argc, VALUE *argv, VALUE _)
 {
     return ec_backtrace_to_ary(GET_EC(), argc, argv, 1, 1, 0);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -1406,6 +1474,7 @@ each_caller_location(int argc, VALUE *argv, VALUE _)
         rb_ec_partial_backtrace_object(ec, lev, n, NULL, FALSE, TRUE);
     }
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 /* called from Init_vm() in vm.c */
@@ -1535,6 +1604,7 @@ get_klass(const rb_control_frame_t *cfp)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -1559,6 +1629,7 @@ collect_caller_bindings_iseq(void *arg, const rb_control_frame_t *cfp)
     rb_ary_store(frame, CALLER_BINDING_DEPTH, INT2FIX(frame_depth(data->ec, cfp)));
 
     rb_ary_push(data->ary, frame);
+    RB_GC_GUARD(frame);
 }
 
 static void
@@ -1575,6 +1646,7 @@ collect_caller_bindings_cfunc(void *arg, const rb_control_frame_t *cfp, ID mid)
     rb_ary_store(frame, CALLER_BINDING_DEPTH, INT2FIX(frame_depth(data->ec, cfp)));
 
     rb_ary_push(data->ary, frame);
+    RB_GC_GUARD(frame);
 }
 
 static VALUE
@@ -1602,10 +1674,13 @@ collect_caller_bindings(const rb_execution_context_t *ec)
         if (!NIL_P(cfp_val)) {
             rb_control_frame_t *cfp = GC_GUARDED_PTR_REF(cfp_val);
             rb_ary_store(entry, CALLER_BINDING_BINDING, rb_vm_make_binding(ec, cfp));
+    RB_GC_GUARD(entry);
+    RB_GC_GUARD(cfp_val);
         }
     }
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -1659,6 +1734,7 @@ rb_debug_inspector_frame_self_get(const rb_debug_inspector_t *dc, long index)
 {
     VALUE frame = frame_get(dc, index);
     return rb_ary_entry(frame, CALLER_BINDING_SELF);
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1666,6 +1742,7 @@ rb_debug_inspector_frame_class_get(const rb_debug_inspector_t *dc, long index)
 {
     VALUE frame = frame_get(dc, index);
     return rb_ary_entry(frame, CALLER_BINDING_CLASS);
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1673,6 +1750,7 @@ rb_debug_inspector_frame_binding_get(const rb_debug_inspector_t *dc, long index)
 {
     VALUE frame = frame_get(dc, index);
     return rb_ary_entry(frame, CALLER_BINDING_BINDING);
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1682,6 +1760,8 @@ rb_debug_inspector_frame_iseq_get(const rb_debug_inspector_t *dc, long index)
     VALUE iseq = rb_ary_entry(frame, CALLER_BINDING_ISEQ);
 
     return RTEST(iseq) ? rb_iseqw_new((rb_iseq_t *)iseq) : Qnil;
+    RB_GC_GUARD(iseq);
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1689,6 +1769,7 @@ rb_debug_inspector_frame_depth(const rb_debug_inspector_t *dc, long index)
 {
     VALUE frame = frame_get(dc, index);
     return rb_ary_entry(frame, CALLER_BINDING_DEPTH);
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1791,6 +1872,7 @@ rb_profile_thread_frames(VALUE thread, int start, int limit, VALUE *buff, int *l
 {
     rb_thread_t *th = rb_thread_ptr(thread);
     return thread_profile_frames(th->ec, start, limit, buff, lines);
+    RB_GC_GUARD(thread);
 }
 
 static const rb_iseq_t *
@@ -1817,6 +1899,7 @@ frame2iseq(VALUE frame)
         }
     }
     rb_bug("frame2iseq: unreachable");
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1824,6 +1907,7 @@ rb_profile_frame_path(VALUE frame)
 {
     const rb_iseq_t *iseq = frame2iseq(frame);
     return iseq ? rb_iseq_path(iseq) : Qnil;
+    RB_GC_GUARD(frame);
 }
 
 static const rb_callable_method_entry_t *
@@ -1849,6 +1933,7 @@ cframe(VALUE frame)
     }
 
     return NULL;
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1861,9 +1946,11 @@ rb_profile_frame_absolute_path(VALUE frame)
             rb_vm_register_global_object(cfunc_str);
         }
         return cfunc_str;
+    RB_GC_GUARD(cfunc_str);
     }
     const rb_iseq_t *iseq = frame2iseq(frame);
     return iseq ? rb_iseq_realpath(iseq) : Qnil;
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1871,6 +1958,7 @@ rb_profile_frame_label(VALUE frame)
 {
     const rb_iseq_t *iseq = frame2iseq(frame);
     return iseq ? rb_iseq_label(iseq) : Qnil;
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1878,6 +1966,7 @@ rb_profile_frame_base_label(VALUE frame)
 {
     const rb_iseq_t *iseq = frame2iseq(frame);
     return iseq ? rb_iseq_base_label(iseq) : Qnil;
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1885,6 +1974,7 @@ rb_profile_frame_first_lineno(VALUE frame)
 {
     const rb_iseq_t *iseq = frame2iseq(frame);
     return iseq ? rb_iseq_first_lineno(iseq) : Qnil;
+    RB_GC_GUARD(frame);
 }
 
 static VALUE
@@ -1900,6 +1990,7 @@ frame2klass(VALUE frame)
         }
     }
     return Qnil;
+    RB_GC_GUARD(frame);
 }
 
 VALUE
@@ -1920,6 +2011,8 @@ rb_profile_frame_classpath(VALUE frame)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(frame);
     }
 }
 
@@ -1929,6 +2022,8 @@ rb_profile_frame_singleton_method_p(VALUE frame)
     VALUE klass = frame2klass(frame);
 
     return RBOOL(klass && !NIL_P(klass) && RCLASS_SINGLETON_P(klass));
+    RB_GC_GUARD(frame);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1941,6 +2036,7 @@ rb_profile_frame_method_name(VALUE frame)
     }
     const rb_iseq_t *iseq = frame2iseq(frame);
     return iseq ? rb_iseq_method_name(iseq) : Qnil;
+    RB_GC_GUARD(frame);
 }
 
 static VALUE
@@ -1956,10 +2052,14 @@ qualified_method_name(VALUE frame, VALUE method_name)
         }
         else {
             return method_name;
+    RB_GC_GUARD(classpath);
+    RB_GC_GUARD(singleton_p);
         }
     }
     else {
         return Qnil;
+        RB_GC_GUARD(frame);
+        RB_GC_GUARD(method_name);
     }
 }
 
@@ -1969,6 +2069,8 @@ rb_profile_frame_qualified_method_name(VALUE frame)
     VALUE method_name = rb_profile_frame_method_name(frame);
 
     return qualified_method_name(frame, method_name);
+    RB_GC_GUARD(frame);
+    RB_GC_GUARD(method_name);
 }
 
 VALUE
@@ -1979,6 +2081,7 @@ rb_profile_frame_full_label(VALUE frame)
         ID mid = cme->def->original_id;
         VALUE method_name = id2str(mid);
         return qualified_method_name(frame, method_name);
+    RB_GC_GUARD(method_name);
     }
 
     VALUE label = rb_profile_frame_label(frame);
@@ -1994,5 +2097,9 @@ rb_profile_frame_full_label(VALUE frame)
         int prefix_len = rb_long2int(label_length - base_label_length);
 
         return rb_sprintf("%.*s%"PRIsVALUE, prefix_len, RSTRING_PTR(label), qualified_method_name);
+        RB_GC_GUARD(label);
+        RB_GC_GUARD(frame);
+        RB_GC_GUARD(qualified_method_name);
+        RB_GC_GUARD(base_label);
     }
 }

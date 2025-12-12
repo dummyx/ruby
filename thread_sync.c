@@ -155,12 +155,14 @@ mutex_ptr(VALUE obj)
     TypedData_Get_Struct(obj, rb_mutex_t, &mutex_data_type, mutex);
 
     return mutex;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_obj_is_mutex(VALUE obj)
 {
     return RBOOL(rb_typeddata_is_kind_of(obj, &mutex_data_type));
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -173,6 +175,8 @@ mutex_alloc(VALUE klass)
 
     ccan_list_head_init(&mutex->waitq);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -185,6 +189,7 @@ static VALUE
 mutex_initialize(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -205,6 +210,7 @@ rb_mutex_locked_p(VALUE self)
     rb_mutex_t *mutex = mutex_ptr(self);
 
     return RBOOL(mutex->fiber);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -239,6 +245,7 @@ mutex_locked(rb_thread_t *th, VALUE self)
     rb_mutex_t *mutex = mutex_ptr(self);
 
     thread_mutex_insert(th, mutex);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -266,6 +273,7 @@ rb_mutex_trylock(VALUE self)
     else {
         RUBY_DEBUG_LOG("%p ng", mutex);
         return Qfalse;
+        RB_GC_GUARD(self);
     }
 }
 
@@ -279,6 +287,7 @@ static VALUE
 call_rb_fiber_scheduler_block(VALUE mutex)
 {
     return rb_fiber_scheduler_block(rb_fiber_scheduler_current(), mutex, Qnil);
+    RB_GC_GUARD(mutex);
 }
 
 static VALUE
@@ -288,6 +297,7 @@ delete_from_waitq(VALUE value)
     ccan_list_del(&sync_waiter->node);
 
     return Qnil;
+    RB_GC_GUARD(value);
 }
 
 static inline rb_atomic_t threadptr_get_interrupts(rb_thread_t *th);
@@ -400,6 +410,7 @@ do_mutex_lock(VALUE self, int interruptible_p)
                         threadptr_get_interrupts(th);
                     }
                 }
+        RB_GC_GUARD(scheduler);
             }
         }
 
@@ -413,12 +424,14 @@ do_mutex_lock(VALUE self, int interruptible_p)
     if (mutex_owned_p(fiber, mutex) == Qfalse) rb_bug("do_mutex_lock: mutex is not owned.");
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 mutex_lock_uninterruptible(VALUE self)
 {
     return do_mutex_lock(self, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -432,6 +445,7 @@ VALUE
 rb_mutex_lock(VALUE self)
 {
     return do_mutex_lock(self, 1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -447,6 +461,7 @@ rb_mutex_owned_p(VALUE self)
     rb_mutex_t *mutex = mutex_ptr(self);
 
     return mutex_owned_p(fiber, mutex);
+    RB_GC_GUARD(self);
 }
 
 static const char *
@@ -512,6 +527,7 @@ rb_mutex_unlock(VALUE self)
     if (err) rb_raise(rb_eThreadError, "%s", err);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 #if defined(HAVE_WORKING_FORK)
@@ -577,6 +593,10 @@ mutex_sleep_begin(VALUE _arguments)
     }
 
     return woken;
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(woken);
+    RB_GC_GUARD(timeout);
 }
 
 VALUE
@@ -601,6 +621,9 @@ rb_mutex_sleep(VALUE self, VALUE timeout)
     if (!woken) return Qnil;
     time_t end = time(0) - beg;
     return TIMET2NUM(end);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(woken);
 }
 
 /*
@@ -626,6 +649,8 @@ mutex_sleep(int argc, VALUE *argv, VALUE self)
 
     timeout = rb_check_arity(argc, 0, 1) ? argv[0] : Qnil;
     return rb_mutex_sleep(self, timeout);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(timeout);
 }
 
 /*
@@ -641,6 +666,8 @@ rb_mutex_synchronize(VALUE mutex, VALUE (*func)(VALUE arg), VALUE arg)
 {
     rb_mutex_lock(mutex);
     return rb_ensure(func, arg, rb_mutex_unlock, mutex);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(mutex);
 }
 
 /*
@@ -658,6 +685,7 @@ rb_mutex_synchronize_m(VALUE self)
     }
 
     return rb_mutex_synchronize(self, rb_yield, Qundef);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -669,6 +697,7 @@ rb_mutex_allow_trap(VALUE self, int val)
         FL_SET_RAW(self, MUTEX_ALLOW_TRAP);
     else
         FL_UNSET_RAW(self, MUTEX_ALLOW_TRAP);
+        RB_GC_GUARD(self);
 }
 
 /* Queue */
@@ -724,6 +753,8 @@ queue_alloc(VALUE klass)
     obj = TypedData_Make_Struct(klass, struct rb_queue, &queue_data_type, q);
     ccan_list_head_init(queue_waitq(q));
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -750,6 +781,7 @@ queue_ptr(VALUE obj)
     queue_fork_check(q);
 
     return q;
+    RB_GC_GUARD(obj);
 }
 
 #define QUEUE_CLOSED          FL_USER5
@@ -768,6 +800,7 @@ queue_timeout2hrtime(VALUE timeout)
         double2hrtime(&rel, rb_num2dbl(timeout));
     }
     return rb_hrtime_add(rel, rb_hrtime_now());
+    RB_GC_GUARD(timeout);
 }
 
 static void
@@ -799,6 +832,8 @@ szqueue_alloc(VALUE klass)
     ccan_list_head_init(szqueue_waitq(sq));
     ccan_list_head_init(szqueue_pushq(sq));
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static struct rb_szqueue *
@@ -813,6 +848,7 @@ szqueue_ptr(VALUE obj)
     }
 
     return sq;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -828,18 +864,22 @@ check_array(VALUE obj, VALUE ary)
         rb_raise(rb_eTypeError, "%+"PRIsVALUE" not initialized", obj);
     }
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(obj);
 }
 
 static long
 queue_length(VALUE self, struct rb_queue *q)
 {
     return RARRAY_LEN(check_array(self, q->que));
+    RB_GC_GUARD(self);
 }
 
 static int
 queue_closed_p(VALUE self)
 {
     return FL_TEST_RAW(self, QUEUE_CLOSED) != 0;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -855,6 +895,7 @@ static void
 raise_closed_queue_error(VALUE self)
 {
     rb_raise(rb_eClosedQueueError, "queue closed");
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -862,6 +903,7 @@ queue_closed_result(VALUE self, struct rb_queue *q)
 {
     RUBY_ASSERT(queue_length(self, q) == 0);
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -938,6 +980,8 @@ rb_queue_initialize(int argc, VALUE *argv, VALUE self)
         rb_ary_concat(q->que, initial);
     }
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(initial);
 }
 
 static VALUE
@@ -949,6 +993,8 @@ queue_do_push(VALUE self, struct rb_queue *q, VALUE obj)
     rb_ary_push(check_array(self, q->que), obj);
     wakeup_one(queue_waitq(q));
     return self;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -996,6 +1042,7 @@ rb_queue_close(VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1009,6 +1056,7 @@ static VALUE
 rb_queue_closed_p(VALUE self)
 {
     return RBOOL(queue_closed_p(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1025,6 +1073,8 @@ static VALUE
 rb_queue_push(VALUE self, VALUE obj)
 {
     return queue_do_push(self, queue_ptr(self), obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1033,6 +1083,7 @@ queue_sleep(VALUE _args)
     struct queue_sleep_arg *args = (struct queue_sleep_arg *)_args;
     rb_thread_sleep_deadly_allow_spurious_wakeup(args->self, args->timeout, args->end);
     return Qnil;
+    RB_GC_GUARD(_args);
 }
 
 struct queue_waiter {
@@ -1052,6 +1103,7 @@ queue_sleep_done(VALUE p)
     qw->as.q->num_waiting--;
 
     return Qfalse;
+    RB_GC_GUARD(p);
 }
 
 static VALUE
@@ -1063,6 +1115,7 @@ szqueue_sleep_done(VALUE p)
     qw->as.sq->num_waiting_push--;
 
     return Qfalse;
+    RB_GC_GUARD(p);
 }
 
 static VALUE
@@ -1113,12 +1166,17 @@ queue_do_pop(VALUE self, struct rb_queue *q, int should_block, VALUE timeout)
     }
 
     return rb_ary_shift(q->que);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 rb_queue_pop(rb_execution_context_t *ec, VALUE self, VALUE non_block, VALUE timeout)
 {
     return queue_do_pop(self, queue_ptr(self), !RTEST(non_block), timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(non_block);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1132,6 +1190,7 @@ static VALUE
 rb_queue_empty_p(VALUE self)
 {
     return RBOOL(queue_length(self, queue_ptr(self)) == 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1147,6 +1206,7 @@ rb_queue_clear(VALUE self)
 
     rb_ary_clear(check_array(self, q->que));
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1162,6 +1222,7 @@ static VALUE
 rb_queue_length(VALUE self)
 {
     return LONG2NUM(queue_length(self, queue_ptr(self)));
+    RB_GC_GUARD(self);
 }
 
 NORETURN(static VALUE rb_queue_freeze(VALUE self));
@@ -1178,6 +1239,7 @@ rb_queue_freeze(VALUE self)
 {
     rb_raise(rb_eTypeError, "cannot freeze " "%+"PRIsVALUE, self);
     UNREACHABLE_RETURN(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1192,6 +1254,7 @@ rb_queue_num_waiting(VALUE self)
     struct rb_queue *q = queue_ptr(self);
 
     return INT2NUM(q->num_waiting);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1227,6 +1290,8 @@ rb_szqueue_initialize(VALUE self, VALUE vmax)
     sq->max = max;
 
     return self;
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1252,6 +1317,7 @@ rb_szqueue_close(VALUE self)
         wakeup_all(szqueue_pushq(sq));
     }
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1264,6 +1330,7 @@ static VALUE
 rb_szqueue_max_get(VALUE self)
 {
     return LONG2NUM(szqueue_ptr(self)->max);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1289,6 +1356,8 @@ rb_szqueue_max_set(VALUE self, VALUE vmax)
     sq->max = max;
     sync_wakeup(szqueue_pushq(sq), diff);
     return vmax;
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1336,6 +1405,10 @@ rb_szqueue_push(rb_execution_context_t *ec, VALUE self, VALUE object, VALUE non_
     }
 
     return queue_do_push(self, &sq->q, object);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(non_block);
+    RB_GC_GUARD(object);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1349,11 +1422,17 @@ szqueue_do_pop(VALUE self, int should_block, VALUE timeout)
     }
 
     return retval;
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(retval);
 }
 static VALUE
 rb_szqueue_pop(rb_execution_context_t *ec, VALUE self, VALUE non_block, VALUE timeout)
 {
     return szqueue_do_pop(self, !RTEST(non_block), timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(non_block);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1370,6 +1449,7 @@ rb_szqueue_clear(VALUE self)
     rb_ary_clear(check_array(self, sq->q.que));
     wakeup_all(szqueue_pushq(sq));
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1387,6 +1467,7 @@ rb_szqueue_length(VALUE self)
     struct rb_szqueue *sq = szqueue_ptr(self);
 
     return LONG2NUM(queue_length(self, &sq->q));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1401,6 +1482,7 @@ rb_szqueue_num_waiting(VALUE self)
     struct rb_szqueue *sq = szqueue_ptr(self);
 
     return INT2NUM(sq->q.num_waiting + sq->num_waiting_push);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1416,6 +1498,7 @@ rb_szqueue_empty_p(VALUE self)
     struct rb_szqueue *sq = szqueue_ptr(self);
 
     return RBOOL(queue_length(self, &sq->q) == 0);
+    RB_GC_GUARD(self);
 }
 
 
@@ -1480,6 +1563,7 @@ condvar_ptr(VALUE self)
     }
 
     return cv;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1492,6 +1576,8 @@ condvar_alloc(VALUE klass)
     ccan_list_head_init(&cv->waitq);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1506,6 +1592,7 @@ rb_condvar_initialize(VALUE self)
     struct rb_condvar *cv = condvar_ptr(self);
     ccan_list_head_init(&cv->waitq);
     return self;
+    RB_GC_GUARD(self);
 }
 
 struct sleep_call {
@@ -1520,6 +1607,7 @@ do_sleep(VALUE args)
 {
     struct sleep_call *p = (struct sleep_call *)args;
     return rb_funcallv(p->mutex, id_sleep, 1, &p->timeout);
+    RB_GC_GUARD(args);
 }
 
 /*
@@ -1552,6 +1640,7 @@ rb_condvar_wait(int argc, VALUE *argv, VALUE self)
 
     ccan_list_add_tail(&cv->waitq, &sync_waiter.node);
     return rb_ensure(do_sleep, (VALUE)&args, delete_from_waitq, (VALUE)&sync_waiter);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1566,6 +1655,7 @@ rb_condvar_signal(VALUE self)
     struct rb_condvar *cv = condvar_ptr(self);
     wakeup_one(&cv->waitq);
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1580,6 +1670,7 @@ rb_condvar_broadcast(VALUE self)
     struct rb_condvar *cv = condvar_ptr(self);
     wakeup_all(&cv->waitq);
     return self;
+    RB_GC_GUARD(self);
 }
 
 NORETURN(static VALUE undumpable(VALUE obj));
@@ -1589,6 +1680,7 @@ undumpable(VALUE obj)
 {
     rb_raise(rb_eTypeError, "can't dump %"PRIsVALUE, rb_obj_class(obj));
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1597,6 +1689,9 @@ define_thread_class(VALUE outer, const ID name, VALUE super)
     VALUE klass = rb_define_class_id_under(outer, name, super);
     rb_const_set(rb_cObject, name, klass);
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(klass);
 }
 
 static void

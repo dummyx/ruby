@@ -2260,6 +2260,7 @@ st_stringify(VALUE key)
 {
     return (rb_obj_class(key) == rb_cString && !RB_OBJ_FROZEN(key)) ?
         rb_hash_key_str(key) : key;
+        RB_GC_GUARD(key);
 }
 
 static void
@@ -2275,6 +2276,9 @@ st_insert_single(st_table *tab, VALUE hash, VALUE key, VALUE val)
     tab->num_entries++;
     RB_OBJ_WRITTEN(hash, Qundef, k);
     RB_OBJ_WRITTEN(hash, Qundef, val);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static void
@@ -2289,6 +2293,7 @@ st_insert_linear(st_table *tab, long argc, const VALUE *argv, VALUE hash)
         RB_OBJ_WRITTEN(hash, Qundef, k);
         RB_OBJ_WRITTEN(hash, Qundef, v);
     }
+        RB_GC_GUARD(hash);
 }
 
 static void
@@ -2301,10 +2306,13 @@ st_insert_generic(st_table *tab, long argc, const VALUE *argv, VALUE hash)
         VALUE key = argv[i++];
         VALUE val = argv[i++];
         st_insert_single(tab, hash, key, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
     }
 
     /* reindex */
     st_rehash(tab);
+    RB_GC_GUARD(hash);
 }
 
 /* Mimics ruby's { foo => bar } syntax. This function is subpart
@@ -2326,6 +2334,7 @@ rb_hash_bulk_insert_into_st_table(long argc, const VALUE *argv, VALUE hash)
         st_insert_linear(tab, argc, argv, hash);
     else
         st_insert_generic(tab, argc, argv, hash);
+        RB_GC_GUARD(hash);
 }
 
 // to iterate iv_index_tbl

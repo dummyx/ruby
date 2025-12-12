@@ -15,6 +15,7 @@ static VALUE
 Bar_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &Bar_type, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -26,6 +27,9 @@ Bar_to_ary(VALUE _self)
     rb_ary_push(ary, foo);
     rb_ary_push(ary, foo);
     return ary;
+    RB_GC_GUARD(_self);
+    RB_GC_GUARD(foo);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -35,4 +39,6 @@ Init_to_ary_concat(void)
     VALUE bar = rb_define_class_under(mBug, "Bar", rb_cObject);
     rb_define_alloc_func(bar, Bar_alloc);
     rb_define_method(bar, "to_ary", Bar_to_ary, 0);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(bar);
 }

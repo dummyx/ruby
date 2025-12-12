@@ -5,12 +5,21 @@ static VALUE
 io_wait(VALUE klass, VALUE io, VALUE events, VALUE timeout)
 {
     return rb_io_wait(io, events, timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(events);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 io_maybe_wait(VALUE klass, VALUE error, VALUE io, VALUE events, VALUE timeout)
 {
     return rb_io_maybe_wait(RB_NUM2INT(error), io, events, timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(events);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(error);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -19,6 +28,10 @@ io_maybe_wait_readable(VALUE klass, VALUE error, VALUE io, VALUE timeout)
     return RB_INT2NUM(
         rb_io_maybe_wait_readable(RB_NUM2INT(error), io, timeout)
     );
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(error);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -27,6 +40,10 @@ io_maybe_wait_writable(VALUE klass, VALUE error, VALUE io, VALUE timeout)
     return RB_INT2NUM(
         rb_io_maybe_wait_writable(RB_NUM2INT(error), io, timeout)
     );
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(error);
+    RB_GC_GUARD(klass);
 }
 
 void

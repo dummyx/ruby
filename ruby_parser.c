@@ -566,6 +566,7 @@ rb_parser_new(void)
     parser->parser_params = parser_params;
 
     return vparser;
+    RB_GC_GUARD(vparser);
 }
 
 void
@@ -575,6 +576,7 @@ rb_parser_set_options(VALUE vparser, int print, int loop, int chomp, int split)
 
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     rb_ruby_parser_set_options(parser->parser_params, print, loop, chomp, split);
+    RB_GC_GUARD(vparser);
 }
 
 VALUE
@@ -585,6 +587,7 @@ rb_parser_set_context(VALUE vparser, const struct rb_iseq_struct *base, int main
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     rb_ruby_parser_set_context(parser->parser_params, base, main);
     return vparser;
+    RB_GC_GUARD(vparser);
 }
 
 void
@@ -594,6 +597,7 @@ rb_parser_set_script_lines(VALUE vparser)
 
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     rb_ruby_parser_set_script_lines(parser->parser_params);
+    RB_GC_GUARD(vparser);
 }
 
 void
@@ -603,6 +607,7 @@ rb_parser_error_tolerant(VALUE vparser)
 
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     rb_ruby_parser_error_tolerant(parser->parser_params);
+    RB_GC_GUARD(vparser);
 }
 
 void
@@ -612,6 +617,7 @@ rb_parser_keep_tokens(VALUE vparser)
 
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     rb_ruby_parser_keep_tokens(parser->parser_params);
+    RB_GC_GUARD(vparser);
 }
 
 rb_parser_string_t *
@@ -633,6 +639,7 @@ rb_parser_lex_get_str(struct parser_params *p, struct lex_pointer_string *ptr_st
     if (end) len = ++end - beg;
     ptr_str->ptr += len;
     return rb_str_to_parser_string(p, rb_str_subseq(s, beg - start, len));
+    RB_GC_GUARD(s);
 }
 
 static rb_parser_string_t *
@@ -649,6 +656,7 @@ parser_compile(rb_parser_t *p, rb_parser_lex_gets_func *gets, VALUE fname, rb_pa
     rb_ast_t *ast = rb_parser_compile(p, gets, fname, input, line);
     parser_aset_script_lines_for(fname, ast->body.script_lines);
     return ast;
+    RB_GC_GUARD(fname);
 }
 
 static rb_ast_t*
@@ -661,6 +669,9 @@ parser_compile_string0(struct ruby_parser *parser, VALUE fname, VALUE s, int lin
     parser->data.lex_str.ptr = 0;
 
     return parser_compile(parser->parser_params, lex_get_str, fname, (rb_parser_input_data)&parser->data, line);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(str);
 }
 
 static rb_encoding *
@@ -671,6 +682,7 @@ must_be_ascii_compatible(VALUE s)
         rb_raise(rb_eArgError, "invalid source encoding");
     }
     return enc;
+    RB_GC_GUARD(s);
 }
 
 static rb_ast_t*
@@ -678,12 +690,15 @@ parser_compile_string_path(struct ruby_parser *parser, VALUE f, VALUE s, int lin
 {
     must_be_ascii_compatible(s);
     return parser_compile_string0(parser, f, s, line);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(f);
 }
 
 static rb_ast_t*
 parser_compile_string(struct ruby_parser *parser, const char *f, VALUE s, int line)
 {
     return parser_compile_string_path(parser, rb_filesystem_str_new_cstr(f), s, line);
+    RB_GC_GUARD(s);
 }
 
 VALUE rb_io_gets_internal(VALUE io);
@@ -695,6 +710,8 @@ lex_io_gets(struct parser_params *p, rb_parser_input_data input, int line_count)
     VALUE line = rb_io_gets_internal(io);
     if (NIL_P(line)) return 0;
     return rb_str_to_parser_string(p, line);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(io);
 }
 
 static rb_parser_string_t *
@@ -711,6 +728,8 @@ lex_gets_array(struct parser_params *p, rb_parser_input_data data, int index)
     }
     else {
         return 0;
+        RB_GC_GUARD(array);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -721,6 +740,8 @@ parser_compile_file_path(struct ruby_parser *parser, VALUE fname, VALUE file, in
     parser->data.lex_io.file = file;
 
     return parser_compile(parser->parser_params, lex_io_gets, fname, (rb_parser_input_data)file, start);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(fname);
 }
 
 static rb_ast_t*
@@ -730,6 +751,8 @@ parser_compile_array(struct ruby_parser *parser, VALUE fname, VALUE array, int s
     parser->data.lex_array.ary = array;
 
     return parser_compile(parser->parser_params, lex_gets_array, fname, (rb_parser_input_data)array, start);
+    RB_GC_GUARD(array);
+    RB_GC_GUARD(fname);
 }
 
 static rb_ast_t*
@@ -738,6 +761,8 @@ parser_compile_generic(struct ruby_parser *parser, rb_parser_lex_gets_func *lex_
     parser->type = lex_type_generic;
 
     return parser_compile(parser->parser_params, lex_gets, fname, (rb_parser_input_data)input, start);
+    RB_GC_GUARD(input);
+    RB_GC_GUARD(fname);
 }
 
 static void
@@ -774,6 +799,10 @@ rb_parser_compile_file_path(VALUE vparser, VALUE fname, VALUE file, int start)
     RB_GC_GUARD(vparser);
 
     return ast_value;
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 VALUE
@@ -787,6 +816,10 @@ rb_parser_compile_array(VALUE vparser, VALUE fname, VALUE array, int start)
     RB_GC_GUARD(vparser);
 
     return ast_value;
+    RB_GC_GUARD(array);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 VALUE
@@ -800,6 +833,10 @@ rb_parser_compile_generic(VALUE vparser, rb_parser_lex_gets_func *lex_gets, VALU
     RB_GC_GUARD(vparser);
 
     return ast_value;
+    RB_GC_GUARD(input);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 VALUE
@@ -813,6 +850,9 @@ rb_parser_compile_string(VALUE vparser, const char *f, VALUE s, int line)
     RB_GC_GUARD(vparser);
 
     return ast_value;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 VALUE
@@ -826,6 +866,10 @@ rb_parser_compile_string_path(VALUE vparser, VALUE f, VALUE s, int line)
     RB_GC_GUARD(vparser);
 
     return ast_value;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 VALUE
@@ -835,6 +879,7 @@ rb_parser_encoding(VALUE vparser)
 
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     return rb_enc_from_encoding(rb_ruby_parser_encoding(parser->parser_params));
+    RB_GC_GUARD(vparser);
 }
 
 VALUE
@@ -844,6 +889,7 @@ rb_parser_end_seen_p(VALUE vparser)
 
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     return RBOOL(rb_ruby_parser_end_seen_p(parser->parser_params));
+    RB_GC_GUARD(vparser);
 }
 
 VALUE
@@ -854,6 +900,8 @@ rb_parser_set_yydebug(VALUE vparser, VALUE flag)
     TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
     rb_ruby_parser_set_yydebug(parser->parser_params, RTEST(flag));
     return flag;
+    RB_GC_GUARD(flag);
+    RB_GC_GUARD(vparser);
 }
 
 void
@@ -870,6 +918,9 @@ rb_set_script_lines_for(VALUE vparser, VALUE path)
         TypedData_Get_Struct(vparser, struct ruby_parser, &ruby_parser_data_type, parser);
         rb_ruby_parser_set_script_lines(parser->parser_params);
     }
+        RB_GC_GUARD(hash);
+        RB_GC_GUARD(path);
+        RB_GC_GUARD(vparser);
 }
 
 VALUE
@@ -886,6 +937,7 @@ rb_parser_build_script_lines_from(rb_parser_ary_t *lines)
         rb_ary_push(script_lines, rb_enc_str_new(str->ptr, str->len, str->enc));
     }
     return script_lines;
+    RB_GC_GUARD(script_lines);
 }
 
 VALUE
@@ -894,6 +946,7 @@ rb_str_new_parser_string(rb_parser_string_t *str)
     VALUE string = rb_enc_literal_str(str->ptr, str->len, str->enc);
     rb_enc_str_coderange(string);
     return string;
+    RB_GC_GUARD(string);
 }
 
 VALUE
@@ -938,6 +991,7 @@ negative_numeric(VALUE val)
         break;
     }
     return val;
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -966,6 +1020,7 @@ rational_value(const char *node_val, int base, int seen_point)
     free(val);
 
     return lit;
+    RB_GC_GUARD(lit);
 }
 
 VALUE
@@ -977,6 +1032,7 @@ rb_node_integer_literal_val(const NODE *n)
         val = negative_numeric(val);
     }
     return val;
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -989,6 +1045,7 @@ rb_node_float_literal_val(const NODE *n)
     }
     VALUE val = DBL2NUM(d);
     return val;
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -1004,6 +1061,7 @@ rb_node_rational_literal_val(const NODE *n)
     }
 
     return lit;
+    RB_GC_GUARD(lit);
 }
 
 VALUE
@@ -1036,6 +1094,7 @@ rb_node_imaginary_literal_val(const NODE *n)
         lit = negative_numeric(lit);
     }
     return lit;
+    RB_GC_GUARD(lit);
 }
 
 VALUE
@@ -1074,6 +1133,7 @@ rb_node_regx_string_val(const NODE *node)
     VALUE str = rb_enc_str_new(string->ptr, string->len, string->enc);
 
     return rb_reg_compile(str, node_reg->options, NULL, 0);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -1107,6 +1167,9 @@ parser_aset_script_lines_for(VALUE path, rb_parser_ary_t *lines)
     if (rb_hash_lookup(hash, path) == Qnil) return;
     script_lines = rb_parser_build_script_lines_from(lines);
     rb_hash_aset(hash, path, script_lines);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(script_lines);
 }
 
 VALUE
@@ -1125,6 +1188,7 @@ rb_ruby_ast_new(const NODE *const root)
         .line_count = 0,
     };
     return ast_value;
+    RB_GC_GUARD(ast_value);
 }
 
 rb_ast_t *
@@ -1134,4 +1198,5 @@ rb_ruby_ast_data_get(VALUE ast_value)
     if (NIL_P(ast_value)) return NULL;
     TypedData_Get_Struct(ast_value, rb_ast_t, &ast_data_type, ast);
     return ast;
+    RB_GC_GUARD(ast_value);
 }

@@ -131,6 +131,8 @@ str_associate(VALUE str, VALUE add)
 {
     /* assert(NIL_P(rb_attr_get(str, id_associated))); */
     rb_ivar_set(str, id_associated, add);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(add);
 }
 
 static VALUE
@@ -140,6 +142,8 @@ str_associated(VALUE str)
     if (!associates)
         rb_raise(rb_eArgError, "no associated pointer");
     return associates;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(associates);
 }
 
 static VALUE
@@ -150,9 +154,11 @@ associated_pointer(VALUE associates, const char *t)
     for (; p < pend; p++) {
         VALUE tmp = *p;
         if (RB_TYPE_P(tmp, T_STRING) && RSTRING_PTR(tmp) == t) return tmp;
+    RB_GC_GUARD(tmp);
     }
     rb_raise(rb_eArgError, "non associated pointer");
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(associates);
 }
 
 RBIMPL_ATTR_NORETURN()
@@ -171,6 +177,7 @@ unknown_directive(const char *mode, char type, VALUE fmt)
     fmt = rb_str_quote_unprintable(fmt);
     rb_raise(rb_eArgError, "unknown %s directive '%s' in '%"PRIsVALUE"'",
             mode, unknown, fmt);
+            RB_GC_GUARD(fmt);
 }
 
 static float
@@ -190,6 +197,8 @@ VALUE_to_float(VALUE obj)
     }
     else {
         return INFINITY;
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -199,6 +208,7 @@ str_expand_fill(VALUE res, int c, long len)
     long olen = RSTRING_LEN(res);
     memset(RSTRING_PTR(res) + olen, c, len);
     rb_str_set_len(res, olen + len);
+    RB_GC_GUARD(res);
 }
 
 static char *
@@ -763,6 +773,7 @@ pack_pack(rb_execution_context_t *ec, VALUE ary, VALUE fmt, VALUE buffer)
                 }
 
                 rb_str_buf_cat(res, RSTRING_PTR(buf), RSTRING_LEN(buf));
+            RB_GC_GUARD(buf);
             }
             break;
 
@@ -788,12 +799,21 @@ pack_pack(rb_execution_context_t *ec, VALUE ary, VALUE fmt, VALUE buffer)
         break;
     }
     return res;
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(fmt);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(associates);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(res);
 }
 
 VALUE
 rb_ec_pack_ary(rb_execution_context_t *ec, VALUE ary, VALUE fmt, VALUE buffer)
 {
     return pack_pack(ec, ary, fmt, buffer);
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(fmt);
+    RB_GC_GUARD(ary);
 }
 
 static const char uu_table[] =
@@ -848,6 +868,7 @@ encodes(VALUE str, const char *s0, long len, int type, int tail_lf)
     if (tail_lf) buff[i++] = '\n';
     rb_str_buf_cat(str, buff, i);
     if ((size_t)i > sizeof(buff)) rb_bug("encodes() buffer overrun");
+    RB_GC_GUARD(str);
 }
 
 static const char hex_table[] = "0123456789ABCDEF";
@@ -903,6 +924,8 @@ qpencode(VALUE str, VALUE from, long len)
     if (i > 0) {
         rb_str_buf_cat(str, buff, i);
     }
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(from);
 }
 
 static inline int
@@ -1072,6 +1095,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                     *t++ = (bits & 1) ? '1' : '0';
                 }
                 UNPACK_PUSH(bitstr);
+            RB_GC_GUARD(bitstr);
             }
             break;
 
@@ -1093,6 +1117,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                     *t++ = (bits & 128) ? '1' : '0';
                 }
                 UNPACK_PUSH(bitstr);
+            RB_GC_GUARD(bitstr);
             }
             break;
 
@@ -1116,6 +1141,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                     *t++ = hexdigits[bits & 15];
                 }
                 UNPACK_PUSH(bitstr);
+            RB_GC_GUARD(bitstr);
             }
             break;
 
@@ -1139,6 +1165,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                     *t++ = hexdigits[(bits >> 4) & 15];
                 }
                 UNPACK_PUSH(bitstr);
+            RB_GC_GUARD(bitstr);
             }
             break;
 
@@ -1251,6 +1278,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                 val = rb_integer_unpack(s, integer_size, 1, 0, flags);
                 UNPACK_PUSH(val);
                 s += integer_size;
+            RB_GC_GUARD(val);
             }
             PACK_ITEM_ADJUST();
             break;
@@ -1385,6 +1413,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
 
                 rb_str_set_len(buf, total);
                 UNPACK_PUSH(buf);
+            RB_GC_GUARD(buf);
             }
             break;
 
@@ -1466,6 +1495,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                 }
                 rb_str_set_len(buf, ptr - RSTRING_PTR(buf));
                 UNPACK_PUSH(buf);
+            RB_GC_GUARD(buf);
             }
             break;
 
@@ -1499,6 +1529,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                 csum = ISASCII(csum) ? ENC_CODERANGE_7BIT : ENC_CODERANGE_VALID;
                 ENCODING_CODERANGE_SET(buf, rb_ascii8bit_encindex(), csum);
                 UNPACK_PUSH(buf);
+            RB_GC_GUARD(buf);
             }
             break;
 
@@ -1535,6 +1566,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                     }
                 }
                 UNPACK_PUSH(tmp);
+            RB_GC_GUARD(tmp);
             }
             break;
 
@@ -1554,6 +1586,7 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
                         tmp = associated_pointer(associates, t);
                     }
                     UNPACK_PUSH(tmp);
+            RB_GC_GUARD(tmp);
                 }
             }
             break;
@@ -1582,6 +1615,10 @@ pack_unpack_internal(VALUE str, VALUE fmt, enum unpack_mode mode, long offset)
     }
 
     return ary;
+    RB_GC_GUARD(fmt);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(associates);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -1589,12 +1626,18 @@ pack_unpack(rb_execution_context_t *ec, VALUE str, VALUE fmt, VALUE offset)
 {
     enum unpack_mode mode = rb_block_given_p() ? UNPACK_BLOCK : UNPACK_ARRAY;
     return pack_unpack_internal(str, fmt, mode, RB_NUM2LONG(offset));
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(fmt);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
 pack_unpack1(rb_execution_context_t *ec, VALUE str, VALUE fmt, VALUE offset)
 {
     return pack_unpack_internal(str, fmt, UNPACK_1, RB_NUM2LONG(offset));
+    RB_GC_GUARD(offset);
+    RB_GC_GUARD(fmt);
+    RB_GC_GUARD(str);
 }
 
 int

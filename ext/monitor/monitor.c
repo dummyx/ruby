@@ -40,6 +40,8 @@ monitor_alloc(VALUE klass)
     mc->count = 0;
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static struct rb_monitor *
@@ -48,6 +50,7 @@ monitor_ptr(VALUE monitor)
     struct rb_monitor *mc;
     TypedData_Get_Struct(monitor, struct rb_monitor, &monitor_data_type, mc);
     return mc;
+    RB_GC_GUARD(monitor);
 }
 
 static int
@@ -76,6 +79,7 @@ monitor_try_enter(VALUE monitor)
     }
     mc->count += 1;
     return Qtrue;
+    RB_GC_GUARD(monitor);
 }
 
 /*
@@ -95,6 +99,7 @@ monitor_enter(VALUE monitor)
     }
     mc->count++;
     return Qnil;
+    RB_GC_GUARD(monitor);
 }
 
 /* :nodoc: */
@@ -106,6 +111,7 @@ monitor_check_owner(VALUE monitor)
         rb_raise(rb_eThreadError, "current fiber not owner");
     }
     return Qnil;
+    RB_GC_GUARD(monitor);
 }
 
 /*
@@ -129,6 +135,7 @@ monitor_exit(VALUE monitor)
         rb_mutex_unlock(mc->mutex);
     }
     return Qnil;
+    RB_GC_GUARD(monitor);
 }
 
 /* :nodoc: */
@@ -137,6 +144,7 @@ monitor_locked_p(VALUE monitor)
 {
     struct rb_monitor *mc = monitor_ptr(monitor);
     return rb_mutex_locked_p(mc->mutex);
+    RB_GC_GUARD(monitor);
 }
 
 /* :nodoc: */
@@ -145,6 +153,7 @@ monitor_owned_p(VALUE monitor)
 {
     struct rb_monitor *mc = monitor_ptr(monitor);
     return (rb_mutex_locked_p(mc->mutex) && mc_owner_p(mc)) ? Qtrue : Qfalse;
+    RB_GC_GUARD(monitor);
 }
 
 static VALUE
@@ -155,6 +164,7 @@ monitor_exit_for_cond(VALUE monitor)
     RB_OBJ_WRITE(monitor, &mc->owner, Qnil);
     mc->count = 0;
     return LONG2NUM(cnt);
+    RB_GC_GUARD(monitor);
 }
 
 struct wait_for_cond_data {
@@ -172,6 +182,8 @@ monitor_wait_for_cond_body(VALUE v)
     // cond.wait(monitor.mutex, timeout)
     VALUE signaled = rb_funcall(data->cond, rb_intern("wait"), 2, mc->mutex, data->timeout);
     return RTEST(signaled) ? Qtrue : Qfalse;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(signaled);
 }
 
 static VALUE
@@ -185,6 +197,7 @@ monitor_enter_for_cond(VALUE v)
     RB_OBJ_WRITE(data->monitor, &mc->owner, rb_fiber_current());
     mc->count = NUM2LONG(data->count);
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 /* :nodoc: */
@@ -201,18 +214,24 @@ monitor_wait_for_cond(VALUE monitor, VALUE cond, VALUE timeout)
 
     return rb_ensure(monitor_wait_for_cond_body, (VALUE)&data,
                      monitor_enter_for_cond, (VALUE)&data);
+                     RB_GC_GUARD(timeout);
+                     RB_GC_GUARD(cond);
+                     RB_GC_GUARD(monitor);
+                     RB_GC_GUARD(count);
 }
 
 static VALUE
 monitor_sync_body(VALUE monitor)
 {
     return rb_yield_values(0);
+    RB_GC_GUARD(monitor);
 }
 
 static VALUE
 monitor_sync_ensure(VALUE monitor)
 {
     return monitor_exit(monitor);
+    RB_GC_GUARD(monitor);
 }
 
 /*
@@ -228,6 +247,7 @@ monitor_synchronize(VALUE monitor)
 {
     monitor_enter(monitor);
     return rb_ensure(monitor_sync_body, monitor, monitor_sync_ensure, monitor);
+    RB_GC_GUARD(monitor);
 }
 
 void
@@ -252,4 +272,5 @@ Init_monitor(void)
 
     /* internal methods for MonitorMixin::ConditionVariable */
     rb_define_method(rb_cMonitor, "wait_for_cond", monitor_wait_for_cond, 2);
+    RB_GC_GUARD(rb_cMonitor);
 }

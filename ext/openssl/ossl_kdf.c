@@ -65,6 +65,11 @@ kdf_pbkdf2_hmac(int argc, VALUE *argv, VALUE self)
 	ossl_raise(eKDF, "PKCS5_PBKDF2_HMAC");
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(salt);
+    RB_GC_GUARD(pass);
 }
 
 #if defined(HAVE_EVP_PBE_SCRYPT)
@@ -138,6 +143,11 @@ kdf_scrypt(int argc, VALUE *argv, VALUE self)
 	ossl_raise(eKDF, "EVP_PBE_scrypt");
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(salt);
+    RB_GC_GUARD(pass);
 }
 #endif
 
@@ -237,6 +247,12 @@ kdf_hkdf(int argc, VALUE *argv, VALUE self)
     EVP_PKEY_CTX_free(pctx);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(info);
+    RB_GC_GUARD(salt);
+    RB_GC_GUARD(ikm);
 }
 #endif
 

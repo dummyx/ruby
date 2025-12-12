@@ -12,12 +12,16 @@ invalid_call(VALUE obj, VALUE address)
     typedef VALUE (*func_type)(VALUE);
 
     return (*(func_type)NUM2PTR(address))(obj);
+    RB_GC_GUARD(address);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
 invalid_access(VALUE obj, VALUE address)
 {
     return *(VALUE *)NUM2PTR(address) == obj ? Qtrue : Qfalse;
+    RB_GC_GUARD(address);
+    RB_GC_GUARD(obj);
 }
 
 void

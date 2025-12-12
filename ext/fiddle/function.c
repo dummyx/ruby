@@ -68,6 +68,7 @@ allocate(VALUE klass)
     ffi_cif * cif;
 
     return TypedData_Make_Struct(klass, ffi_cif, &function_data_type, cif);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -80,6 +81,9 @@ rb_fiddle_new_function(VALUE address, VALUE arg_types, VALUE ret_type)
     argv[2] = ret_type;
 
     return rb_class_new_instance(3, argv, cFiddleFunction);
+    RB_GC_GUARD(ret_type);
+    RB_GC_GUARD(arg_types);
+    RB_GC_GUARD(address);
 }
 
 static VALUE
@@ -116,11 +120,14 @@ normalize_argument_types(const char *name,
             (void)INT2FFI_TYPE(c_arg_type); /* raise */
         }
         rb_ary_push(normalized_arg_types, INT2FIX(c_arg_type));
+    RB_GC_GUARD(arg_type);
     }
 
     /* freeze to prevent inconsistency at calling #to_int later */
     OBJ_FREEZE(normalized_arg_types);
     return normalized_arg_types;
+    RB_GC_GUARD(arg_types);
+    RB_GC_GUARD(normalized_arg_types);
 }
 
 static VALUE
@@ -197,6 +204,14 @@ initialize(int argc, VALUE argv[], VALUE self)
     cif->arg_types = NULL;
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(need_gvl);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(kwargs);
+    RB_GC_GUARD(abi);
+    RB_GC_GUARD(ret_type);
+    RB_GC_GUARD(arg_types);
+    RB_GC_GUARD(ptr);
 }
 
 struct nogvl_ffi_call_args {
@@ -287,6 +302,7 @@ function_call(int argc, VALUE argv[], VALUE self)
           c_arg_type = NUM2INT(arg_type);
           (void)INT2FFI_TYPE(c_arg_type); /* raise */
           rb_ary_push(arg_types, INT2FIX(c_arg_type));
+        RB_GC_GUARD(arg_type);
         }
 
         return_type = rb_iv_get(self, "@return_type");
@@ -300,6 +316,7 @@ function_call(int argc, VALUE argv[], VALUE self)
             arg_type = RARRAY_AREF(arg_types, i_call);
             c_arg_type = FIX2INT(arg_type);
             ffi_arg_types[i_call] = INT2FFI_TYPE(c_arg_type);
+        RB_GC_GUARD(arg_type);
         }
         ffi_arg_types[i_call] = NULL;
 
@@ -328,6 +345,8 @@ function_call(int argc, VALUE argv[], VALUE self)
             xfree(ffi_arg_types);
             args.cif->arg_types = NULL;
             rb_raise(rb_eRuntimeError, "error creating CIF %d", result);
+    RB_GC_GUARD(fixed_arg_types);
+    RB_GC_GUARD(return_type);
         }
     }
 
@@ -374,6 +393,9 @@ function_call(int argc, VALUE argv[], VALUE self)
             rb_ary_push(converted_args, src);
         }
         args.values[i_call] = (void *)&generic_args[i_call];
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(original_src);
+    RB_GC_GUARD(arg_type);
     }
     args.values[i_call] = NULL;
     args.fn = (void(*)(void))(VALUE)NUM2PTR(cfunc);
@@ -401,6 +423,15 @@ function_call(int argc, VALUE argv[], VALUE self)
     ALLOCV_END(alloc_buffer);
 
     return GENERIC2VALUE(rb_iv_get(self, "@return_type"), args.retval);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(alloc_buffer);
+    RB_GC_GUARD(converted_args);
+    RB_GC_GUARD(need_gvl);
+    RB_GC_GUARD(is_variadic);
+    RB_GC_GUARD(cPointer);
+    RB_GC_GUARD(arg_types);
+    RB_GC_GUARD(abi);
+    RB_GC_GUARD(cfunc);
 }
 
 void

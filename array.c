@@ -76,6 +76,7 @@ static int
 should_be_T_ARRAY(VALUE ary)
 {
     return RB_TYPE_P(ary, T_ARRAY);
+    RB_GC_GUARD(ary);
 }
 
 #define ARY_HEAP_PTR(a) (RUBY_ASSERT(!ARY_EMBED_P(a)), RARRAY(a)->as.heap.ptr)
@@ -174,6 +175,8 @@ ARY_SET(VALUE a, long i, VALUE v)
     RUBY_ASSERT(!OBJ_FROZEN(a));
 
     RARRAY_ASET(a, i, v);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(v);
 }
 #undef RARRAY_ASET
 
@@ -183,6 +186,7 @@ ary_embed_capa(VALUE ary)
     size_t size = rb_gc_obj_slot_size(ary) - offsetof(struct RArray, as.ary);
     RUBY_ASSERT(size % sizeof(VALUE) == 0);
     return size / sizeof(VALUE);
+    RB_GC_GUARD(ary);
 }
 
 static size_t
@@ -209,6 +213,7 @@ rb_ary_embeddable_p(VALUE ary)
      *    root (to save memory).
      */
     return !(ARY_SHARED_ROOT_P(ary) || OBJ_FROZEN(ary) || ARY_SHARED_P(ary));
+    RB_GC_GUARD(ary);
 }
 
 size_t
@@ -226,6 +231,7 @@ rb_ary_size_as_embedded(VALUE ary)
         real_size = sizeof(struct RArray);
     }
     return real_size;
+    RB_GC_GUARD(ary);
 }
 
 
@@ -274,6 +280,7 @@ rb_ary_ptr_use_start(VALUE ary)
     FL_SET_RAW(ary, RARRAY_PTR_IN_USE_FLAG);
 #endif
     return (VALUE *)RARRAY_CONST_PTR(ary);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -282,6 +289,7 @@ rb_ary_ptr_use_end(VALUE ary)
 #if ARRAY_DEBUG
     FL_UNSET_RAW(ary, RARRAY_PTR_IN_USE_FLAG);
 #endif
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -298,6 +306,7 @@ ary_mem_clear(VALUE ary, long beg, long size)
     RARRAY_PTR_USE(ary, ptr, {
         rb_mem_clear(ptr + beg, size);
     });
+     RB_GC_GUARD(ary);
 }
 
 static inline void
@@ -306,6 +315,7 @@ memfill(register VALUE *mem, register long size, register VALUE val)
     while (size--) {
         *mem++ = val;
     }
+    //    RB_GC_GUARD(val);
 }
 
 static void
@@ -315,6 +325,8 @@ ary_memfill(VALUE ary, long beg, long size, VALUE val)
         memfill(ptr + beg, size, val);
         RB_OBJ_WRITTEN(ary, Qundef, val);
     });
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(val);
 }
 
 static void
@@ -336,12 +348,15 @@ ary_memcpy0(VALUE ary, long beg, long argc, const VALUE *argv, VALUE buff_owner_
             }
         });
     }
+                RB_GC_GUARD(ary);
+                RB_GC_GUARD(buff_owner_ary);
 }
 
 static void
 ary_memcpy(VALUE ary, long beg, long argc, const VALUE *argv)
 {
     ary_memcpy0(ary, beg, argc, argv, ary);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE *
@@ -354,12 +369,14 @@ static void
 ary_heap_free_ptr(VALUE ary, const VALUE *ptr, long size)
 {
     ruby_sized_xfree((void *)ptr, size);
+    RB_GC_GUARD(ary);
 }
 
 static void
 ary_heap_free(VALUE ary)
 {
     ary_heap_free_ptr(ary, ARY_HEAP_PTR(ary), ARY_HEAP_SIZE(ary));
+    RB_GC_GUARD(ary);
 }
 
 static size_t
@@ -370,6 +387,7 @@ ary_heap_realloc(VALUE ary, size_t new_capa)
     ary_verify(ary);
 
     return new_capa;
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -387,6 +405,7 @@ rb_ary_make_embedded(VALUE ary)
 
         ary_heap_free_ptr(ary, buf, len * sizeof(VALUE));
     }
+        RB_GC_GUARD(ary);
 }
 
 static void
@@ -428,6 +447,7 @@ ary_resize_capa(VALUE ary, long capacity)
     }
 
     ary_verify(ary);
+    RB_GC_GUARD(ary);
 }
 
 static inline void
@@ -443,6 +463,7 @@ ary_shrink_capa(VALUE ary)
     }
 
     ary_verify(ary);
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -460,6 +481,7 @@ ary_double_capa(VALUE ary, long min)
     ary_resize_capa(ary, new_capa);
 
     ary_verify(ary);
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -469,6 +491,7 @@ rb_ary_decrement_share(VALUE shared_root)
         long num = ARY_SHARED_ROOT_REFCNT(shared_root);
         ARY_SET_SHARED_ROOT_REFCNT(shared_root, num - 1);
     }
+        RB_GC_GUARD(shared_root);
 }
 
 static void
@@ -477,6 +500,8 @@ rb_ary_unshare(VALUE ary)
     VALUE shared_root = ARY_SHARED_ROOT(ary);
     rb_ary_decrement_share(shared_root);
     FL_UNSET_SHARED(ary);
+    RB_GC_GUARD(shared_root);
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -491,6 +516,7 @@ rb_ary_reset(VALUE ary)
 
     FL_SET_EMBED(ary);
     ARY_SET_EMBED_LEN(ary, 0);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -502,6 +528,7 @@ rb_ary_increment_share(VALUE shared_root)
         ARY_SET_SHARED_ROOT_REFCNT(shared_root, num + 1);
     }
     return shared_root;
+    RB_GC_GUARD(shared_root);
 }
 
 static void
@@ -516,6 +543,8 @@ rb_ary_set_shared(VALUE ary, VALUE shared_root)
     RB_OBJ_WRITE(ary, &RARRAY(ary)->as.heap.aux.shared_root, shared_root);
 
     RB_DEBUG_COUNTER_INC(obj_ary_shared_create);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(shared_root);
 }
 
 static inline void
@@ -523,6 +552,7 @@ rb_ary_modify_check(VALUE ary)
 {
     rb_check_frozen(ary);
     ary_verify(ary);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -562,8 +592,10 @@ rb_ary_cancel_sharing(VALUE ary)
         }
 
         rb_gc_writebarrier_remember(ary);
+    RB_GC_GUARD(shared_root);
     }
     ary_verify(ary);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -571,6 +603,7 @@ rb_ary_modify(VALUE ary)
 {
     rb_ary_modify_check(ary);
     rb_ary_cancel_sharing(ary);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -604,6 +637,7 @@ ary_ensure_room_for_push(VALUE ary, long add_len)
                     ary_verify(ary);
                     return ary;
                 }
+        RB_GC_GUARD(shared_root);
             }
         }
         ary_verify(ary);
@@ -619,6 +653,7 @@ ary_ensure_room_for_push(VALUE ary, long add_len)
 
     ary_verify(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -650,6 +685,7 @@ rb_ary_freeze(VALUE ary)
     }
 
     return rb_obj_freeze(ary);
+    RB_GC_GUARD(ary);
 }
 
 /* This can be used to take a snapshot of an array (with
@@ -669,6 +705,8 @@ rb_ary_shared_with_p(VALUE ary1, VALUE ary2)
         return Qtrue;
     }
     return Qfalse;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
 }
 
 static VALUE
@@ -684,6 +722,7 @@ ary_alloc_embed(VALUE klass, long capa)
      *   ARY_SET_EMBED_LEN((VALUE)ary, 0);
      */
     return (VALUE)ary;
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -693,6 +732,7 @@ ary_alloc_heap(VALUE klass)
                      T_ARRAY | (RGENGC_WB_PROTECTED_ARRAY ? FL_WB_PROTECTED : 0),
                      sizeof(struct RArray), 0);
     return (VALUE)ary;
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -700,6 +740,7 @@ empty_ary_alloc(VALUE klass)
 {
     RUBY_DTRACE_CREATE_HOOK(ARRAY, 0);
     return ary_alloc_embed(klass, 0);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -729,6 +770,8 @@ ary_new(VALUE klass, long capa)
     }
 
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -760,6 +803,7 @@ VALUE
 
     ARY_SET_LEN(ary, n);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -774,6 +818,8 @@ rb_ary_tmp_new_from_values(VALUE klass, long n, const VALUE *elts)
     }
 
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -795,6 +841,7 @@ ec_ary_alloc_embed(rb_execution_context_t *ec, VALUE klass, long capa)
      *   ARY_SET_EMBED_LEN((VALUE)ary, 0);
      */
     return (VALUE)ary;
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -804,6 +851,7 @@ ec_ary_alloc_heap(rb_execution_context_t *ec, VALUE klass)
             T_ARRAY | (RGENGC_WB_PROTECTED_ARRAY ? FL_WB_PROTECTED : 0),
             sizeof(struct RArray), ec);
     return (VALUE)ary;
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -833,6 +881,8 @@ ec_ary_new(rb_execution_context_t *ec, VALUE klass, long capa)
     }
 
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -847,6 +897,7 @@ rb_ec_ary_new_from_values(rb_execution_context_t *ec, long n, const VALUE *elts)
     }
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -854,6 +905,7 @@ rb_ary_hidden_new(long capa)
 {
     VALUE ary = ary_new(0, capa);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -863,6 +915,7 @@ rb_ary_hidden_new_fill(long capa)
     ary_memfill(ary, 0, capa, Qnil);
     ARY_SET_LEN(ary, capa);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -888,6 +941,7 @@ rb_ary_free(VALUE ary)
     if (ARY_SHARED_ROOT_P(ary) && ARY_SHARED_ROOT_OCCUPIED(ary)) {
         RB_DEBUG_COUNTER_INC(obj_ary_shared_root_occupied);
     }
+        RB_GC_GUARD(ary);
 }
 
 static VALUE fake_ary_flags;
@@ -900,6 +954,7 @@ init_fake_ary_flags(void)
     VALUE ary = (VALUE)&fake_ary;
     rb_ary_freeze(ary);
     return fake_ary.basic.flags;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -923,6 +978,7 @@ rb_ary_memsize(VALUE ary)
     }
     else {
         return 0;
+        RB_GC_GUARD(ary);
     }
 }
 
@@ -970,6 +1026,8 @@ ary_make_shared(VALUE ary)
         ary_verify(ary);
 
         return shared;
+        RB_GC_GUARD(shared);
+        RB_GC_GUARD(ary);
     }
 }
 
@@ -985,9 +1043,11 @@ ary_make_substitution(VALUE ary)
         ary_memcpy(subst, 0, len, RARRAY_CONST_PTR(ary));
         ARY_SET_EMBED_LEN(subst, len);
         return subst;
+    RB_GC_GUARD(subst);
     }
     else {
         return rb_ary_increment_share(ary_make_shared(ary));
+        RB_GC_GUARD(ary);
     }
 }
 
@@ -995,12 +1055,15 @@ VALUE
 rb_assoc_new(VALUE car, VALUE cdr)
 {
     return rb_ary_new3(2, car, cdr);
+    RB_GC_GUARD(cdr);
+    RB_GC_GUARD(car);
 }
 
 VALUE
 rb_to_array_type(VALUE ary)
 {
     return rb_convert_type_with_id(ary, T_ARRAY, "Array", idTo_ary);
+    RB_GC_GUARD(ary);
 }
 #define to_ary rb_to_array_type
 
@@ -1008,18 +1071,21 @@ VALUE
 rb_check_array_type(VALUE ary)
 {
     return rb_check_convert_type_with_id(ary, T_ARRAY, "Array", idTo_ary);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
 rb_check_to_array(VALUE ary)
 {
     return rb_check_convert_type_with_id(ary, T_ARRAY, "Array", idTo_a);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
 rb_to_array(VALUE ary)
 {
     return rb_convert_type_with_id(ary, T_ARRAY, "Array", idTo_a);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1044,6 +1110,8 @@ static VALUE
 rb_ary_s_try_convert(VALUE dummy, VALUE ary)
 {
     return rb_check_array_type(ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(dummy);
 }
 
 /* :nodoc: */
@@ -1068,6 +1136,8 @@ rb_ary_s_new(int argc, VALUE *argv, VALUE klass)
     }
 
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1173,6 +1243,9 @@ rb_ary_initialize(int argc, VALUE *argv, VALUE ary)
         ARY_SET_LEN(ary, len);
     }
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(size);
 }
 
 /*
@@ -1195,6 +1268,8 @@ rb_ary_s_create(int argc, VALUE *argv, VALUE klass)
     }
 
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -1225,6 +1300,8 @@ rb_ary_store(VALUE ary, long idx, VALUE val)
         ARY_SET_LEN(ary, idx + 1);
     }
     ARY_SET(ary, idx, val);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -1257,10 +1334,14 @@ ary_make_partial(VALUE ary, VALUE klass, long offset, long len)
         ARY_SET_LEN(result, len);
 
         ary_verify(shared);
+    RB_GC_GUARD(shared);
     }
 
     ary_verify(result);
     return result;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -1281,6 +1362,7 @@ ary_make_partial_step(VALUE ary, VALUE klass, long offset, long len, long step)
         RB_OBJ_WRITE(result, ptr, values[offset]);
         ARY_SET_EMBED_LEN(result, 1);
         return result;
+    RB_GC_GUARD(result);
     }
     else if (step < 0 && step < -len) {
         step = -len;
@@ -1316,12 +1398,16 @@ ary_make_partial_step(VALUE ary, VALUE klass, long offset, long len, long step)
     }
 
     return result;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
 ary_make_shared_copy(VALUE ary)
 {
     return ary_make_partial(ary, rb_cArray, 0, RARRAY_LEN(ary));
+    RB_GC_GUARD(ary);
 }
 
 enum ary_take_pos_flags
@@ -1346,6 +1432,7 @@ ary_take_first_or_last_n(VALUE ary, long n, enum ary_take_pos_flags last)
         offset = len - n;
     }
     return ary_make_partial(ary, rb_cArray, offset, n);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -1357,6 +1444,7 @@ ary_take_first_or_last(int argc, const VALUE *argv, VALUE ary, enum ary_take_pos
      * this arity check needs to rewrite. */
     RUBY_ASSERT_ALWAYS(argc == 1);
     return ary_take_first_or_last_n(ary, NUM2LONG(argv[0]), last);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1385,6 +1473,9 @@ rb_ary_push(VALUE ary, VALUE item)
     ARY_SET_LEN(ary, idx + 1);
     ary_verify(ary);
     return ary;
+    RB_GC_GUARD(item);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(target_ary);
 }
 
 VALUE
@@ -1395,6 +1486,8 @@ rb_ary_cat(VALUE ary, const VALUE *argv, long len)
     ary_memcpy0(ary, oldlen, len, argv, target_ary);
     ARY_SET_LEN(ary, oldlen + len);
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(target_ary);
 }
 
 /*
@@ -1419,6 +1512,7 @@ static VALUE
 rb_ary_push_m(int argc, VALUE *argv, VALUE ary)
 {
     return rb_ary_cat(ary, argv, argc);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -1438,6 +1532,7 @@ rb_ary_pop(VALUE ary)
     ARY_SET_LEN(ary, n);
     ary_verify(ary);
     return RARRAY_AREF(ary, n);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1484,6 +1579,8 @@ rb_ary_pop_m(int argc, VALUE *argv, VALUE ary)
     ARY_INCREASE_LEN(ary, -RARRAY_LEN(result));
     ary_verify(ary);
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -1502,6 +1599,8 @@ rb_ary_shift(VALUE ary)
     rb_ary_behead(ary, 1);
 
     return top;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(top);
 }
 
 /*
@@ -1558,6 +1657,8 @@ rb_ary_shift_m(int argc, VALUE *argv, VALUE ary)
     rb_ary_behead(ary,n);
 
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -1591,6 +1692,7 @@ rb_ary_behead(VALUE ary, long n)
     ary_verify(ary);
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -1608,6 +1710,7 @@ make_room_for_unshift(VALUE ary, const VALUE *head, VALUE *sharedp, int argc, lo
 
     ary_verify(ary);
     return ARY_SHARED_ROOT(ary);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -1643,6 +1746,7 @@ ary_modify_for_unshift(VALUE ary, int argc)
 
         ary_verify(ary);
         return ary;
+        RB_GC_GUARD(ary);
     }
 }
 
@@ -1674,8 +1778,10 @@ ary_ensure_room_for_unshift(VALUE ary, int argc)
 
             rb_ary_modify_check(ary);
             return make_room_for_unshift(ary, head, sharedp, argc, capa, len);
+            RB_GC_GUARD(shared_root);
         }
     }
+            RB_GC_GUARD(ary);
 }
 
 /*
@@ -1707,12 +1813,16 @@ rb_ary_unshift_m(int argc, VALUE *argv, VALUE ary)
     ary_memcpy0(ary, 0, argc, argv, target_ary);
     ARY_SET_LEN(ary, len + argc);
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(target_ary);
 }
 
 VALUE
 rb_ary_unshift(VALUE ary, VALUE item)
 {
     return rb_ary_unshift_m(1, &item, ary);
+    RB_GC_GUARD(item);
+    RB_GC_GUARD(ary);
 }
 
 /* faster version - use this if you don't need to treat negative offset */
@@ -1725,12 +1835,14 @@ rb_ary_elt(VALUE ary, long offset)
         return Qnil;
     }
     return RARRAY_AREF(ary, offset);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
 rb_ary_entry(VALUE ary, long offset)
 {
     return rb_ary_entry_internal(ary, offset);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -1753,12 +1865,15 @@ rb_ary_subseq_step(VALUE ary, long beg, long len, long step)
         return ary_make_partial(ary, klass, beg, len);
     else
         return ary_make_partial_step(ary, klass, beg, len, step);
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_ary_subseq(VALUE ary, long beg, long len)
 {
     return rb_ary_subseq_step(ary, beg, len, 1);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE rb_ary_aref2(VALUE ary, VALUE b, VALUE e);
@@ -1893,6 +2008,7 @@ rb_ary_aref(int argc, const VALUE *argv, VALUE ary)
         return rb_ary_aref2(ary, argv[0], argv[1]);
     }
     return rb_ary_aref1(ary, argv[0]);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -1904,6 +2020,9 @@ rb_ary_aref2(VALUE ary, VALUE b, VALUE e)
         beg += RARRAY_LEN(ary);
     }
     return rb_ary_subseq(ary, beg, len);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -1926,6 +2045,8 @@ rb_ary_aref1(VALUE ary, VALUE arg)
     }
 
     return rb_ary_entry(ary, NUM2LONG(arg));
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1956,6 +2077,8 @@ VALUE
 rb_ary_at(VALUE ary, VALUE pos)
 {
     return rb_ary_entry(ary, NUM2LONG(pos));
+    RB_GC_GUARD(pos);
+    RB_GC_GUARD(ary);
 }
 
 #if 0
@@ -1976,6 +2099,7 @@ static VALUE
 ary_first(VALUE self)
 {
     return (RARRAY_LEN(self) == 0) ? Qnil : RARRAY_AREF(self, 0);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1983,6 +2107,7 @@ ary_last(VALUE self)
 {
     long len = RARRAY_LEN(self);
     return (len == 0) ? Qnil : RARRAY_AREF(self, len-1);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1993,6 +2118,7 @@ rb_ary_last(int argc, const VALUE *argv, VALUE ary) // used by parse.y
     }
     else {
         return ary_take_first_or_last(argc, argv, ary, ARY_TAKE_LAST);
+        RB_GC_GUARD(ary);
     }
 }
 
@@ -2062,6 +2188,9 @@ rb_ary_fetch(int argc, VALUE *argv, VALUE ary)
         return ifnone;
     }
     return RARRAY_AREF(ary, idx);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(ifnone);
+    RB_GC_GUARD(pos);
 }
 
 /*
@@ -2121,9 +2250,12 @@ rb_ary_index(int argc, VALUE *argv, VALUE ary)
         VALUE e = RARRAY_AREF(ary, i);
         if (rb_equal(e, val)) {
             return LONG2NUM(i);
+    RB_GC_GUARD(e);
         }
     }
     return Qnil;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -2182,9 +2314,12 @@ rb_ary_rindex(int argc, VALUE *argv, VALUE ary)
         }
         if (i > RARRAY_LEN(ary)) {
             break;
+    RB_GC_GUARD(e);
         }
     }
     return Qnil;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -2194,6 +2329,8 @@ rb_ary_to_ary(VALUE obj)
 
     if (!NIL_P(tmp)) return tmp;
     return rb_ary_new3(1, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
 }
 
 static void
@@ -2233,6 +2370,7 @@ rb_ary_splice(VALUE ary, long beg, long len, const VALUE *rptr, long rlen)
             ary_memcpy0(ary, beg, rlen, rptr, target_ary);
         }
         ARY_SET_LEN(ary, len);
+    RB_GC_GUARD(target_ary);
     }
     else {
         long alen;
@@ -2269,6 +2407,7 @@ rb_ary_splice(VALUE ary, long beg, long len, const VALUE *rptr, long rlen)
                                      MEMMOVE(ptr + beg, rptr, VALUE, rlen));
         }
     }
+                                     RB_GC_GUARD(ary);
 }
 
 void
@@ -2284,6 +2423,7 @@ rb_ary_set_len(VALUE ary, long len)
         rb_bug("probable buffer overflow: %ld for %ld", len, capa);
     }
     ARY_SET_LEN(ary, len);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -2328,6 +2468,7 @@ rb_ary_resize(VALUE ary, long len)
     }
     ary_verify(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -2335,6 +2476,8 @@ ary_aset_by_rb_ary_store(VALUE ary, long key, VALUE val)
 {
     rb_ary_store(ary, key, val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -2344,6 +2487,9 @@ ary_aset_by_rb_ary_splice(VALUE ary, long beg, long len, VALUE val)
     rb_ary_splice(ary, beg, len, RARRAY_CONST_PTR(rpl), RARRAY_LEN(rpl));
     RB_GC_GUARD(rpl);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(rpl);
 }
 
 /*
@@ -2513,6 +2659,7 @@ rb_ary_aset(int argc, VALUE *argv, VALUE ary)
 
     offset = NUM2LONG(argv[0]);
     return ary_aset_by_rb_ary_store(ary, offset, argv[1]);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2573,6 +2720,7 @@ rb_ary_insert(int argc, VALUE *argv, VALUE ary)
     }
     rb_ary_splice(ary, pos, 0, argv + 1, argc - 1);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -2582,6 +2730,9 @@ static VALUE
 ary_enum_length(VALUE ary, VALUE args, VALUE eobj)
 {
     return rb_ary_length(ary);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ary);
 }
 
 // Primitive to avoid a race condition in Array#each.
@@ -2596,6 +2747,7 @@ ary_fetch_next(VALUE self, VALUE *index, VALUE *value)
     *value = RARRAY_AREF(self, i);
     *index = LONG2NUM(i + 1);
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2641,6 +2793,7 @@ rb_ary_each(VALUE ary)
         rb_yield(RARRAY_AREF(ary, i));
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2687,6 +2840,7 @@ rb_ary_each_index(VALUE ary)
         rb_yield(LONG2NUM(i));
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2729,6 +2883,7 @@ rb_ary_reverse_each(VALUE ary)
         }
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2749,6 +2904,7 @@ rb_ary_length(VALUE ary)
 {
     long len = RARRAY_LEN(ary);
     return LONG2NUM(len);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2765,6 +2921,7 @@ static VALUE
 rb_ary_empty_p(VALUE ary)
 {
     return RBOOL(RARRAY_LEN(ary) == 0);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -2778,12 +2935,15 @@ rb_ary_dup(VALUE ary)
     ary_verify(ary);
     ary_verify(dup);
     return dup;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(dup);
 }
 
 VALUE
 rb_ary_resurrect(VALUE ary)
 {
     return ary_make_partial(ary, rb_cArray, 0, RARRAY_LEN(ary));
+    RB_GC_GUARD(ary);
 }
 
 extern VALUE rb_output_fs;
@@ -2806,6 +2966,11 @@ recursive_join(VALUE obj, VALUE argp, int recur)
         ary_join_1(obj, ary, sep, 0, result, first);
     }
     return Qnil;
+    RB_GC_GUARD(argp);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(sep);
+    RB_GC_GUARD(ary);
 }
 
 static long
@@ -2823,6 +2988,10 @@ ary_join_0(VALUE ary, VALUE sep, long max, VALUE result)
         rb_str_buf_append(result, val);
     }
     return i;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(sep);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -2833,6 +3002,8 @@ ary_join_1_str(VALUE dst, VALUE src, int *first)
         rb_enc_copy(dst, src);
         *first = FALSE;
     }
+        RB_GC_GUARD(dst);
+        RB_GC_GUARD(src);
 }
 
 static void
@@ -2851,6 +3022,11 @@ ary_join_1_ary(VALUE obj, VALUE ary, VALUE sep, VALUE result, VALUE val, int *fi
         args[3] = (VALUE)first;
         rb_exec_recursive(recursive_join, obj, (VALUE)args);
     }
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(sep);
+        RB_GC_GUARD(ary);
 }
 
 static void
@@ -2879,6 +3055,12 @@ ary_join_1(VALUE obj, VALUE ary, VALUE sep, long i, VALUE result, int *first)
             ary_join_1_str(result, rb_obj_as_string(val), first);
         }
     }
+            RB_GC_GUARD(val);
+            RB_GC_GUARD(result);
+            RB_GC_GUARD(sep);
+            RB_GC_GUARD(ary);
+            RB_GC_GUARD(obj);
+            RB_GC_GUARD(tmp);
 }
 
 VALUE
@@ -2918,6 +3100,11 @@ rb_ary_join(VALUE ary, VALUE sep)
     ary_join_0(ary, sep, RARRAY_LEN(ary), result);
 
     return result;
+    RB_GC_GUARD(sep);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -2962,6 +3149,8 @@ rb_ary_join_m(int argc, VALUE *argv, VALUE ary)
     }
 
     return rb_ary_join(ary, sep);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(sep);
 }
 
 static VALUE
@@ -2980,6 +3169,10 @@ inspect_ary(VALUE ary, VALUE dummy, int recur)
     }
     rb_str_buf_cat2(str, "]");
     return str;
+    RB_GC_GUARD(dummy);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -3001,12 +3194,14 @@ rb_ary_inspect(VALUE ary)
 {
     if (RARRAY_LEN(ary) == 0) return rb_usascii_str_new2("[]");
     return rb_exec_recursive(inspect_ary, ary, 0);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
 rb_ary_to_s(VALUE ary)
 {
     return rb_ary_inspect(ary);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3033,8 +3228,10 @@ rb_ary_to_a(VALUE ary)
         VALUE dup = rb_ary_new2(RARRAY_LEN(ary));
         rb_ary_replace(dup, ary);
         return dup;
+    RB_GC_GUARD(dup);
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3084,6 +3281,8 @@ rb_ary_to_h(VALUE ary)
         rb_hash_aset(hash, RARRAY_AREF(key_value_pair, 0), RARRAY_AREF(key_value_pair, 1));
     }
     return hash;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -3097,6 +3296,7 @@ static VALUE
 rb_ary_to_ary_m(VALUE ary)
 {
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -3106,6 +3306,7 @@ ary_reverse(VALUE *p1, VALUE *p2)
         VALUE tmp = *p1;
         *p1++ = *p2;
         *p2-- = tmp;
+        RB_GC_GUARD(tmp);
     }
 }
 
@@ -3123,6 +3324,7 @@ rb_ary_reverse(VALUE ary)
         }); /* WB: no new reference */
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3143,6 +3345,7 @@ static VALUE
 rb_ary_reverse_bang(VALUE ary)
 {
     return rb_ary_reverse(ary);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3169,6 +3372,8 @@ rb_ary_reverse_m(VALUE ary)
     }
     ARY_SET_LEN(dup, RARRAY_LEN(ary));
     return dup;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(dup);
 }
 
 static inline long
@@ -3184,11 +3389,13 @@ ary_rotate_ptr(VALUE *ptr, long len, long cnt)
         VALUE tmp = *ptr;
         memmove(ptr, ptr + 1, sizeof(VALUE)*(len - 1));
         *(ptr + len - 1) = tmp;
+    RB_GC_GUARD(tmp);
     }
     else if (cnt == len - 1) {
         VALUE tmp = *(ptr + len - 1);
         memmove(ptr + 1, ptr, sizeof(VALUE)*(len - 1));
         *ptr = tmp;
+    RB_GC_GUARD(tmp);
     }
     else {
         --len;
@@ -3211,6 +3418,7 @@ rb_ary_rotate(VALUE ary, long cnt)
         }
     }
     return Qnil;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3251,6 +3459,7 @@ rb_ary_rotate_bang(int argc, VALUE *argv, VALUE ary)
     long n = (rb_check_arity(argc, 0, 1) ? NUM2LONG(argv[0]) : 1);
     rb_ary_rotate(ary, n);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3305,6 +3514,8 @@ rb_ary_rotate_m(int argc, VALUE *argv, VALUE ary)
     }
     ARY_SET_LEN(rotated, RARRAY_LEN(ary));
     return rotated;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(rotated);
 }
 
 struct ary_sort_data {
@@ -3319,6 +3530,7 @@ sort_reentered(VALUE ary)
         rb_raise(rb_eRuntimeError, "sort reentered");
     }
     return Qnil;
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -3345,6 +3557,9 @@ sort_1(const void *ap, const void *bp, void *dummy)
     n = rb_cmpint(retval, a, b);
     sort_returned(data);
     return n;
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(retval);
 }
 
 static int
@@ -3372,6 +3587,9 @@ sort_2(const void *ap, const void *bp, void *dummy)
     sort_returned(data);
 
     return n;
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(retval);
 }
 
 /*
@@ -3441,9 +3659,11 @@ rb_ary_sort_bang(VALUE ary)
         }
         /* tmp will be GC'ed. */
         RBASIC_SET_CLASS_RAW(tmp, rb_cArray); /* rb_cArray must be marked */
+    RB_GC_GUARD(tmp);
     }
     ary_verify(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3483,6 +3703,7 @@ rb_ary_sort(VALUE ary)
     ary = rb_ary_dup(ary);
     rb_ary_sort_bang(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static VALUE rb_ary_bsearch_index(VALUE ary);
@@ -3509,6 +3730,8 @@ rb_ary_bsearch(VALUE ary)
         return rb_ary_entry(ary, FIX2LONG(index_result));
     }
     return index_result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(index_result);
 }
 
 /*
@@ -3569,6 +3792,9 @@ rb_ary_bsearch_index(VALUE ary)
     }
     if (!satisfied) return Qnil;
     return INT2FIX(low);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(v);
 }
 
 
@@ -3576,6 +3802,9 @@ static VALUE
 sort_by_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, dummy))
 {
     return rb_yield(i);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(dummy);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3610,6 +3839,8 @@ rb_ary_sort_by_bang(VALUE ary)
     sorted = rb_block_call(ary, rb_intern("sort_by"), 0, 0, sort_by_i, 0);
     rb_ary_replace(ary, sorted);
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(sorted);
 }
 
 
@@ -3645,6 +3876,8 @@ rb_ary_collect(VALUE ary)
         rb_ary_push(collect, rb_yield(RARRAY_AREF(ary, i)));
     }
     return collect;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(collect);
 }
 
 
@@ -3679,6 +3912,7 @@ rb_ary_collect_bang(VALUE ary)
         rb_ary_store(ary, i, rb_yield(RARRAY_AREF(ary, i)));
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -3705,6 +3939,8 @@ rb_get_values_at(VALUE obj, long olen, int argc, const VALUE *argv, VALUE (*func
         rb_ary_push(result, (*func)(obj, NUM2LONG(argv[i])));
     }
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -3733,6 +3969,9 @@ append_values_at_single(VALUE result, VALUE ary, long olen, VALUE idx)
         beg = NUM2LONG(idx);
     }
     return rb_ary_push(result, rb_ary_entry(ary, beg));
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -3851,6 +4090,8 @@ rb_ary_values_at(int argc, VALUE *argv, VALUE ary)
     }
     RB_GC_GUARD(ary);
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 
@@ -3888,6 +4129,8 @@ rb_ary_select(VALUE ary)
         }
     }
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 struct select_bang_arg {
@@ -3909,8 +4152,11 @@ select_bang_i(VALUE a)
             rb_ary_store(ary, i2, v);
         }
         arg->len[1] = ++i2;
+    RB_GC_GUARD(v);
     }
     return (i1 == i2) ? Qnil : ary;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3933,6 +4179,8 @@ select_bang_ensure(VALUE a)
         ARY_SET_LEN(ary, i2 + tail);
     }
     return ary;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3968,6 +4216,7 @@ rb_ary_select_bang(VALUE ary)
     args.ary = ary;
     args.len[0] = args.len[1] = 0;
     return rb_ensure(select_bang_i, (VALUE)&args, select_bang_ensure, (VALUE)&args);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3992,6 +4241,7 @@ rb_ary_keep_if(VALUE ary)
     RETURN_SIZED_ENUMERATOR(ary, 0, 0, ary_enum_length);
     rb_ary_select_bang(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -4005,6 +4255,7 @@ ary_resize_smaller(VALUE ary, long len)
             ary_resize_capa(ary, len * 2);
         }
     }
+            RB_GC_GUARD(ary);
 }
 
 /*
@@ -4061,6 +4312,7 @@ rb_ary_delete(VALUE ary, VALUE item)
             rb_ary_store(ary, i2, e);
         }
         i2++;
+    RB_GC_GUARD(e);
     }
     if (RARRAY_LEN(ary) == i2) {
         if (rb_block_given_p()) {
@@ -4073,6 +4325,9 @@ rb_ary_delete(VALUE ary, VALUE item)
 
     ary_verify(ary);
     return v;
+    RB_GC_GUARD(item);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 void
@@ -4090,12 +4345,15 @@ rb_ary_delete_same(VALUE ary, VALUE item)
             rb_ary_store(ary, i2, e);
         }
         i2++;
+    RB_GC_GUARD(e);
     }
     if (RARRAY_LEN(ary) == i2) {
         return;
     }
 
     ary_resize_smaller(ary, i2);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(item);
 }
 
 VALUE
@@ -4118,6 +4376,8 @@ rb_ary_delete_at(VALUE ary, long pos)
     ARY_INCREASE_LEN(ary, -1);
     ary_verify(ary);
     return del;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(del);
 }
 
 /*
@@ -4152,6 +4412,8 @@ static VALUE
 rb_ary_delete_at_m(VALUE ary, VALUE pos)
 {
     return rb_ary_delete_at(ary, NUM2LONG(pos));
+    RB_GC_GUARD(pos);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -4181,6 +4443,8 @@ ary_slice_bang_by_rb_ary_splice(VALUE ary, long pos, long len)
         VALUE arg2 = rb_ary_new4(len, RARRAY_CONST_PTR(ary)+pos);
         rb_ary_splice(ary, pos, len, 0, 0);
         return arg2;
+        RB_GC_GUARD(arg2);
+        RB_GC_GUARD(ary);
     }
 }
 
@@ -4307,6 +4571,8 @@ rb_ary_slice_bang(int argc, VALUE *argv, VALUE ary)
     }
 
     return rb_ary_delete_at(ary, NUM2LONG(arg1));
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(arg1);
 }
 
 static VALUE
@@ -4319,9 +4585,12 @@ ary_reject(VALUE orig, VALUE result)
 
         if (!RTEST(rb_yield(v))) {
             rb_ary_push(result, v);
+    RB_GC_GUARD(v);
         }
     }
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(orig);
 }
 
 static VALUE
@@ -4338,8 +4607,11 @@ reject_bang_i(VALUE a)
             rb_ary_store(ary, i2, v);
         }
         arg->len[1] = ++i2;
+    RB_GC_GUARD(v);
     }
     return (i1 == i2) ? Qnil : ary;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -4350,6 +4622,7 @@ ary_reject_bang(VALUE ary)
     args.ary = ary;
     args.len[0] = args.len[1] = 0;
     return rb_ensure(reject_bang_i, (VALUE)&args, select_bang_ensure, (VALUE)&args);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -4378,6 +4651,7 @@ rb_ary_reject_bang(VALUE ary)
     RETURN_SIZED_ENUMERATOR(ary, 0, 0, ary_enum_length);
     rb_ary_modify(ary);
     return ary_reject_bang(ary);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -4406,6 +4680,8 @@ rb_ary_reject(VALUE ary)
     rejected_ary = rb_ary_new();
     ary_reject(ary, rejected_ary);
     return rejected_ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(rejected_ary);
 }
 
 /*
@@ -4432,6 +4708,7 @@ rb_ary_delete_if(VALUE ary)
     RETURN_SIZED_ENUMERATOR(ary, 0, 0, ary_enum_length);
     ary_reject_bang(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -4442,6 +4719,9 @@ take_i(RB_BLOCK_CALL_FUNC_ARGLIST(val, cbarg))
     rb_ary_push(args[0], val);
     if (--args[1] == 0) rb_iter_break();
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(cbarg);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -4458,6 +4738,8 @@ take_items(VALUE obj, long n)
         rb_raise(rb_eTypeError, "wrong argument type %"PRIsVALUE" (must respond to :each)",
                  rb_obj_class(obj));
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 
 
@@ -4582,6 +4864,7 @@ rb_ary_zip(int argc, VALUE *argv, VALUE ary)
             }
 
             if (work) ALLOCV_END(work);
+        RB_GC_GUARD(work);
         }
         else {
             for (i=0; i<RARRAY_LEN(ary); i++) {
@@ -4592,6 +4875,7 @@ rb_ary_zip(int argc, VALUE *argv, VALUE ary)
                     rb_ary_push(tmp, rb_ary_elt(argv[j], i));
                 }
                 rb_yield(tmp);
+    RB_GC_GUARD(tmp);
             }
         }
     }
@@ -4606,10 +4890,13 @@ rb_ary_zip(int argc, VALUE *argv, VALUE ary)
                 rb_ary_push(tmp, rb_ary_elt(argv[j], i));
             }
             rb_ary_push(result, tmp);
+    RB_GC_GUARD(tmp);
         }
     }
 
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -4653,6 +4940,9 @@ rb_ary_transpose(VALUE ary)
         }
     }
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -4708,9 +4998,12 @@ rb_ary_replace(VALUE copy, VALUE orig)
         ARY_SET_PTR(copy, ARY_HEAP_PTR(orig));
         ARY_SET_LEN(copy, ARY_HEAP_LEN(orig));
         rb_ary_set_shared(copy, shared_root);
+    RB_GC_GUARD(shared_root);
     }
     ary_verify(copy);
     return copy;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(copy);
 }
 
 /*
@@ -4742,6 +5035,7 @@ rb_ary_clear(VALUE ary)
     }
     ary_verify(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -4977,6 +5271,7 @@ rb_ary_fill(int argc, VALUE *argv, VALUE ary)
         long i;
 
         for (i=beg; i<end; i++) {
+            RB_GC_GUARD(v);
             v = rb_yield(LONG2NUM(i));
             if (i>=RARRAY_LEN(ary)) break;
             ARY_SET(ary, i, v);
@@ -4986,6 +5281,10 @@ rb_ary_fill(int argc, VALUE *argv, VALUE ary)
         ary_memfill(ary, beg, len, item);
     }
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(item);
 }
 
 /*
@@ -5017,6 +5316,9 @@ rb_ary_plus(VALUE x, VALUE y)
     ary_memcpy(z, xlen, ylen, RARRAY_CONST_PTR(y));
     ARY_SET_LEN(z, len);
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -5028,6 +5330,8 @@ ary_append(VALUE x, VALUE y)
     }
     RB_GC_GUARD(y);
     return x;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -5058,16 +5362,20 @@ rb_ary_concat_multi(int argc, VALUE *argv, VALUE ary)
             rb_ary_concat(args, argv[i]);
         }
         ary_append(ary, args);
+    RB_GC_GUARD(args);
     }
 
     ary_verify(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
 rb_ary_concat(VALUE x, VALUE y)
 {
     return ary_append(x, to_ary(y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -5130,6 +5438,10 @@ rb_ary_times(VALUE ary, VALUE times)
     }
   out:
     return ary2;
+    RB_GC_GUARD(times);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(ary2);
 }
 
 /*
@@ -5161,6 +5473,9 @@ rb_ary_assoc(VALUE ary, VALUE key)
             return v;
     }
     return Qnil;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -5194,6 +5509,9 @@ rb_ary_rassoc(VALUE ary, VALUE value)
             return v;
     }
     return Qnil;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -5228,6 +5546,8 @@ recursive_equal(VALUE ary1, VALUE ary2, int recur)
         p2++;
     }
     return Qtrue;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
 }
 
 /*
@@ -5267,6 +5587,8 @@ rb_ary_equal(VALUE ary1, VALUE ary2)
     if (RARRAY_LEN(ary1) != RARRAY_LEN(ary2)) return Qfalse;
     if (RARRAY_CONST_PTR(ary1) == RARRAY_CONST_PTR(ary2)) return Qtrue;
     return rb_exec_recursive_paired(recursive_equal, ary1, ary2, ary2);
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
 }
 
 static VALUE
@@ -5280,6 +5602,8 @@ recursive_eql(VALUE ary1, VALUE ary2, int recur)
             return Qfalse;
     }
     return Qtrue;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
 }
 
 /*
@@ -5309,6 +5633,8 @@ rb_ary_eql(VALUE ary1, VALUE ary2)
     if (RARRAY_LEN(ary1) != RARRAY_LEN(ary2)) return Qfalse;
     if (RARRAY_CONST_PTR(ary1) == RARRAY_CONST_PTR(ary2)) return Qtrue;
     return rb_exec_recursive_paired(recursive_eql, ary1, ary2, ary2);
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
 }
 
 VALUE
@@ -5326,6 +5652,7 @@ rb_ary_hash_values(long len, const VALUE *elements)
     }
     h = rb_hash_end(h);
     return ST2FIX(h);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -5347,6 +5674,7 @@ static VALUE
 rb_ary_hash(VALUE ary)
 {
     return rb_ary_hash_values(RARRAY_LEN(ary), RARRAY_CONST_PTR(ary));
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -5376,6 +5704,9 @@ rb_ary_includes(VALUE ary, VALUE item)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(item);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(e);
 }
 
 static VALUE
@@ -5391,6 +5722,9 @@ rb_ary_includes_by_eql(VALUE ary, VALUE item)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(item);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(e);
 }
 
 static VALUE
@@ -5408,9 +5742,14 @@ recursive_cmp(VALUE ary1, VALUE ary2, int recur)
         VALUE v = rb_funcallv(e1, id_cmp, 1, &e2);
         if (v != INT2FIX(0)) {
             return v;
+    RB_GC_GUARD(e1);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(e2);
         }
     }
     return Qundef;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
 }
 
 /*
@@ -5466,6 +5805,9 @@ rb_ary_cmp(VALUE ary1, VALUE ary2)
     if (len == 0) return INT2FIX(0);
     if (len > 0) return INT2FIX(1);
     return INT2FIX(-1);
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -5476,8 +5818,11 @@ ary_add_hash(VALUE hash, VALUE ary)
     for (i=0; i<RARRAY_LEN(ary); i++) {
         VALUE elt = RARRAY_AREF(ary, i);
         rb_hash_add_new_element(hash, elt, elt);
+    RB_GC_GUARD(elt);
     }
     return hash;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 static inline VALUE
@@ -5488,6 +5833,8 @@ ary_tmp_hash_new(VALUE ary)
 
     RBASIC_CLEAR_CLASS(hash);
     return hash;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -5495,6 +5842,8 @@ ary_make_hash(VALUE ary)
 {
     VALUE hash = ary_tmp_hash_new(ary);
     return ary_add_hash(hash, ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -5505,8 +5854,12 @@ ary_add_hash_by(VALUE hash, VALUE ary)
     for (i = 0; i < RARRAY_LEN(ary); ++i) {
         VALUE v = rb_ary_elt(ary, i), k = rb_yield(v);
         rb_hash_add_new_element(hash, k, v);
+    RB_GC_GUARD(k);
+    RB_GC_GUARD(v);
     }
     return hash;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -5514,6 +5867,8 @@ ary_make_hash_by(VALUE ary)
 {
     VALUE hash = ary_tmp_hash_new(ary);
     return ary_add_hash_by(hash, ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -5550,6 +5905,7 @@ rb_ary_diff(VALUE ary1, VALUE ary2)
             VALUE elt = rb_ary_elt(ary1, i);
             if (rb_ary_includes_by_eql(ary2, elt)) continue;
             rb_ary_push(ary3, elt);
+        RB_GC_GUARD(elt);
         }
         return ary3;
     }
@@ -5561,6 +5917,10 @@ rb_ary_diff(VALUE ary1, VALUE ary2)
     }
 
     return ary3;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ary3);
 }
 
 /*
@@ -5611,11 +5971,14 @@ rb_ary_difference_multi(int argc, VALUE *argv, VALUE ary)
             }
         }
         if (j == argc) rb_ary_push(ary_diff, elt);
+    RB_GC_GUARD(elt);
     }
 
     ALLOCV_END(t0);
 
     return ary_diff;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(ary_diff);
 }
 
 
@@ -5675,6 +6038,11 @@ rb_ary_and(VALUE ary1, VALUE ary2)
     }
 
     return ary3;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ary3);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -5709,6 +6077,8 @@ rb_ary_intersection_multi(int argc, VALUE *argv, VALUE ary)
     }
 
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 static int
@@ -5727,7 +6097,10 @@ rb_ary_union(VALUE ary_union, VALUE ary)
         VALUE elt = rb_ary_elt(ary, i);
         if (rb_ary_includes_by_eql(ary_union, elt)) continue;
         rb_ary_push(ary_union, elt);
+        RB_GC_GUARD(elt);
     }
+        RB_GC_GUARD(ary_union);
+        RB_GC_GUARD(ary);
 }
 
 static void
@@ -5738,8 +6111,11 @@ rb_ary_union_hash(VALUE hash, VALUE ary2)
         VALUE elt = RARRAY_AREF(ary2, i);
         if (!rb_hash_stlike_update(hash, (st_data_t)elt, ary_hash_orset, (st_data_t)elt)) {
             RB_OBJ_WRITTEN(hash, Qundef, elt);
+            RB_GC_GUARD(elt);
         }
     }
+            RB_GC_GUARD(hash);
+            RB_GC_GUARD(ary2);
 }
 
 /*
@@ -5768,12 +6144,16 @@ rb_ary_or(VALUE ary1, VALUE ary2)
         rb_ary_union(ary3, ary1);
         rb_ary_union(ary3, ary2);
         return ary3;
+    RB_GC_GUARD(ary3);
     }
 
     hash = ary_make_hash(ary1);
     rb_ary_union_hash(hash, ary2);
 
     return rb_hash_values(hash);
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -5819,12 +6199,15 @@ rb_ary_union_multi(int argc, VALUE *argv, VALUE ary)
         for (i = 0; i < argc; i++) rb_ary_union(ary_union, argv[i]);
 
         return ary_union;
+    RB_GC_GUARD(ary_union);
     }
 
     hash = ary_make_hash(ary);
     for (i = 0; i < argc; i++) rb_ary_union_hash(hash, argv[i]);
 
     return rb_hash_values(hash);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -5879,6 +6262,13 @@ rb_ary_intersect_p(VALUE ary1, VALUE ary2)
     }
 
     return result;
+    RB_GC_GUARD(ary2);
+    RB_GC_GUARD(ary1);
+    RB_GC_GUARD(longer);
+    RB_GC_GUARD(shorter);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -5896,6 +6286,9 @@ ary_max_generic(VALUE ary, long i, VALUE vmax)
     }
 
     return vmax;
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -5920,6 +6313,9 @@ ary_max_opt_fixnum(VALUE ary, long i, VALUE vmax)
     }
 
     return vmax;
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -5944,6 +6340,9 @@ ary_max_opt_float(VALUE ary, long i, VALUE vmax)
     }
 
     return vmax;
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -5968,6 +6367,9 @@ ary_max_opt_string(VALUE ary, long i, VALUE vmax)
     }
 
     return vmax;
+    RB_GC_GUARD(vmax);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -6056,6 +6458,10 @@ rb_ary_max(int argc, VALUE *argv, VALUE ary)
     }
     if (UNDEF_P(result)) return Qnil;
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -6073,6 +6479,9 @@ ary_min_generic(VALUE ary, long i, VALUE vmin)
     }
 
     return vmin;
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -6097,6 +6506,9 @@ ary_min_opt_fixnum(VALUE ary, long i, VALUE vmin)
     }
 
     return vmin;
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(a);
 }
 
 static VALUE
@@ -6121,6 +6533,9 @@ ary_min_opt_float(VALUE ary, long i, VALUE vmin)
     }
 
     return vmin;
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(a);
 }
 
 static VALUE
@@ -6145,6 +6560,9 @@ ary_min_opt_string(VALUE ary, long i, VALUE vmin)
     }
 
     return vmin;
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(a);
 }
 
 /*
@@ -6233,6 +6651,10 @@ rb_ary_min(int argc, VALUE *argv, VALUE ary)
     }
     if (UNDEF_P(result)) return Qnil;
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -6264,6 +6686,7 @@ rb_ary_minmax(VALUE ary)
         return rb_call_super(0, NULL);
     }
     return rb_assoc_new(rb_ary_min(0, 0, ary), rb_ary_max(0, 0, ary));
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -6328,6 +6751,8 @@ rb_ary_uniq_bang(VALUE ary)
     rb_hash_foreach(hash, push_value, ary);
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -6375,6 +6800,9 @@ rb_ary_uniq(VALUE ary)
     }
 
     return uniq;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(uniq);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -6414,6 +6842,7 @@ rb_ary_compact_bang(VALUE ary)
     ary_resize_smaller(ary, n);
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -6436,6 +6865,7 @@ rb_ary_compact(VALUE ary)
     ary = rb_ary_dup(ary);
     rb_ary_compact_bang(ary);
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -6479,6 +6909,7 @@ rb_ary_count(int argc, VALUE *argv, VALUE ary)
         for (i = 0; i < RARRAY_LEN(ary); i++) {
             v = RARRAY_AREF(ary, i);
             if (RTEST(rb_yield(v))) n++;
+    RB_GC_GUARD(v);
         }
     }
     else {
@@ -6489,10 +6920,12 @@ rb_ary_count(int argc, VALUE *argv, VALUE ary)
         }
         for (i = 0; i < RARRAY_LEN(ary); i++) {
             if (rb_equal(RARRAY_AREF(ary, i), obj)) n++;
+    RB_GC_GUARD(obj);
         }
     }
 
     return LONG2NUM(n);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -6578,6 +7011,12 @@ flatten(VALUE ary, int level)
 
     RBASIC_SET_CLASS(result, rb_cArray);
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(memo);
+    RB_GC_GUARD(elt);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(stack);
 }
 
 /*
@@ -6635,6 +7074,9 @@ rb_ary_flatten_bang(int argc, VALUE *argv, VALUE ary)
     if (mod) ARY_SET_EMBED_LEN(result, 0);
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(lv);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -6689,6 +7131,8 @@ rb_ary_flatten(int argc, VALUE *argv, VALUE ary)
     }
 
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 #define RAND_UPTO(max) (long)rb_random_ulong_limited((randgen), (max)-1)
@@ -6713,6 +7157,8 @@ rb_ary_shuffle_bang(rb_execution_context_t *ec, VALUE ary, VALUE randgen)
         }
     }); /* WB: no new reference */
     return ary;
+    RB_GC_GUARD(randgen);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -6721,6 +7167,8 @@ rb_ary_shuffle(rb_execution_context_t *ec, VALUE ary, VALUE randgen)
     ary = rb_ary_dup(ary);
     rb_ary_shuffle_bang(ec, ary, randgen);
     return ary;
+    RB_GC_GUARD(randgen);
+    RB_GC_GUARD(ary);
 }
 
 static const rb_data_type_t ary_sample_memo_type = {
@@ -6858,18 +7306,25 @@ ary_sample(rb_execution_context_t *ec, VALUE ary, VALUE randgen, VALUE nv, VALUE
     ARY_SET_LEN(result, n);
 
     return result;
+    RB_GC_GUARD(to_array);
+    RB_GC_GUARD(nv);
+    RB_GC_GUARD(randgen);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
 ary_sized_alloc(rb_execution_context_t *ec, VALUE self)
 {
     return rb_ary_new2(RARRAY_LEN(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 ary_sample0(rb_execution_context_t *ec, VALUE ary)
 {
     return ary_sample(ec, ary, rb_cRandom, Qfalse, Qfalse);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -6886,6 +7341,10 @@ rb_ary_cycle_size(VALUE self, VALUE args, VALUE eobj)
     if (mul <= 0) return INT2FIX(0);
     n = LONG2FIX(mul);
     return rb_fix_mul_fix(rb_ary_length(self), n);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -6943,6 +7402,7 @@ rb_ary_cycle(int argc, VALUE *argv, VALUE ary)
         }
     }
     return Qnil;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7028,6 +7488,7 @@ descending_factorial(long from, long how_many)
         cnt = LONG2FIX(how_many == 0);
     }
     return cnt;
+    RB_GC_GUARD(cnt);
 }
 
 static VALUE
@@ -7050,6 +7511,7 @@ binomial_coefficient(long comb, long size)
         r = rb_int_idiv(r, LONG2FIX(i + 1));
     }
     return r;
+    RB_GC_GUARD(r);
 }
 
 static VALUE
@@ -7059,6 +7521,9 @@ rb_ary_permutation_size(VALUE ary, VALUE args, VALUE eobj)
     long k = (args && (RARRAY_LEN(args) > 0)) ? NUM2LONG(RARRAY_AREF(args, 0)) : n;
 
     return descending_factorial(n, k);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7137,8 +7602,10 @@ rb_ary_permutation(int argc, VALUE *argv, VALUE ary)
         permute0(n, r, p, used, ary0); /* compute and yield permutations */
         ALLOCV_END(t0);
         RBASIC_SET_CLASS_RAW(ary0, rb_cArray);
+    RB_GC_GUARD(ary0);
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -7169,6 +7636,9 @@ rb_ary_combination_size(VALUE ary, VALUE args, VALUE eobj)
     long k = NUM2LONG(RARRAY_AREF(args, 0));
 
     return binomial_coefficient(k, n);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7243,8 +7713,11 @@ rb_ary_combination(VALUE ary, VALUE num)
         combinate0(len, n, stack, ary0);
         ALLOCV_END(t0);
         RBASIC_SET_CLASS_RAW(ary0, rb_cArray);
+    RB_GC_GUARD(ary0);
     }
     return ary;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7295,6 +7768,9 @@ rb_ary_repeated_permutation_size(VALUE ary, VALUE args, VALUE eobj)
         return LONG2FIX(!k);
     }
     return rb_int_positive_pow(n, (unsigned long)k);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7364,8 +7840,11 @@ rb_ary_repeated_permutation(VALUE ary, VALUE num)
         rpermute0(n, r, p, ary0); /* compute and yield repeated permutations */
         ALLOCV_END(t0);
         RBASIC_SET_CLASS_RAW(ary0, rb_cArray);
+    RB_GC_GUARD(ary0);
     }
     return ary;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -7400,6 +7879,9 @@ rb_ary_repeated_combination_size(VALUE ary, VALUE args, VALUE eobj)
         return LONG2FIX(1);
     }
     return binomial_coefficient(k, n + k - 1);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7472,8 +7954,11 @@ rb_ary_repeated_combination(VALUE ary, VALUE num)
         rcombinate0(len, n, p, n, ary0); /* compute and yield repeated combinations */
         ALLOCV_END(t0);
         RBASIC_SET_CLASS_RAW(ary0, rb_cArray);
+    RB_GC_GUARD(ary0);
     }
     return ary;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7608,6 +8093,7 @@ rb_ary_product(int argc, VALUE *argv, VALUE ary)
             /* If the first counter overflows, we are done */
             if (--m < 0) goto done;
             counters[m]++;
+            RB_GC_GUARD(subarray);
         }
     }
 
@@ -7615,6 +8101,8 @@ done:
     ALLOCV_END(t1);
 
     return NIL_P(result) ? ary : result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -7643,6 +8131,8 @@ rb_ary_take(VALUE obj, VALUE n)
         rb_raise(rb_eArgError, "attempt to take negative size");
     }
     return rb_ary_subseq(obj, 0, len);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -7676,6 +8166,7 @@ rb_ary_take_while(VALUE ary)
         if (!RTEST(rb_yield(RARRAY_AREF(ary, i)))) break;
     }
     return rb_ary_take(ary, LONG2FIX(i));
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7709,6 +8200,9 @@ rb_ary_drop(VALUE ary, VALUE n)
     result = rb_ary_subseq(ary, pos, RARRAY_LEN(ary));
     if (NIL_P(result)) result = rb_ary_new();
     return result;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -7739,6 +8233,7 @@ rb_ary_drop_while(VALUE ary)
         if (!RTEST(rb_yield(RARRAY_AREF(ary, i)))) break;
     }
     return rb_ary_drop(ary, LONG2FIX(i));
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7806,6 +8301,7 @@ rb_ary_any_p(int argc, VALUE *argv, VALUE ary)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7873,6 +8369,7 @@ rb_ary_all_p(int argc, VALUE *argv, VALUE ary)
         }
     }
     return Qtrue;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -7934,6 +8431,7 @@ rb_ary_none_p(int argc, VALUE *argv, VALUE ary)
         }
     }
     return Qtrue;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -8008,6 +8506,8 @@ rb_ary_one_p(int argc, VALUE *argv, VALUE ary)
         }
     }
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -8038,6 +8538,7 @@ rb_ary_dig(int argc, VALUE *argv, VALUE self)
     if (!--argc) return self;
     ++argv;
     return rb_obj_dig(argc, argv, self, Qnil);
+    RB_GC_GUARD(self);
 }
 
 static inline VALUE
@@ -8052,6 +8553,8 @@ finish_exact_sum(long n, VALUE r, VALUE v, int z)
         v = rb_fix_plus(LONG2FIX(0), v);
     }
     return v;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(r);
 }
 
 /*
@@ -8210,6 +8713,10 @@ rb_ary_sum(int argc, VALUE *argv, VALUE ary)
         v = rb_funcall(v, idPLUS, 1, e);
     }
     return v;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(e);
 }
 
 /* :nodoc: */
@@ -8217,6 +8724,7 @@ static VALUE
 rb_ary_deconstruct(VALUE ary)
 {
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*

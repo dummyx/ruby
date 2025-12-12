@@ -125,6 +125,8 @@ ossl_dh_initialize(int argc, VALUE *argv, VALUE self)
     }
     RTYPEDDATA_DATA(self) = pkey;
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 #ifndef HAVE_EVP_PKEY_DUP
@@ -185,6 +187,7 @@ ossl_dh_is_public(VALUE self)
     DH_get0_key(dh, &bn, NULL);
 
     return bn ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -205,6 +208,7 @@ ossl_dh_is_private(VALUE self)
 
 #if !defined(OPENSSL_NO_ENGINE)
     return (bn || DH_get0_engine((DH *)dh)) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 #else
     return bn ? Qtrue : Qfalse;
 #endif
@@ -249,6 +253,8 @@ ossl_dh_export(VALUE self)
     str = ossl_membio2str(out);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -282,6 +288,8 @@ ossl_dh_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -311,6 +319,8 @@ ossl_dh_get_params(VALUE self)
     rb_hash_aset(hash, rb_str_new2("priv_key"), ossl_bn_new(priv_key));
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -351,6 +361,7 @@ ossl_dh_check_params(VALUE self)
         /* DH_check_ex() will put error entry on failure */
         ossl_clear_error();
         return Qfalse;
+        RB_GC_GUARD(self);
     }
 }
 

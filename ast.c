@@ -80,6 +80,8 @@ setup_node(VALUE obj, VALUE ast_value, const NODE *node)
     TypedData_Get_Struct(obj, struct ASTNodeData, &rb_node_type, data);
     data->ast_value = ast_value;
     data->node = node;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE
@@ -91,6 +93,8 @@ ast_new_internal(VALUE ast_value, const NODE *node)
     setup_node(obj, ast_value, node);
 
     return obj;
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE rb_ast_parse_str(VALUE str, VALUE keep_script_lines, VALUE error_tolerant, VALUE keep_tokens);
@@ -113,12 +117,18 @@ ast_parse_done(VALUE ast_value)
     }
 
     return ast_new_internal(ast_value, (NODE *)ast->body.root);
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE
 ast_s_parse(rb_execution_context_t *ec, VALUE module, VALUE str, VALUE keep_script_lines, VALUE error_tolerant, VALUE keep_tokens)
 {
     return rb_ast_parse_str(str, keep_script_lines, error_tolerant, keep_tokens);
+    RB_GC_GUARD(keep_tokens);
+    RB_GC_GUARD(error_tolerant);
+    RB_GC_GUARD(keep_script_lines);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(module);
 }
 
 static VALUE
@@ -133,12 +143,23 @@ rb_ast_parse_str(VALUE str, VALUE keep_script_lines, VALUE error_tolerant, VALUE
     if (RTEST(keep_tokens)) rb_parser_keep_tokens(vparser);
     ast_value = rb_parser_compile_string_path(vparser, Qnil, str, 1);
     return ast_parse_done(ast_value);
+    RB_GC_GUARD(keep_tokens);
+    RB_GC_GUARD(error_tolerant);
+    RB_GC_GUARD(keep_script_lines);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE
 ast_s_parse_file(rb_execution_context_t *ec, VALUE module, VALUE path, VALUE keep_script_lines, VALUE error_tolerant, VALUE keep_tokens)
 {
     return rb_ast_parse_file(path, keep_script_lines, error_tolerant, keep_tokens);
+    RB_GC_GUARD(keep_tokens);
+    RB_GC_GUARD(error_tolerant);
+    RB_GC_GUARD(keep_script_lines);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(module);
 }
 
 static VALUE
@@ -157,6 +178,13 @@ rb_ast_parse_file(VALUE path, VALUE keep_script_lines, VALUE error_tolerant, VAL
     ast_value = rb_parser_compile_file_path(vparser, Qnil, f, 1);
     rb_io_close(f);
     return ast_parse_done(ast_value);
+    RB_GC_GUARD(keep_tokens);
+    RB_GC_GUARD(error_tolerant);
+    RB_GC_GUARD(keep_script_lines);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(f);
 }
 
 static VALUE
@@ -171,6 +199,12 @@ rb_ast_parse_array(VALUE array, VALUE keep_script_lines, VALUE error_tolerant, V
     if (RTEST(keep_tokens)) rb_parser_keep_tokens(vparser);
     ast_value = rb_parser_compile_array(vparser, Qnil, array, 1);
     return ast_parse_done(ast_value);
+    RB_GC_GUARD(keep_tokens);
+    RB_GC_GUARD(error_tolerant);
+    RB_GC_GUARD(keep_script_lines);
+    RB_GC_GUARD(array);
+    RB_GC_GUARD(vparser);
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE node_children(VALUE, const NODE*);
@@ -193,10 +227,14 @@ node_find(VALUE self, const int node_id)
         if (CLASS_OF(child) == rb_cNode) {
             VALUE result = node_find(child, node_id);
             if (RTEST(result)) return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(child);
         }
     }
 
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 extern VALUE rb_e_script;
@@ -216,6 +254,8 @@ node_id_for_backtrace_location(rb_execution_context_t *ec, VALUE module, VALUE l
     }
 
     return INT2NUM(node_id);
+    RB_GC_GUARD(location);
+    RB_GC_GUARD(module);
 }
 
 static VALUE
@@ -273,6 +313,14 @@ ast_s_of(rb_execution_context_t *ec, VALUE module, VALUE body, VALUE keep_script
     }
 
     return node_find(node, node_id);
+    RB_GC_GUARD(keep_tokens);
+    RB_GC_GUARD(error_tolerant);
+    RB_GC_GUARD(keep_script_lines);
+    RB_GC_GUARD(body);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(lines);
+    RB_GC_GUARD(node);
 }
 
 static VALUE
@@ -282,6 +330,8 @@ rb_ast_node_alloc(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, struct ASTNodeData, &rb_node_type, data);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static const char*
@@ -297,6 +347,7 @@ ast_node_type(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return rb_sym_intern_ascii_cstr(node_type_to_str(data->node));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -306,6 +357,7 @@ ast_node_node_id(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return INT2FIX(nd_node_id(data->node));
+    RB_GC_GUARD(self);
 }
 
 #define NEW_CHILD(ast_value, node) (node ? ast_new_internal(ast_value, node) : Qnil)
@@ -327,6 +379,8 @@ rb_ary_new_from_node_args(VALUE ast_value, long n, ...)
     }
     va_end(ar);
     return ary;
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -343,6 +397,8 @@ dump_block(VALUE ast_value, const struct RNode_BLOCK *node)
     }
 
     return ary;
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -358,6 +414,8 @@ dump_array(VALUE ast_value, const struct RNode_LIST *node)
     rb_ary_push(ary, NEW_CHILD(ast_value, node->nd_next));
 
     return ary;
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -376,6 +434,8 @@ dump_parser_array(VALUE ast_value, rb_parser_ary_t *p_ary)
     }
 
     return ary;
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -398,6 +458,7 @@ static VALUE
 rest_arg(VALUE ast_value, const NODE *rest_arg)
 {
     return NODE_NAMED_REST_P(rest_arg) ? NEW_CHILD(ast_value, rest_arg) : no_name_rest();
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE
@@ -463,6 +524,7 @@ node_children(VALUE ast_value, const NODE *node)
             }
             rb_ary_push(ary, NEW_CHILD(ast_value, RNODE_AND(node)->nd_2nd));
             return ary;
+      RB_GC_GUARD(ary);
         }
       case NODE_MASGN:
         if (NODE_NAMED_REST_P(RNODE_MASGN(node)->nd_args)) {
@@ -600,6 +662,8 @@ node_children(VALUE ast_value, const NODE *node)
                 next = NEW_CHILD(ast_value, n->nd_next);
             }
             return rb_ary_new_from_args(3, rb_node_dstr_string_val(node), head, next);
+      RB_GC_GUARD(next);
+      RB_GC_GUARD(head);
         }
       case NODE_SYM:
         return rb_ary_new_from_args(1, rb_node_sym_string_val(node));
@@ -692,6 +756,7 @@ node_children(VALUE ast_value, const NODE *node)
                 rb_ary_push(locals, var_name(tbl->ids[i]));
             }
             return rb_ary_new_from_args(3, locals, NEW_CHILD(ast_value, (NODE *)RNODE_SCOPE(node)->nd_args), NEW_CHILD(ast_value, RNODE_SCOPE(node)->nd_body));
+      RB_GC_GUARD(locals);
         }
       case NODE_ARYPTN:
         {
@@ -701,6 +766,7 @@ node_children(VALUE ast_value, const NODE *node)
                                         NEW_CHILD(ast_value, RNODE_ARYPTN(node)->pre_args),
                                         rest,
                                         NEW_CHILD(ast_value, RNODE_ARYPTN(node)->post_args));
+      RB_GC_GUARD(rest);
         }
       case NODE_FNDPTN:
         {
@@ -711,6 +777,8 @@ node_children(VALUE ast_value, const NODE *node)
                                         pre_rest,
                                         NEW_CHILD(ast_value, RNODE_FNDPTN(node)->args),
                                         post_rest);
+      RB_GC_GUARD(post_rest);
+      RB_GC_GUARD(pre_rest);
         }
       case NODE_HSHPTN:
         {
@@ -721,6 +789,7 @@ node_children(VALUE ast_value, const NODE *node)
                                         NEW_CHILD(ast_value, RNODE_HSHPTN(node)->nd_pconst),
                                         NEW_CHILD(ast_value, RNODE_HSHPTN(node)->nd_pkwargs),
                                         kwrest);
+      RB_GC_GUARD(kwrest);
         }
       case NODE_LINE:
         return rb_ary_new_from_args(1, rb_node_line_lineno_val(node));
@@ -736,6 +805,7 @@ node_children(VALUE ast_value, const NODE *node)
     }
 
     rb_bug("node_children: unknown node: %s", ruby_node_name(type));
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE
@@ -745,6 +815,7 @@ ast_node_children(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return node_children(data->ast_value, data->node);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -768,6 +839,7 @@ location_new(rb_code_location_t *loc)
     data->last_column = loc->end_pos.column;
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -877,6 +949,7 @@ node_locations(VALUE ast_value, const NODE *node)
     }
 
     rb_bug("node_locations: unknown node: %s", ruby_node_name(type));
+    RB_GC_GUARD(ast_value);
 }
 
 static VALUE
@@ -886,6 +959,7 @@ ast_node_locations(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return node_locations(data->ast_value, data->node);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -895,6 +969,7 @@ ast_node_first_lineno(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return INT2NUM(nd_first_lineno(data->node));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -904,6 +979,7 @@ ast_node_first_column(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return INT2NUM(nd_first_column(data->node));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -913,6 +989,7 @@ ast_node_last_lineno(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return INT2NUM(nd_last_lineno(data->node));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -922,6 +999,7 @@ ast_node_last_column(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTNodeData, &rb_node_type, data);
 
     return INT2NUM(nd_last_column(data->node));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -958,6 +1036,11 @@ ast_node_all_tokens(rb_execution_context_t *ec, VALUE self)
     rb_ary_freeze(all_tokens);
 
     return all_tokens;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(all_tokens);
+    RB_GC_GUARD(token);
+    RB_GC_GUARD(loc);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -978,6 +1061,9 @@ ast_node_inspect(rb_execution_context_t *ec, VALUE self)
                 nd_last_lineno(data->node), nd_last_column(data->node));
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(cname);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -989,6 +1075,7 @@ ast_node_script_lines(rb_execution_context_t *ec, VALUE self)
     ast = rb_ruby_ast_data_get(data->ast_value);
     rb_parser_ary_t *ret = ast->body.script_lines;
     return rb_parser_build_script_lines_from(ret);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -998,6 +1085,7 @@ ast_location_first_lineno(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTLocationData, &rb_location_type, data);
 
     return INT2NUM(data->first_lineno);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1007,6 +1095,7 @@ ast_location_first_column(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTLocationData, &rb_location_type, data);
 
     return INT2NUM(data->first_column);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1016,6 +1105,7 @@ ast_location_last_lineno(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTLocationData, &rb_location_type, data);
 
     return INT2NUM(data->last_lineno);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1025,6 +1115,7 @@ ast_location_last_column(rb_execution_context_t *ec, VALUE self)
     TypedData_Get_Struct(self, struct ASTLocationData, &rb_location_type, data);
 
     return INT2NUM(data->last_column);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1044,6 +1135,8 @@ ast_location_inspect(rb_execution_context_t *ec, VALUE self)
                 data->last_lineno, data->last_column);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(cname);
 }
 
 #include "ast.rbinc"

@@ -213,6 +213,7 @@ VM_BH_FROM_CFP_P(VALUE block_handler, const rb_control_frame_t *cfp)
 {
     const struct rb_captured_block *captured = VM_CFP_TO_CAPTURED_BLOCK(cfp);
     return VM_TAGGED_PTR_REF(block_handler, 0x03) == captured;
+    RB_GC_GUARD(block_handler);
 }
 
 static VALUE
@@ -222,6 +223,7 @@ vm_passed_block_handler(rb_execution_context_t *ec)
     ec->passed_block_handler = VM_BLOCK_HANDLER_NONE;
     vm_block_handler_verify(block_handler);
     return block_handler;
+    RB_GC_GUARD(block_handler);
 }
 
 static rb_cref_t *
@@ -261,24 +263,31 @@ vm_cref_new0(VALUE klass, rb_method_visibility_t visi, int module_func, rb_cref_
     if (singleton) CREF_SINGLETON_SET(cref);
 
     return cref;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(refinements);
 }
 
 static rb_cref_t *
 vm_cref_new(VALUE klass, rb_method_visibility_t visi, int module_func, rb_cref_t *prev_cref, int pushed_by_eval, int singleton)
 {
     return vm_cref_new0(klass, visi, module_func, prev_cref, pushed_by_eval, FALSE, singleton);
+    RB_GC_GUARD(klass);
 }
 
 static rb_cref_t *
 vm_cref_new_use_prev(VALUE klass, rb_method_visibility_t visi, int module_func, rb_cref_t *prev_cref, int pushed_by_eval)
 {
     return vm_cref_new0(klass, visi, module_func, prev_cref, pushed_by_eval, TRUE, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 static int
 ref_delete_symkey(VALUE key, VALUE value, VALUE unused)
 {
     return SYMBOL_P(key) ? ST_DELETE : ST_CONTINUE;
+    RB_GC_GUARD(unused);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static rb_cref_t *
@@ -296,6 +305,7 @@ vm_cref_dup(const rb_cref_t *cref)
         rb_hash_foreach(ref, ref_delete_symkey, Qnil);
         CREF_REFINEMENTS_SET(new_cref, ref);
         CREF_OMOD_SHARED_UNSET(new_cref);
+    RB_GC_GUARD(ref);
     }
 
     return new_cref;
@@ -331,6 +341,7 @@ vm_cref_new_toplevel(rb_execution_context_t *ec)
     }
 
     return cref;
+    RB_GC_GUARD(top_wrapper);
 }
 
 rb_cref_t *
@@ -355,6 +366,7 @@ rb_vm_block_ep_update(VALUE obj, const struct rb_block *dst, const VALUE *ep)
 {
     *((const VALUE **)&dst->as.captured.ep) = ep;
     RB_OBJ_WRITTEN(obj, Qundef, VM_ENV_ENVVAL(ep));
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -363,6 +375,8 @@ vm_bind_update_env(VALUE bindval, rb_binding_t *bind, VALUE envval)
     const rb_env_t *env = (rb_env_t *)envval;
     RB_OBJ_WRITE(bindval, &bind->block.as.captured.code.iseq, env->iseq);
     rb_vm_block_ep_update(bindval, &bind->block, env->ep);
+    RB_GC_GUARD(bindval);
+    RB_GC_GUARD(envval);
 }
 
 #if VM_COLLECT_USAGE_DETAILS
@@ -658,9 +672,11 @@ rb_dtrace_setup(rb_execution_context_t *ec, VALUE klass, ID id,
             args->klass = klass;
             args->name = name;
             return TRUE;
+    RB_GC_GUARD(name);
         }
     }
     return FALSE;
+    RB_GC_GUARD(klass);
 }
 
 extern unsigned int redblack_buffer_size;
@@ -750,6 +766,15 @@ vm_stat(int argc, VALUE *argv, VALUE self)
     }
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(sym_shape_cache_size);
+    RB_GC_GUARD(sym_next_shape_id);
+    RB_GC_GUARD(sym_global_cvar_state);
+    RB_GC_GUARD(sym_constant_cache_misses);
+    RB_GC_GUARD(sym_constant_cache_invalidations);
 }
 
 /* control stack frame */
@@ -795,6 +820,7 @@ vm_set_main_stack(rb_execution_context_t *ec, const rb_iseq_t *iseq)
     if (ISEQ_BODY(iseq)->local_table_size > 0) {
         vm_bind_update_env(toplevel_binding, bind, vm_make_env_object(ec, ec->cfp));
     }
+        RB_GC_GUARD(toplevel_binding);
 }
 
 rb_control_frame_t *
@@ -942,6 +968,7 @@ vm_block_handler_escape(const rb_execution_context_t *ec, VALUE block_handler)
     }
     VM_UNREACHABLE(vm_block_handler_escape);
     return Qnil;
+    RB_GC_GUARD(block_handler);
 }
 
 static VALUE
@@ -975,6 +1002,8 @@ vm_make_env_each(const rb_execution_context_t * const ec, rb_control_frame_t *co
         if (block_handler != VM_BLOCK_HANDLER_NONE) {
             VALUE blockprocval = vm_block_handler_escape(ec, block_handler);
             VM_STACK_ENV_WRITE(ep, VM_ENV_DATA_INDEX_SPECVAL, blockprocval);
+    RB_GC_GUARD(blockprocval);
+    RB_GC_GUARD(block_handler);
         }
     }
 
@@ -1053,6 +1082,7 @@ vm_make_env_object(const rb_execution_context_t *ec, rb_control_frame_t *cfp)
     }
 
     return envval;
+    RB_GC_GUARD(envval);
 }
 
 void
@@ -1154,6 +1184,8 @@ vm_proc_create_from_captured(VALUE klass,
     proc->is_lambda = is_lambda;
 
     return procval;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(procval);
 }
 
 void
@@ -1174,6 +1206,7 @@ rb_vm_block_copy(VALUE obj, const struct rb_block *dst, const struct rb_block *s
         RB_OBJ_WRITE(obj, &dst->as.proc, src->as.proc);
         break;
     }
+        RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1189,6 +1222,8 @@ proc_create(VALUE klass, const struct rb_block *block, int8_t is_from_method, in
     proc->is_lambda = is_lambda;
 
     return procval;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(procval);
 }
 
 VALUE
@@ -1211,6 +1246,8 @@ rb_proc_dup(VALUE self)
     if (RB_OBJ_SHAREABLE_P(self)) FL_SET_RAW(procval, RUBY_FL_SHAREABLE);
     RB_GC_GUARD(self); /* for: body = rb_proc_dup(body) */
     return procval;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(procval);
 }
 
 struct collect_outer_variable_name_data {
@@ -1236,6 +1273,7 @@ NUM2ID(VALUE num)
         return (ID)NUM2ULL(num);
     else
         return (ID)NUM2ULONG(num);
+        RB_GC_GUARD(num);
 }
 
 static enum rb_id_table_iterator_result
@@ -1259,6 +1297,7 @@ collect_outer_variable_names(ID id, VALUE val, void *ptr)
         rb_ary_push(*store, ID2NUM(id));
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static const rb_env_t *
@@ -1294,10 +1333,13 @@ env_copy(const VALUE *src_ep, VALUE read_only_variables)
                         else
                             rb_str_cat_cstr(msg, "a hidden variable");
                         rb_exc_raise(rb_exc_new_str(rb_eRactorIsolationError, msg));
+                    RB_GC_GUARD(msg);
+                    RB_GC_GUARD(name);
                     }
                     RB_OBJ_WRITE((VALUE)copied_env, &env_body[j], v);
                     rb_ary_delete_at(read_only_variables, i);
                     break;
+    RB_GC_GUARD(v);
                 }
             }
         }
@@ -1315,6 +1357,7 @@ env_copy(const VALUE *src_ep, VALUE read_only_variables)
     }
 
     return copied_env;
+    RB_GC_GUARD(read_only_variables);
 }
 
 static void
@@ -1324,6 +1367,8 @@ proc_isolate_env(VALUE self, rb_proc_t *proc, VALUE read_only_variables)
     const rb_env_t *env = env_copy(captured->ep, read_only_variables);
     *((const VALUE **)&proc->block.as.captured.ep) = env->ep;
     RB_OBJ_WRITTEN(self, Qundef, env);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(read_only_variables);
 }
 
 static VALUE
@@ -1347,10 +1392,13 @@ proc_shared_outer_variables(struct rb_id_table *outer_variables, bool isolate, c
             rb_str_cat_cstr(str, sep);
             sep = ", ";
             rb_str_append(str, name);
+        RB_GC_GUARD(name);
         }
         if (*sep == ',') rb_str_cat_cstr(str, ")");
         rb_str_cat_cstr(str, data.yield ? " and uses 'yield'." : ".");
         rb_exc_raise(rb_exc_new_str(rb_eArgError, str));
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(str);
     }
     else if (data.yield) {
         rb_raise(rb_eArgError, "can not %s because it uses 'yield'.", message);
@@ -1378,6 +1426,7 @@ rb_proc_isolate_bang(VALUE self)
 
     FL_SET_RAW(self, RUBY_FL_SHAREABLE);
     return self;
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1386,6 +1435,8 @@ rb_proc_isolate(VALUE self)
     VALUE dst = rb_proc_dup(self);
     rb_proc_isolate_bang(dst);
     return dst;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(dst);
 }
 
 VALUE
@@ -1412,10 +1463,12 @@ rb_proc_ractor_make_shareable(VALUE self)
 
         proc_isolate_env(self, proc, read_only_variables);
         proc->is_isolated = TRUE;
+    RB_GC_GUARD(read_only_variables);
     }
 
     FL_SET_RAW(self, RUBY_FL_SHAREABLE);
     return self;
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1453,11 +1506,14 @@ rb_vm_make_proc_lambda(const rb_execution_context_t *ec, const struct rb_capture
                 else {
                     ifunc->svar_lep = NULL;
                 }
+    RB_GC_GUARD(ep0);
             }
         }
     }
 
     return procval;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(procval);
 }
 
 /* Binding */
@@ -1488,6 +1544,8 @@ rb_vm_make_binding(const rb_execution_context_t *ec, const rb_control_frame_t *s
     bind->first_lineno = rb_vm_get_sourceline(ruby_level_cfp);
 
     return bindval;
+    RB_GC_GUARD(envval);
+    RB_GC_GUARD(bindval);
 }
 
 const VALUE *
@@ -1525,6 +1583,7 @@ rb_binding_add_dynavars(VALUE bindval, rb_binding_t *bind, int dyncount, const I
     else {
         VALUE tempstr = rb_fstring_lit("<temp>");
         iseq = rb_iseq_new_top(ast_value, tempstr, tempstr, tempstr, NULL);
+    RB_GC_GUARD(tempstr);
     }
     tmp_node.nd_tbl = 0; /* reset table */
     ALLOCV_END(idtmp);
@@ -1535,6 +1594,13 @@ rb_binding_add_dynavars(VALUE bindval, rb_binding_t *bind, int dyncount, const I
 
     env = (const rb_env_t *)envval;
     return env->env;
+    RB_GC_GUARD(bindval);
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(idtmp);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(pathobj);
+    RB_GC_GUARD(envval);
 }
 
 /* C -> Ruby: block */
@@ -1551,6 +1617,8 @@ invoke_block(rb_execution_context_t *ec, const rb_iseq_t *iseq, VALUE self, cons
                   ec->cfp->sp + arg_size,
                   ISEQ_BODY(iseq)->local_table_size - arg_size,
                   ISEQ_BODY(iseq)->stack_max);
+                  RB_GC_GUARD(self);
+                  RB_GC_GUARD(type);
 }
 
 static inline void
@@ -1570,6 +1638,8 @@ invoke_bmethod(rb_execution_context_t *ec, const rb_iseq_t *iseq, VALUE self, co
                   ISEQ_BODY(iseq)->stack_max);
 
     VM_ENV_FLAGS_SET(ec->cfp->ep, VM_FRAME_FLAG_FINISH);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(type);
 }
 
 ALWAYS_INLINE(static VALUE
@@ -1623,6 +1693,9 @@ invoke_iseq_block_from_c(rb_execution_context_t *ec, const struct rb_captured_bl
     }
 
     return vm_exec(ec);
+    RB_GC_GUARD(passed_block_handler);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(type);
 }
 
 static VALUE
@@ -1656,6 +1729,8 @@ invoke_block_from_c_bh(rb_execution_context_t *ec, VALUE block_handler,
     }
     VM_UNREACHABLE(invoke_block_from_c_splattable);
     return Qundef;
+    RB_GC_GUARD(passed_block_handler);
+    RB_GC_GUARD(block_handler);
 }
 
 static inline VALUE
@@ -1668,6 +1743,7 @@ check_block_handler(rb_execution_context_t *ec)
     }
 
     return block_handler;
+    RB_GC_GUARD(block_handler);
 }
 
 static VALUE
@@ -1690,6 +1766,7 @@ vm_yield_with_block(rb_execution_context_t *ec, int argc, const VALUE *argv, VAL
     return invoke_block_from_c_bh(ec, check_block_handler(ec),
                                   argc, argv, kw_splat, block_handler,
                                   NULL, FALSE, FALSE);
+                                  RB_GC_GUARD(block_handler);
 }
 
 static VALUE
@@ -1697,6 +1774,7 @@ vm_yield_force_blockarg(rb_execution_context_t *ec, VALUE args)
 {
     return invoke_block_from_c_bh(ec, check_block_handler(ec), 1, &args,
                                   RB_NO_KEYWORDS, VM_BLOCK_HANDLER_NONE, NULL, FALSE, TRUE);
+                                  RB_GC_GUARD(args);
 }
 
 ALWAYS_INLINE(static VALUE
@@ -1728,6 +1806,7 @@ invoke_block_from_c_proc(rb_execution_context_t *ec, const rb_proc_t *proc,
             }
             else {
                 ((VALUE *)argv)[argc-1] = rb_hash_dup(keyword_hash);
+        RB_GC_GUARD(keyword_hash);
             }
         }
         return vm_yield_with_cfunc(ec, &block->as.captured, self, argc, argv, kw_splat, passed_block_handler, me);
@@ -1740,6 +1819,8 @@ invoke_block_from_c_proc(rb_execution_context_t *ec, const rb_proc_t *proc,
     }
     VM_UNREACHABLE(invoke_block_from_c_proc);
     return Qundef;
+    RB_GC_GUARD(passed_block_handler);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1747,6 +1828,8 @@ vm_invoke_proc(rb_execution_context_t *ec, rb_proc_t *proc, VALUE self,
                int argc, const VALUE *argv, int kw_splat, VALUE passed_block_handler)
 {
     return invoke_block_from_c_proc(ec, proc, self, argc, argv, kw_splat, passed_block_handler, proc->is_lambda, NULL);
+    RB_GC_GUARD(passed_block_handler);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1754,6 +1837,8 @@ vm_invoke_bmethod(rb_execution_context_t *ec, rb_proc_t *proc, VALUE self,
                      int argc, const VALUE *argv, int kw_splat, VALUE block_handler, const rb_callable_method_entry_t *me)
 {
     return invoke_block_from_c_proc(ec, proc, self, argc, argv, kw_splat, block_handler, TRUE, me);
+    RB_GC_GUARD(block_handler);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1768,6 +1853,8 @@ rb_vm_invoke_proc(rb_execution_context_t *ec, rb_proc_t *proc,
     }
     else {
         return vm_invoke_proc(ec, proc, self, argc, argv, kw_splat, passed_block_handler);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(passed_block_handler);
     }
 }
 
@@ -1782,6 +1869,8 @@ rb_vm_invoke_proc_with_self(rb_execution_context_t *ec, rb_proc_t *proc, VALUE s
     }
     else {
         return vm_invoke_proc(ec, proc, self, argc, argv, kw_splat, passed_block_handler);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(passed_block_handler);
     }
 }
 
@@ -1811,24 +1900,29 @@ static VALUE
 vm_cfp_svar_get(const rb_execution_context_t *ec, rb_control_frame_t *cfp, VALUE key)
 {
     return lep_svar_get(ec, rb_vm_svar_lep(ec, cfp), key);
+    RB_GC_GUARD(key);
 }
 
 static void
 vm_cfp_svar_set(const rb_execution_context_t *ec, rb_control_frame_t *cfp, VALUE key, const VALUE val)
 {
     lep_svar_set(ec, rb_vm_svar_lep(ec, cfp), key, val);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
 vm_svar_get(const rb_execution_context_t *ec, VALUE key)
 {
     return vm_cfp_svar_get(ec, ec->cfp, key);
+    RB_GC_GUARD(key);
 }
 
 static void
 vm_svar_set(const rb_execution_context_t *ec, VALUE key, VALUE val)
 {
     vm_cfp_svar_set(ec, ec->cfp, key, val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -1841,6 +1935,7 @@ void
 rb_backref_set(VALUE val)
 {
     vm_svar_set(GET_EC(), VM_SVAR_BACKREF, val);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -1853,6 +1948,7 @@ void
 rb_lastline_set(VALUE val)
 {
     vm_svar_set(GET_EC(), VM_SVAR_LASTLINE, val);
+    RB_GC_GUARD(val);
 }
 
 void
@@ -1864,6 +1960,7 @@ rb_lastline_set_up(VALUE val, unsigned int up)
         cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp);
     }
     vm_cfp_svar_set(GET_EC(), cfp, VM_SVAR_LASTLINE, val);
+    RB_GC_GUARD(val);
 }
 
 /* misc */
@@ -1918,6 +2015,7 @@ rb_source_location_cstr(int *pline)
     VALUE path = rb_source_location(pline);
     if (NIL_P(path)) return NULL;
     return RSTRING_PTR(path);
+    RB_GC_GUARD(path);
 }
 
 rb_cref_t *
@@ -1948,6 +2046,8 @@ rb_vm_cref_in_context(VALUE self, VALUE cbase)
     cref = vm_get_cref(cfp->ep);
     if (CREF_CLASS(cref) != cbase) return NULL;
     return cref;
+    RB_GC_GUARD(cbase);
+    RB_GC_GUARD(self);
 }
 
 #if 0
@@ -2006,6 +2106,8 @@ make_localjump_error(const char *mesg, VALUE value, int reason)
     rb_iv_set(exc, "@exit_value", value);
     rb_iv_set(exc, "@reason", ID2SYM(id));
     return exc;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -2013,6 +2115,8 @@ rb_vm_localjump_error(const char *mesg, VALUE value, int reason)
 {
     VALUE exc = make_localjump_error(mesg, value, reason);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(value);
 }
 
 VALUE
@@ -2045,6 +2149,7 @@ rb_vm_make_jump_tag_but_local_jump(enum ruby_tag_type state, VALUE val)
         val = GET_EC()->tag->retval;
     }
     return make_localjump_error(mesg, val, state);
+    RB_GC_GUARD(val);
 }
 
 void
@@ -2053,6 +2158,7 @@ rb_vm_jump_tag_but_local_jump(enum ruby_tag_type state)
     VALUE exc = rb_vm_make_jump_tag_but_local_jump(state, Qundef);
     if (!NIL_P(exc)) rb_exc_raise(exc);
     EC_JUMP_TAG(GET_EC(), state);
+    RB_GC_GUARD(exc);
 }
 
 static rb_control_frame_t *
@@ -2079,6 +2185,7 @@ vm_iter_break(rb_execution_context_t *ec, VALUE val)
 
     ec->errinfo = (VALUE)THROW_DATA_NEW(val, target_cfp, TAG_BREAK);
     EC_JUMP_TAG(ec, TAG_BREAK);
+    RB_GC_GUARD(val);
 }
 
 void
@@ -2091,6 +2198,7 @@ void
 rb_iter_break_value(VALUE val)
 {
     vm_iter_break(GET_EC(), val);
+    RB_GC_GUARD(val);
 }
 
 /* optimization: redefine management */
@@ -2124,6 +2232,7 @@ vm_redefinition_check_flag(VALUE klass)
     if (klass == rb_cFalseClass) return FALSE_REDEFINED_OP_FLAG;
     if (klass == rb_cProc) return PROC_REDEFINED_OP_FLAG;
     return 0;
+    RB_GC_GUARD(klass);
 }
 
 int
@@ -2134,6 +2243,7 @@ rb_vm_check_optimizable_mid(VALUE mid)
     }
 
     return st_lookup(vm_opt_mid_table, mid, NULL);
+    RB_GC_GUARD(mid);
 }
 
 static int
@@ -2179,6 +2289,7 @@ rb_vm_check_redefinition_opt_method(const rb_method_entry_t *me, VALUE klass)
             }
         }
     }
+                RB_GC_GUARD(klass);
 }
 
 static enum rb_id_table_iterator_result
@@ -2191,6 +2302,8 @@ check_redefined_method(ID mid, VALUE value, void *data)
     if (newme != me) rb_vm_check_redefinition_opt_method(me, me->owner);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -2198,6 +2311,7 @@ rb_vm_check_redefinition_by_prepend(VALUE klass)
 {
     if (!vm_redefinition_check_flag(klass)) return;
     rb_id_table_foreach(RCLASS_M_TBL(RCLASS_ORIGIN(klass)), check_redefined_method, (void *)klass);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -2218,6 +2332,7 @@ add_opt_method(VALUE klass, ID mid, enum ruby_basic_operators bop)
     else {
         rb_bug("undefined optimized method: %s", rb_id2name(mid));
     }
+        RB_GC_GUARD(klass);
 }
 
 static enum ruby_basic_operators vm_redefinition_bop_for_id(ID mid);
@@ -2434,6 +2549,7 @@ hook_before_rewind(rb_execution_context_t *ec, bool cfp_returning_with_value, in
                                             bmethod_return_value, TRUE);
                 }
                 THROW_DATA_CONSUMED_SET(err);
+            RB_GC_GUARD(bmethod_return_value);
             }
             else {
                 EXEC_EVENT_HOOK_AND_POP_FRAME(ec, RUBY_EVENT_B_RETURN, ec->cfp->self, 0, 0, 0, frame_return_value(err));
@@ -2604,6 +2720,7 @@ vm_exec(rb_execution_context_t *ec)
 
     EC_POP_TAG();
     return result;
+    RB_GC_GUARD(result);
 }
 
 static inline VALUE
@@ -2629,6 +2746,7 @@ vm_exec_loop(rb_execution_context_t *ec, enum ruby_tag_type state,
     }
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 static inline VALUE
@@ -2835,7 +2953,9 @@ vm_exec_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state, V
             else {
                 rb_vm_pop_frame(ec);
             }
+                RB_GC_GUARD(type);
         }
+                RB_GC_GUARD(errinfo);
     }
 }
 
@@ -2849,6 +2969,7 @@ rb_iseq_eval(const rb_iseq_t *iseq)
     vm_set_top_stack(ec, iseq);
     val = vm_exec(ec);
     return val;
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -2860,6 +2981,7 @@ rb_iseq_eval_main(const rb_iseq_t *iseq)
     vm_set_main_stack(ec, iseq);
     val = vm_exec(ec);
     return val;
+    RB_GC_GUARD(val);
 }
 
 int
@@ -2908,6 +3030,11 @@ rb_vm_call_cfunc(VALUE recv, VALUE (*func)(VALUE), VALUE arg,
 
     rb_vm_pop_frame(ec);
     return val;
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(block_handler);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(val);
 }
 
 /* vm */
@@ -2982,6 +3109,7 @@ vm_mark_negative_cme(VALUE val, void *dmy)
 {
     rb_gc_mark(val);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 void rb_thread_sched_mark_zombies(rb_vm_t *vm);
@@ -3058,6 +3186,9 @@ rb_vm_register_special_exception_str(enum ruby_special_exceptions sp, VALUE cls,
     OBJ_FREEZE(exc);
     ((VALUE *)vm->special_exceptions)[sp] = exc;
     rb_vm_register_global_object(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(cls);
 }
 
 static int
@@ -3189,6 +3320,7 @@ vm_memsize_constant_cache_i(ID id, VALUE ics, void *size)
 {
     *((size_t *) size) += rb_st_memsize((st_table *) ics);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(ics);
 }
 
 // Returns a size_t representing the memory footprint of the VM's constant
@@ -3275,6 +3407,7 @@ vm_default_params(void)
 #undef SET
     rb_obj_freeze(result);
     return result;
+    RB_GC_GUARD(result);
 }
 
 static size_t
@@ -3363,6 +3496,8 @@ rb_execution_context_update(rb_execution_context_t *ec)
             VALUE update = rb_gc_location(ref);
             if (ref != update) {
                 p[i] = update;
+        RB_GC_GUARD(ref);
+        RB_GC_GUARD(update);
             }
         }
 
@@ -3396,6 +3531,7 @@ mark_local_storage_i(VALUE local, void *data)
 {
     rb_gc_mark(local);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(local);
 }
 
 void
@@ -3579,6 +3715,7 @@ VALUE
 rb_obj_is_thread(VALUE obj)
 {
     return RBOOL(rb_typeddata_is_kind_of(obj, &thread_data_type));
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3586,6 +3723,7 @@ thread_alloc(VALUE klass)
 {
     rb_thread_t *th;
     return TypedData_Make_Struct(klass, rb_thread_t, &thread_data_type, th);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -3673,6 +3811,7 @@ th_init(rb_thread_t *th, VALUE self, rb_vm_t *vm)
 
     RUBY_DEBUG_LOG("th:%u", th->serial);
 #endif
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -3683,6 +3822,8 @@ rb_thread_alloc(VALUE klass)
     target_th->ractor = GET_RACTOR();
     th_init(target_th, self, target_th->vm = GET_VM());
     return self;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(self);
 }
 
 #define REWIND_CFP(expr) do { \
@@ -3701,6 +3842,10 @@ m_core_set_method_alias(VALUE self, VALUE cbase, VALUE sym1, VALUE sym2)
         rb_alias(cbase, SYM2ID(sym1), SYM2ID(sym2));
     });
     return Qnil;
+    RB_GC_GUARD(sym2);
+    RB_GC_GUARD(sym1);
+    RB_GC_GUARD(cbase);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3710,6 +3855,9 @@ m_core_set_variable_alias(VALUE self, VALUE sym1, VALUE sym2)
         rb_alias_variable(SYM2ID(sym1), SYM2ID(sym2));
     });
     return Qnil;
+    RB_GC_GUARD(sym2);
+    RB_GC_GUARD(sym1);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3721,6 +3869,9 @@ m_core_undef_method(VALUE self, VALUE cbase, VALUE sym)
         rb_clear_method_cache(self, mid);
     });
     return Qnil;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(cbase);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3728,6 +3879,7 @@ m_core_set_postexe(VALUE self)
 {
     rb_set_end_proc(rb_call_end_proc, rb_block_proc());
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 static VALUE core_hash_merge_kwd(VALUE hash, VALUE kw);
@@ -3739,6 +3891,7 @@ core_hash_merge(VALUE hash, long argc, const VALUE *argv)
     VM_ASSERT(argc % 2 == 0);
     rb_hash_bulk_insert(argc, argv, hash);
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -3749,6 +3902,8 @@ m_core_hash_merge_ptr(int argc, VALUE *argv, VALUE recv)
     REWIND_CFP(hash = core_hash_merge(hash, argc-1, argv+1));
 
     return hash;
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -3756,6 +3911,9 @@ kwmerge_i(VALUE key, VALUE value, VALUE hash)
 {
     rb_hash_aset(hash, key, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -3765,24 +3923,34 @@ m_core_hash_merge_kwd(VALUE recv, VALUE hash, VALUE kw)
         REWIND_CFP(hash = core_hash_merge_kwd(hash, kw));
     }
     return hash;
+    RB_GC_GUARD(kw);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(recv);
 }
 
 static VALUE
 m_core_make_shareable(VALUE recv, VALUE obj)
 {
     return rb_ractor_make_shareable(obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(recv);
 }
 
 static VALUE
 m_core_make_shareable_copy(VALUE recv, VALUE obj)
 {
     return rb_ractor_make_shareable_copy(obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(recv);
 }
 
 static VALUE
 m_core_ensure_shareable(VALUE recv, VALUE obj, VALUE name)
 {
     return rb_ractor_ensure_shareable(obj, name);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(recv);
 }
 
 static VALUE
@@ -3790,6 +3958,8 @@ core_hash_merge_kwd(VALUE hash, VALUE kw)
 {
     rb_hash_foreach(rb_to_hash_type(kw), kwmerge_i, hash);
     return hash;
+    RB_GC_GUARD(kw);
+    RB_GC_GUARD(hash);
 }
 
 extern VALUE *rb_gc_stack_start;
@@ -3803,6 +3973,7 @@ sdr(VALUE self)
 {
     rb_vm_bugreport(NULL, stderr);
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -3828,6 +3999,8 @@ nsdr(VALUE self)
     free(syms); /* OK */
 #endif
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 #if VM_COLLECT_USAGE_DETAILS
@@ -3849,24 +4022,28 @@ static VALUE
 f_raise(int c, VALUE *v, VALUE _)
 {
     return rb_f_raise(c, v);
+    RB_GC_GUARD(_);
 }
 
 static VALUE
 f_proc(VALUE _)
 {
     return rb_block_proc();
+    RB_GC_GUARD(_);
 }
 
 static VALUE
 f_lambda(VALUE _)
 {
     return rb_block_lambda();
+    RB_GC_GUARD(_);
 }
 
 static VALUE
 f_sprintf(int c, const VALUE *v, VALUE _)
 {
     return rb_f_sprintf(c, v);
+    RB_GC_GUARD(_);
 }
 
 /* :nodoc: */
@@ -3875,6 +4052,9 @@ vm_mtbl(VALUE self, VALUE obj, VALUE sym)
 {
     vm_mtbl_dump(CLASS_OF(obj), RTEST(sym) ? SYM2ID(sym) : 0);
     return Qnil;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -3883,6 +4063,9 @@ vm_mtbl2(VALUE self, VALUE obj, VALUE sym)
 {
     vm_mtbl_dump(obj, RTEST(sym) ? SYM2ID(sym) : 0);
     return Qnil;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3900,6 +4083,7 @@ static VALUE
 vm_keep_script_lines(VALUE self)
 {
     return RBOOL(ruby_vm_keep_script_lines);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3918,6 +4102,8 @@ vm_keep_script_lines_set(VALUE self, VALUE flags)
 {
     ruby_vm_keep_script_lines = RTEST(flags);
     return flags;
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -4242,6 +4428,7 @@ Init_VM(void)
          * The Binding of the top level scope
          */
         rb_define_global_const("TOPLEVEL_BINDING", rb_binding_new());
+        RB_GC_GUARD(filename);
 
 #ifdef _WIN32
         rb_objspace_gc_enable(vm->gc.objspace);
@@ -4257,6 +4444,9 @@ Init_VM(void)
 
     /* vm_backtrace.c */
     Init_vm_backtrace();
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(fcore);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -4268,6 +4458,7 @@ rb_vm_set_progname(VALUE filename)
 
     filename = rb_str_new_frozen(filename);
     rb_iseq_pathobj_set(cfp->iseq, filename, rb_iseq_realpath(cfp->iseq));
+    RB_GC_GUARD(filename);
 }
 
 extern const struct st_hash_type rb_fstring_hash_type;
@@ -4388,6 +4579,8 @@ pin_array_list_new(VALUE next)
     RB_OBJ_WRITE(obj, &array_list->next, next);
     array_list->array = ALLOC_N(VALUE, MARK_OBJECT_ARY_BUCKET_SIZE);
     return obj;
+    RB_GC_GUARD(next);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -4404,6 +4597,8 @@ pin_array_list_append(VALUE obj, VALUE item)
     RB_OBJ_WRITE(obj, &array_list->array[array_list->len], item);
     array_list->len++;
     return obj;
+    RB_GC_GUARD(item);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4433,8 +4628,11 @@ rb_vm_register_global_object(VALUE obj)
             GET_VM()->mark_object_ary = head;
         }
         RB_GC_GUARD(obj);
+    RB_GC_GUARD(head);
+    RB_GC_GUARD(list);
     }
     RB_VM_LOCK_LEAVE();
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4469,6 +4667,7 @@ static VALUE
 main_to_s(VALUE obj)
 {
     return rb_str_new2("main");
+    RB_GC_GUARD(obj);
 }
 
 VALUE

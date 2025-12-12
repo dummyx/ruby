@@ -15,6 +15,9 @@ cmp_1(const void *ap, const void *bp, void *dummy)
     VALUE b = rb_enc_str_new(bp, d->elsize, d->enc);
     VALUE retval = rb_yield_values(2, a, b);
     return rb_cmpint(retval, a, b);
+    RB_GC_GUARD(retval);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 static int
@@ -52,6 +55,10 @@ bug_str_qsort_bang(int argc, VALUE *argv, VALUE str)
     ruby_qsort(RSTRING_PTR(str) + b, n, s,
                rb_block_given_p() ? cmp_1 : cmp_2, &d);
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(beg);
 }
 
 void

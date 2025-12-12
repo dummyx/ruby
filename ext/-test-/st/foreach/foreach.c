@@ -103,6 +103,8 @@ unp_fec(VALUE self, VALUE test)
     st_free_table(tbl);
 
     return Qnil;
+    RB_GC_GUARD(test);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -164,6 +166,8 @@ unp_fe(VALUE self, VALUE test)
     st_free_table(tbl);
 
     return Qnil;
+    RB_GC_GUARD(test);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -172,4 +176,5 @@ Init_foreach(void)
     VALUE bug = rb_define_module("Bug");
     rb_define_singleton_method(bug, "unp_st_foreach_check", unp_fec, 1);
     rb_define_singleton_method(bug, "unp_st_foreach", unp_fe, 1);
+    RB_GC_GUARD(bug);
 }

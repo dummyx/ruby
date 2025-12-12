@@ -7,6 +7,8 @@ stat_for_fd(VALUE self, VALUE fileno)
     struct stat st;
     if (fstat(NUM2INT(fileno), &st)) rb_sys_fail(0);
     return rb_stat_new(&st);
+    RB_GC_GUARD(fileno);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -16,6 +18,8 @@ stat_for_path(VALUE self, VALUE path)
     FilePathValue(path);
     if (stat(RSTRING_PTR(path), &st)) rb_sys_fail(0);
     return rb_stat_new(&st);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -24,4 +28,5 @@ Init_stat(VALUE module)
     VALUE st = rb_define_module_under(module, "Stat");
     rb_define_module_function(st, "for_fd", stat_for_fd, 1);
     rb_define_module_function(st, "for_path", stat_for_path, 1);
+    RB_GC_GUARD(st);
 }

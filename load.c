@@ -104,10 +104,16 @@ rb_construct_expanded_load_path(rb_vm_t *vm, enum expand_type type, int *has_rel
         expanded_path = rb_check_realpath(Qnil, as_str, NULL);
         if (NIL_P(expanded_path)) expanded_path = as_str;
         rb_ary_push(ary, rb_fstring(expanded_path));
+    RB_GC_GUARD(expanded_path);
+    RB_GC_GUARD(as_str);
+    RB_GC_GUARD(path);
     }
     rb_ary_freeze(ary);
     vm->expanded_load_path = ary;
     rb_ary_replace(vm->load_path_snapshot, vm->load_path);
+    RB_GC_GUARD(load_path);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(expanded_load_path);
 }
 
 static VALUE
@@ -150,6 +156,7 @@ get_expanded_load_path(rb_vm_t *vm)
             /* Expand only tilde (User HOME) and non-cacheable objects. */
             rb_construct_expanded_load_path(vm, EXPAND_HOME,
                                             &has_relative, &has_non_cache);
+    RB_GC_GUARD(cwd);
         }
     }
     return vm->expanded_load_path;
@@ -223,6 +230,7 @@ is_rbext_path(VALUE feature_path)
     long rbext_len = rb_strlen_lit(".rb");
     if (len <= rbext_len) return false;
     return IS_RBEXT(RSTRING_PTR(feature_path) + len - rbext_len);
+    RB_GC_GUARD(feature_path);
 }
 
 typedef rb_darray(long) feature_indexes_t;
@@ -259,6 +267,8 @@ features_index_add_single_callback(st_data_t *key, st_data_t *value, st_data_t r
             RUBY_ASSERT(!SPECIAL_CONST_P((VALUE)feature_indexes));
 
             *value = (st_data_t)feature_indexes;
+        RB_GC_GUARD(this_feature_path);
+        RB_GC_GUARD(loaded_features);
         }
         else {
             feature_indexes_t feature_indexes = (feature_indexes_t)this_feature_index;
@@ -267,12 +277,14 @@ features_index_add_single_callback(st_data_t *key, st_data_t *value, st_data_t r
             if (rb) {
                 VALUE loaded_features = get_loaded_features(vm);
                 for (size_t i = 0; i < rb_darray_size(feature_indexes); ++i) {
+                    RB_GC_GUARD(loaded_features);
                     long idx = rb_darray_get(feature_indexes, i);
                     VALUE this_feature_path = RARRAY_AREF(loaded_features, idx);
                     Check_Type(this_feature_path, T_STRING);
                     if (!is_rbext_path(this_feature_path)) {
                         pos = i;
                         break;
+            RB_GC_GUARD(this_feature_path);
                     }
                 }
             }
@@ -287,6 +299,7 @@ features_index_add_single_callback(st_data_t *key, st_data_t *value, st_data_t r
                 MEMMOVE(ptr + pos, ptr + pos + 1, long, len - pos - 1);
                 ptr[pos] = FIX2LONG(offset);
             }
+    RB_GC_GUARD(this_feature_index);
         }
     }
     else {
@@ -294,6 +307,7 @@ features_index_add_single_callback(st_data_t *key, st_data_t *value, st_data_t r
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(offset);
 }
 
 static void
@@ -314,6 +328,7 @@ features_index_add_single(rb_vm_t *vm, const char* str, size_t len, VALUE offset
     };
 
     st_update(features_index, short_feature_key, features_index_add_single_callback, (st_data_t)&args);
+    RB_GC_GUARD(offset);
 }
 
 /* Add to the loaded-features index all the required entries for
@@ -360,6 +375,8 @@ features_index_add(rb_vm_t *vm, VALUE feature, VALUE offset)
     if (ext) {
         features_index_add_single(vm, feature_str, ext - feature_str, offset, rb);
     }
+        RB_GC_GUARD(feature);
+        RB_GC_GUARD(offset);
 }
 
 static int
@@ -370,6 +387,7 @@ loaded_features_index_clear_i(st_data_t key, st_data_t val, st_data_t arg)
         rb_darray_free((void *)obj);
     }
     return ST_DELETE;
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -404,6 +422,8 @@ get_loaded_features_index(rb_vm_t *vm)
             if (as_str != entry)
                 rb_ary_store(features, i, as_str);
             features_index_add(vm, as_str, INT2FIX(i));
+        RB_GC_GUARD(as_str);
+        RB_GC_GUARD(entry);
         }
         reset_loaded_features_snapshot(vm);
 
@@ -419,9 +439,15 @@ get_loaded_features_index(rb_vm_t *vm)
             }
             rb_hash_aset(realpaths, realpath, Qtrue);
             rb_hash_aset(realpath_map, as_str, realpath);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(as_str);
+    RB_GC_GUARD(realpaths);
+    RB_GC_GUARD(previous_realpath_map);
+    RB_GC_GUARD(realpath_map);
         }
     }
     return vm->loaded_features_index;
+    RB_GC_GUARD(features);
 }
 
 /* This searches `load_path` for a value such that
@@ -475,8 +501,10 @@ loaded_feature_path(const char *name, long vlen, const char *feature, long len,
         if (n != plen) continue;
         if (n && strncmp(name, s, n)) continue;
         return p;
+    RB_GC_GUARD(p);
     }
     return 0;
+    RB_GC_GUARD(load_path);
 }
 
 struct loaded_feature_searching {
@@ -497,6 +525,7 @@ loaded_feature_path_i(st_data_t v, st_data_t b, st_data_t f)
     if (!p) return ST_CONTINUE;
     fp->result = s;
     return ST_STOP;
+    RB_GC_GUARD(p);
 }
 
 /*
@@ -642,12 +671,18 @@ rb_feature_p(rb_vm_t *vm, const char *feature, const char *ext, int rb, int expa
             }
         }
         rb_str_resize(bufstr, 0);
+    RB_GC_GUARD(bufstr);
     }
     return 0;
 
   loading:
     if (!ext) return 'u';
     return !IS_RBEXT(ext) ? 's' : 'r';
+    RB_GC_GUARD(load_path);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(this_feature_index);
+    RB_GC_GUARD(features);
 }
 
 int
@@ -681,6 +716,7 @@ feature_provided(rb_vm_t *vm, const char *feature, const char **loading)
         return TRUE;
     RB_GC_GUARD(fullpath);
     return FALSE;
+    RB_GC_GUARD(fullpath);
 }
 
 int
@@ -709,6 +745,8 @@ rb_provide_feature(rb_vm_t *vm, VALUE feature)
     rb_ary_push(features, feature);
     features_index_add(vm, feature, INT2FIX(RARRAY_LEN(features)-1));
     reset_loaded_features_snapshot(vm);
+    RB_GC_GUARD(features);
+    RB_GC_GUARD(feature);
 }
 
 void
@@ -730,6 +768,10 @@ realpath_internal_cached(VALUE hash, VALUE path)
     VALUE realpath = rb_realpath_internal(Qnil, path, 1);
     rb_hash_aset(hash, rb_fstring(path), rb_fstring(realpath));
     return realpath;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(ret);
 }
 
 static inline void
@@ -767,6 +809,7 @@ load_iseq_eval(rb_execution_context_t *ec, VALUE fname)
                 RB_GC_GUARD(v);
                 pm_parse_result_free(&result);
                 rb_exc_raise(error);
+        RB_GC_GUARD(error);
             }
         }
         else {
@@ -780,13 +823,17 @@ load_iseq_eval(rb_execution_context_t *ec, VALUE fname)
             iseq = rb_iseq_new_top(ast_value, rb_fstring_lit("<top (required)>"),
                                    fname, realpath_internal_cached(realpath_map, fname), NULL);
             rb_ast_dispose(ast);
+        RB_GC_GUARD(parser);
+        RB_GC_GUARD(ast_value);
         }
 
         rb_vm_pop_frame(ec);
         RB_GC_GUARD(v);
+    RB_GC_GUARD(realpath_map);
     }
     rb_exec_event_hook_script_compiled(ec, iseq, Qnil);
     rb_iseq_eval(iseq);
+    RB_GC_GUARD(fname);
 }
 
 static inline enum ruby_tag_type
@@ -821,6 +868,8 @@ load_wrapping(rb_execution_context_t *ec, VALUE fname, VALUE load_wrapper)
     th->top_self = self;
     th->top_wrapper = wrapper;
     return state;
+    RB_GC_GUARD(load_wrapper);
+    RB_GC_GUARD(fname);
 }
 
 static inline void
@@ -850,6 +899,8 @@ rb_load_internal(VALUE fname, VALUE wrap)
         load_iseq_eval(ec, fname);
     }
     raise_load_if_failed(ec, state);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(wrap);
 }
 
 void
@@ -858,6 +909,8 @@ rb_load(VALUE fname, int wrap)
     VALUE tmp = rb_find_file(FilePathValue(fname));
     if (!tmp) load_failed(fname);
     rb_load_internal(tmp, RBOOL(wrap));
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(fname);
 }
 
 void
@@ -872,6 +925,7 @@ rb_load_protect(VALUE fname, int wrap, int *pstate)
     EC_POP_TAG();
 
     if (state != TAG_NONE) *pstate = state;
+    RB_GC_GUARD(fname);
 }
 
 /*
@@ -926,6 +980,11 @@ rb_f_load(int argc, VALUE *argv, VALUE _)
     RUBY_DTRACE_HOOK(LOAD_RETURN, RSTRING_PTR(orig_fname));
 
     return Qtrue;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(orig_fname);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(wrap);
+    RB_GC_GUARD(fname);
 }
 
 static char *
@@ -946,6 +1005,7 @@ load_lock(rb_vm_t *vm, const char *ftptr, bool warn)
         VALUE warning = rb_warning_string("loading in progress, circular require considered harmful - %s", ftptr);
         rb_backtrace_each(rb_str_append, warning);
         rb_warning("%"PRIsVALUE, warning);
+    RB_GC_GUARD(warning);
     }
     switch (rb_thread_shield_wait((VALUE)data)) {
       case Qfalse:
@@ -971,6 +1031,7 @@ release_thread_shield(st_data_t *key, st_data_t *value, st_data_t done, int exis
     }
     xfree((char *)*key);
     return ST_DELETE;
+    RB_GC_GUARD(thread_shield);
 }
 
 static void
@@ -1027,6 +1088,8 @@ VALUE
 rb_f_require(VALUE obj, VALUE fname)
 {
     return rb_require_string(fname);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1047,6 +1110,9 @@ rb_f_require_relative(VALUE obj, VALUE fname)
     }
     base = rb_file_dirname(base);
     return rb_require_string_internal(rb_file_absolute_path(fname, base), false);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(base);
 }
 
 typedef int (*feature_func)(rb_vm_t *vm, const char *feature, const char *ext, int rb, int expanded, const char **fn);
@@ -1126,6 +1192,7 @@ search_required(rb_vm_t *vm, VALUE fname, volatile VALUE *path, feature_func rb_
             *path = rb_filesystem_str_new_cstr(ftptr);
             RB_GC_GUARD(lookup_name);
             return 's';
+    RB_GC_GUARD(lookup_name);
         }
     }
 
@@ -1152,12 +1219,15 @@ search_required(rb_vm_t *vm, VALUE fname, volatile VALUE *path, feature_func rb_
   feature_present:
     if (loading) *path = rb_filesystem_str_new_cstr(loading);
     return ft;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(tmp);
 }
 
 static void
 load_failed(VALUE fname)
 {
     rb_load_fail(fname, "cannot load such file");
+    RB_GC_GUARD(fname);
 }
 
 static VALUE
@@ -1165,6 +1235,7 @@ load_ext(VALUE path)
 {
     rb_scope_visibility_set(METHOD_VISI_PUBLIC);
     return (VALUE)dln_load(RSTRING_PTR(path));
+    RB_GC_GUARD(path);
 }
 
 static bool
@@ -1210,6 +1281,10 @@ rb_resolve_feature_path(VALUE klass, VALUE fname)
     }
 
     return rb_ary_new_from_args(2, sym, path);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(path);
 }
 
 static void
@@ -1306,6 +1381,7 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
                 }
                 result = TAG_RETURN;
             }
+    RB_GC_GUARD(handle);
         }
     }
     EC_POP_TAG();
@@ -1329,6 +1405,7 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
             VALUE exc = rb_vm_make_jump_tag_but_local_jump(state, Qundef);
             if (!NIL_P(exc)) ec->errinfo = exc;
             return TAG_RAISE;
+        RB_GC_GUARD(exc);
         }
         else if (state == TAG_RETURN) {
             return TAG_RAISE;
@@ -1348,6 +1425,7 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
         if (real) {
             real = rb_fstring(real);
             rb_hash_aset(realpaths, real, Qtrue);
+    RB_GC_GUARD(real);
         }
     }
     ec->errinfo = saved.errinfo;
@@ -1355,6 +1433,10 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
     RUBY_DTRACE_HOOK(REQUIRE_RETURN, RSTRING_PTR(fname));
 
     return result;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(realpath_map);
+    RB_GC_GUARD(realpaths);
+    RB_GC_GUARD(path);
 }
 
 int
@@ -1362,6 +1444,7 @@ rb_require_internal_silent(VALUE fname)
 {
     rb_execution_context_t *ec = GET_EC();
     return require_internal(ec, fname, 1, false);
+    RB_GC_GUARD(fname);
 }
 
 int
@@ -1369,6 +1452,7 @@ rb_require_internal(VALUE fname)
 {
     rb_execution_context_t *ec = GET_EC();
     return require_internal(ec, fname, 1, RTEST(ruby_verbose));
+    RB_GC_GUARD(fname);
 }
 
 int
@@ -1380,12 +1464,14 @@ ruby_require_internal(const char *fname, unsigned int len)
     int result = require_internal(ec, str, 0, RTEST(ruby_verbose));
     rb_set_errinfo(Qnil);
     return result == TAG_RETURN ? 1 : result ? -1 : 0;
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_require_string(VALUE fname)
 {
     return rb_require_string_internal(FilePathValue(fname), false);
+    RB_GC_GUARD(fname);
 }
 
 static VALUE
@@ -1410,6 +1496,7 @@ rb_require_string_internal(VALUE fname, bool resurrect)
         }
 
         return RBOOL(result);
+        RB_GC_GUARD(fname);
     }
 }
 
@@ -1419,6 +1506,7 @@ rb_require(const char *fname)
     struct RString fake;
     VALUE str = rb_setup_fake_str(&fake, fname, strlen(fname), 0);
     return rb_require_string_internal(str, true);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -1481,6 +1569,9 @@ rb_mod_autoload(VALUE mod, VALUE sym, VALUE file)
     FilePathValue(file);
     rb_autoload_str(mod, id, file);
     return Qnil;
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -1520,6 +1611,8 @@ rb_mod_autoload_p(int argc, VALUE *argv, VALUE mod)
         return Qnil;
     }
     return rb_autoload_at_p(mod, id, recur);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -1545,6 +1638,10 @@ rb_f_autoload(VALUE obj, VALUE sym, VALUE file)
         rb_raise(rb_eTypeError, "Can not set autoload on singleton class");
     }
     return rb_mod_autoload(klass, sym, file);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1579,6 +1676,8 @@ rb_f_autoload_p(int argc, VALUE *argv, VALUE obj)
         return Qnil;
     }
     return rb_mod_autoload_p(argc, argv, klass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 void *
@@ -1610,6 +1709,10 @@ rb_ext_resolve_symbol(const char* fname, const char* symbol)
         return NULL;
     }
     return dln_symbol((void *)NUM2SVALUE(handle), symbol);
+    RB_GC_GUARD(fname_str);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(resolved);
+    RB_GC_GUARD(handle);
 }
 
 void

@@ -56,6 +56,7 @@ static bool
 readonly_string_p(VALUE string)
 {
     return OBJ_FROZEN_RAW(string);
+    RB_GC_GUARD(string);
 }
 
 static struct StringIO *
@@ -114,6 +115,7 @@ get_strio(VALUE self)
 	rb_raise(rb_eIOError, "uninitialized stream");
     }
     return ptr;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -122,6 +124,7 @@ enc_subseq(VALUE str, long pos, long len, rb_encoding *enc)
     str = rb_str_subseq(str, pos, len);
     rb_enc_associate(str, enc);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -134,6 +137,7 @@ strio_substr(struct StringIO *ptr, long pos, long len, rb_encoding *enc)
     if (len < 0) len = 0;
     if (len == 0) return rb_enc_str_new(0, 0, enc);
     return enc_subseq(str, pos, len, enc);
+    RB_GC_GUARD(str);
 }
 
 #define StringIO(obj) get_strio(obj)
@@ -159,6 +163,7 @@ readable(VALUE strio)
 	rb_raise(rb_eIOError, "not opened for reading");
     }
     return ptr;
+    RB_GC_GUARD(strio);
 }
 
 static struct StringIO*
@@ -169,6 +174,7 @@ writable(VALUE strio)
 	rb_raise(rb_eIOError, "not opened for writing");
     }
     return ptr;
+    RB_GC_GUARD(strio);
 }
 
 static void
@@ -186,6 +192,7 @@ static VALUE
 strio_s_allocate(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &strio_data_type, 0);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -214,6 +221,7 @@ strio_initialize(int argc, VALUE *argv, VALUE self)
     }
     rb_call_super(0, 0);
     return strio_init(argc, argv, ptr, self);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -264,6 +272,7 @@ detect_bom(VALUE str, int *bomlen)
 	break;
     }
     return 0;
+    RB_GC_GUARD(str);
 }
 
 static rb_encoding *
@@ -324,6 +333,10 @@ strio_init(int argc, VALUE *argv, struct StringIO *ptr, VALUE self)
     if (ptr->flags & FMODE_SETENC_BY_BOM) set_encoding_by_bom(ptr);
     RBASIC(self)->flags |= (ptr->flags & FMODE_READWRITE) * (STRIO_READABLE / FMODE_READABLE);
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(vmode);
+    RB_GC_GUARD(string);
 }
 
 static VALUE
@@ -333,6 +346,7 @@ strio_finalize(VALUE self)
     RB_OBJ_WRITE(self, &ptr->string, Qnil);
     ptr->flags &= ~FMODE_READWRITE;
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -363,6 +377,8 @@ strio_s_open(int argc, VALUE *argv, VALUE klass)
     VALUE obj = rb_class_new_instance_kw(argc, argv, klass, RB_PASS_CALLED_KEYWORDS);
     if (!rb_block_given_p()) return obj;
     return rb_ensure(rb_yield, obj, strio_finalize, obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -374,8 +390,10 @@ strio_s_new(int argc, VALUE *argv, VALUE klass)
 
 	rb_warn("%"PRIsVALUE"::new() does not take block; use %"PRIsVALUE"::open() instead",
 		cname, cname);
+    RB_GC_GUARD(cname);
     }
     return rb_class_new_instance_kw(argc, argv, klass, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -386,6 +404,7 @@ strio_false(VALUE self)
 {
     StringIO(self);
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -396,6 +415,7 @@ strio_nil(VALUE self)
 {
     StringIO(self);
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -406,6 +426,7 @@ strio_self(VALUE self)
 {
     StringIO(self);
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -416,6 +437,7 @@ strio_0(VALUE self)
 {
     StringIO(self);
     return INT2FIX(0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -426,6 +448,8 @@ strio_first(VALUE self, VALUE arg)
 {
     StringIO(self);
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -438,6 +462,7 @@ strio_unimpl(int argc, VALUE *argv, VALUE self)
     rb_notimplement();
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -463,6 +488,7 @@ static VALUE
 strio_get_string(VALUE self)
 {
     return StringIO(self)->string;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -498,6 +524,8 @@ strio_set_string(VALUE self, VALUE string)
     ptr->lineno = 0;
     RB_OBJ_WRITE(self, &ptr->string, string);
     return string;
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -516,6 +544,7 @@ strio_close(VALUE self)
     StringIO(self);
     RBASIC(self)->flags &= ~STRIO_READWRITE;
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -537,6 +566,7 @@ strio_close_read(VALUE self)
     }
     RBASIC(self)->flags &= ~STRIO_READABLE;
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -558,6 +588,7 @@ strio_close_write(VALUE self)
     }
     RBASIC(self)->flags &= ~STRIO_WRITABLE;
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -573,6 +604,7 @@ strio_closed(VALUE self)
     StringIO(self);
     if (!CLOSED(self)) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -587,6 +619,7 @@ strio_closed_read(VALUE self)
     StringIO(self);
     if (READABLE(self)) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -601,6 +634,7 @@ strio_closed_write(VALUE self)
     StringIO(self);
     if (WRITABLE(self)) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 static struct StringIO *
@@ -610,6 +644,7 @@ strio_to_read(VALUE self)
     if (NIL_P(ptr->string)) return NULL;
     if (ptr->pos < RSTRING_LEN(ptr->string)) return ptr;
     return NULL;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -626,6 +661,7 @@ strio_eof(VALUE self)
 {
     if (strio_to_read(self)) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -649,6 +685,9 @@ strio_copy(VALUE copy, VALUE orig)
     RBASIC(copy)->flags |= RBASIC(orig)->flags & STRIO_READWRITE;
     ++ptr->count;
     return copy;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(copy);
+    RB_GC_GUARD(old_string);
 }
 
 /*
@@ -662,6 +701,7 @@ static VALUE
 strio_get_lineno(VALUE self)
 {
     return LONG2NUM(StringIO(self)->lineno);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -676,6 +716,8 @@ strio_set_lineno(VALUE self, VALUE lineno)
 {
     StringIO(self)->lineno = NUM2LONG(lineno);
     return lineno;
+    RB_GC_GUARD(lineno);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -697,6 +739,7 @@ strio_binmode(VALUE self)
 	rb_enc_associate(ptr->string, enc);
     }
     return self;
+    RB_GC_GUARD(self);
 }
 
 #define strio_fcntl strio_unimpl
@@ -737,6 +780,7 @@ strio_reopen(int argc, VALUE *argv, VALUE self)
 	return strio_copy(self, *argv);
     }
     return strio_init(argc, argv, StringIO(self), self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -750,6 +794,7 @@ static VALUE
 strio_get_pos(VALUE self)
 {
     return LONG2NUM(StringIO(self)->pos);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -769,6 +814,8 @@ strio_set_pos(VALUE self, VALUE pos)
     }
     ptr->pos = p;
     return pos;
+    RB_GC_GUARD(pos);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -786,6 +833,7 @@ strio_rewind(VALUE self)
     ptr->pos = 0;
     ptr->lineno = 0;
     return INT2FIX(0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -826,6 +874,8 @@ strio_seek(int argc, VALUE *argv, VALUE self)
     }
     ptr->pos = amount + offset;
     return INT2FIX(0);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(whence);
 }
 
 /*
@@ -839,6 +889,7 @@ strio_get_sync(VALUE self)
 {
     StringIO(self);
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 #define strio_set_sync strio_first
@@ -866,6 +917,7 @@ strio_each_byte(VALUE self)
 	rb_yield(CHR2FIX(c));
     }
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -892,6 +944,8 @@ strio_getc(VALUE self)
     len = rb_enc_mbclen(p, RSTRING_END(str), enc);
     ptr->pos += len;
     return enc_subseq(str, pos, len, enc);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -911,6 +965,7 @@ strio_getbyte(VALUE self)
     }
     c = RSTRING_PTR(ptr->string)[ptr->pos++];
     return CHR2FIX(c);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -940,6 +995,7 @@ strio_unget_string(struct StringIO *ptr, VALUE c)
 	strio_unget_bytes(ptr, cp, cl);
 	RB_GC_GUARD(c);
     }
+	RB_GC_GUARD(c);
 }
 
 /*
@@ -981,6 +1037,8 @@ strio_ungetc(VALUE self, VALUE c)
 	}
 	strio_unget_string(ptr, c);
 	return Qnil;
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(c);
     }
 }
 
@@ -1004,12 +1062,15 @@ strio_ungetbyte(VALUE self, VALUE c)
 	VALUE v = rb_funcall(c, '&', 1, INT2FIX(0xff));
 	const char cc = NUM2INT(v) & 0xFF;
 	strio_unget_bytes(ptr, &cc, 1);
+    RB_GC_GUARD(v);
     }
     else {
 	StringValue(c);
 	strio_unget_string(ptr, c);
     }
     return Qnil;
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1041,6 +1102,7 @@ strio_unget_bytes(struct StringIO *ptr, const char *cp, long cl)
     memcpy(s + pos, (cp ? cp : s), cl);
     ptr->pos = pos;
     return Qnil;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1056,6 +1118,8 @@ strio_readchar(VALUE self)
     VALUE c = rb_funcallv(self, rb_intern("getc"), 0, 0);
     if (NIL_P(c)) rb_eof_error();
     return c;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(c);
 }
 
 /*
@@ -1071,6 +1135,8 @@ strio_readbyte(VALUE self)
     VALUE c = rb_funcallv(self, rb_intern("getbyte"), 0, 0);
     if (NIL_P(c)) rb_eof_error();
     return c;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(c);
 }
 
 /*
@@ -1093,6 +1159,8 @@ strio_each_char(VALUE self)
 	rb_yield(c);
     }
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(c);
 }
 
 /*
@@ -1123,6 +1191,7 @@ strio_each_codepoint(VALUE self)
 	rb_yield(UINT2NUM(c));
     }
     return self;
+    RB_GC_GUARD(self);
 }
 
 /* Boyer-Moore search: copied from regex.c */
@@ -1187,6 +1256,7 @@ prepare_getline_args(struct StringIO *ptr, struct getline_arg *arg, int argc, VA
 	    }
 	    else {
 		rs = tmp;
+	RB_GC_GUARD(tmp);
 	    }
 	}
 	break;
@@ -1227,9 +1297,13 @@ prepare_getline_args(struct StringIO *ptr, struct getline_arg *arg, int argc, VA
 	rb_get_kwargs(opts, keywords, 0, 1, &vchomp);
 	if (respect_chomp) {
 	    arg->chomp = (vchomp != Qundef) && RTEST(vchomp);
+    RB_GC_GUARD(vchomp);
 	}
     }
     return arg;
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(lim);
+    RB_GC_GUARD(rs);
 }
 
 static inline int
@@ -1328,6 +1402,7 @@ strio_getline(struct getline_arg *arg, struct StringIO *ptr)
     ptr->pos = e - RSTRING_PTR(ptr->string);
     ptr->lineno++;
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1355,6 +1430,8 @@ strio_gets(int argc, VALUE *argv, VALUE self)
     str = strio_getline(&arg, ptr);
     rb_lastline_set(str);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1372,6 +1449,8 @@ strio_readline(int argc, VALUE *argv, VALUE self)
     VALUE line = rb_funcallv_kw(self, rb_intern("gets"), argc, argv, RB_PASS_CALLED_KEYWORDS);
     if (NIL_P(line)) rb_eof_error();
     return line;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(line);
 }
 
 /*
@@ -1402,6 +1481,8 @@ strio_each(int argc, VALUE *argv, VALUE self)
 	rb_yield(line);
     }
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(line);
 }
 
 /*
@@ -1428,6 +1509,9 @@ strio_readlines(int argc, VALUE *argv, VALUE self)
 	rb_ary_push(ary, line);
     }
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1449,6 +1533,7 @@ strio_write_m(int argc, VALUE *argv, VALUE self)
 	len += strio_write(self, *argv++);
     }
     return LONG2NUM(len);
+    RB_GC_GUARD(self);
 }
 
 static long
@@ -1471,6 +1556,7 @@ strio_write(VALUE self, VALUE str)
 	    rb_enc_check(rb_enc_from_encoding(enc), str);
 	}
 	str = converted;
+    RB_GC_GUARD(converted);
     }
     len = RSTRING_LEN(str);
     if (len == 0) return 0;
@@ -1495,6 +1581,8 @@ strio_write(VALUE self, VALUE str)
     RB_GC_GUARD(str);
     ptr->pos += len;
     return len;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1546,6 +1634,9 @@ strio_putc(VALUE self, VALUE ch)
     }
     strio_write(self, str);
     return ch;
+    RB_GC_GUARD(ch);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1629,6 +1720,8 @@ strio_read(int argc, VALUE *argv, VALUE self)
     }
     ptr->pos += RSTRING_LEN(str);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1677,6 +1770,10 @@ strio_pread(int argc, VALUE *argv, VALUE self)
     rb_enc_associate(rb_buf, rb_ascii8bit_encoding());
     MEMCPY(RSTRING_PTR(rb_buf), RSTRING_PTR(ptr->string) + offset, char, len);
     return rb_buf;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rb_buf);
+    RB_GC_GUARD(rb_offset);
+    RB_GC_GUARD(rb_len);
 }
 
 
@@ -1696,6 +1793,8 @@ strio_sysread(int argc, VALUE *argv, VALUE self)
 	rb_eof_error();
     }
     return val;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -1726,6 +1825,9 @@ strio_read_nonblock(int argc, VALUE *argv, VALUE self)
     }
 
     return val;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(opts);
 }
 
 /*
@@ -1743,6 +1845,8 @@ strio_syswrite_nonblock(int argc, VALUE *argv, VALUE self)
 
     rb_scan_args(argc, argv, "10:", &str, NULL);
     return strio_syswrite(self, str);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 #define strio_isatty strio_false
@@ -1766,6 +1870,8 @@ strio_size(VALUE self)
 	return INT2FIX(0);
     }
     return ULONG2NUM(RSTRING_LEN(string));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(string);
 }
 
 /*
@@ -1791,6 +1897,9 @@ strio_truncate(VALUE self, VALUE len)
 	MEMZERO(RSTRING_PTR(string) + plen, char, l - plen);
     }
     return INT2FIX(0);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(string);
 }
 
 /*
@@ -1807,6 +1916,7 @@ strio_external_encoding(VALUE self)
 {
     struct StringIO *ptr = StringIO(self);
     return rb_enc_from_encoding(get_enc(ptr));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1821,6 +1931,7 @@ static VALUE
 strio_internal_encoding(VALUE self)
 {
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1853,6 +1964,7 @@ strio_set_encoding(int argc, VALUE *argv, VALUE self)
 	    VALUE vmode = rb_str_append(rb_str_new_cstr("r:"), ext_enc);
 	    rb_io_extract_modeenc(&vmode, 0, Qnil, &oflags, &fmode, &convconfig);
 	    enc = convconfig.enc2;
+    RB_GC_GUARD(vmode);
 	}
     }
     ptr->enc = enc;
@@ -1861,6 +1973,10 @@ strio_set_encoding(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(int_enc);
+    RB_GC_GUARD(ext_enc);
 }
 
 /*
@@ -1879,6 +1995,7 @@ strio_set_encoding_by_bom(VALUE self)
 
     if (!set_encoding_by_bom(ptr)) return Qnil;
     return rb_enc_from_encoding(ptr->enc);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1999,6 +2116,7 @@ Init_stringio(void)
 	rb_define_method(mReadable, "readpartial", strio_sysread, -1);
 	rb_define_method(mReadable, "read_nonblock", strio_read_nonblock, -1);
 	rb_include_module(StringIO, mReadable);
+    RB_GC_GUARD(mReadable);
     }
     {
 	VALUE mWritable = rb_define_module_under(rb_cIO, "generic_writable");
@@ -2009,7 +2127,9 @@ Init_stringio(void)
 	rb_define_method(mWritable, "syswrite", strio_syswrite, 1);
 	rb_define_method(mWritable, "write_nonblock", strio_syswrite_nonblock, -1);
 	rb_include_module(StringIO, mWritable);
+    RB_GC_GUARD(mWritable);
     }
 
     sym_exception = ID2SYM(rb_intern("exception"));
+    RB_GC_GUARD(StringIO);
 }

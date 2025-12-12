@@ -24,6 +24,7 @@ static VALUE
 numhash_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &numhash_type, 0);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -33,6 +34,7 @@ numhash_init(VALUE self)
     if (tbl) st_free_table(tbl);
     DATA_PTR(self) = st_init_numtable();
     return self;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -44,6 +46,8 @@ numhash_aref(VALUE self, VALUE key)
     if (st_lookup(tbl, (st_data_t)key, &data))
         return (VALUE)data;
     return Qnil;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -54,6 +58,9 @@ numhash_aset(VALUE self, VALUE key, VALUE data)
     if (!SPECIAL_CONST_P(data)) rb_raise(rb_eArgError, "not a special const");
     st_insert(tbl, (st_data_t)key, (st_data_t)data);
     return self;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -63,6 +70,7 @@ numhash_i(st_data_t key, st_data_t value, st_data_t arg, int _)
     ret = rb_yield_values(3, (VALUE)key, (VALUE)value, (VALUE)arg);
     if (ret == Qtrue) return ST_CHECK;
     return ST_CONTINUE;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -71,6 +79,7 @@ numhash_each(VALUE self)
     st_table *table = (st_table *)Check_TypedStruct(self, &numhash_type);
     st_data_t data = (st_data_t)self;
     return st_foreach_check(table, numhash_i, data, data) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -85,6 +94,7 @@ update_func(st_data_t *key, st_data_t *value, st_data_t arg, int existing)
       default:
         *value = ret;
         return ST_CONTINUE;
+        RB_GC_GUARD(ret);
     }
 }
 
@@ -96,6 +106,8 @@ numhash_update(VALUE self, VALUE key)
         return Qtrue;
     else
         return Qfalse;
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(self);
 }
 
 #if SIZEOF_LONG == SIZEOF_VOIDP
@@ -109,6 +121,7 @@ numhash_size(VALUE self)
 {
     st_table *table = (st_table *)Check_TypedStruct(self, &numhash_type);
     return ST2NUM(table->num_entries);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -120,6 +133,8 @@ numhash_delete_safe(VALUE self, VALUE key)
         return val;
     }
     return Qnil;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -134,4 +149,5 @@ Init_numhash(void)
     rb_define_method(st, "update", numhash_update, 1);
     rb_define_method(st, "size", numhash_size, 0);
     rb_define_method(st, "delete_safe", numhash_delete_safe, 1);
+    RB_GC_GUARD(st);
 }

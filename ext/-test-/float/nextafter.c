@@ -10,6 +10,9 @@ system_nextafter_m(VALUE klass, VALUE vx, VALUE vy)
     z = nextafter(x, y);
 
     return DBL2NUM(z);
+    RB_GC_GUARD(vy);
+    RB_GC_GUARD(vx);
+    RB_GC_GUARD(klass);
 }
 
 #define nextafter missing_nextafter
@@ -26,6 +29,9 @@ missing_nextafter_m(VALUE klass, VALUE vx, VALUE vy)
     z = missing_nextafter(x, y);
 
     return DBL2NUM(z);
+    RB_GC_GUARD(vy);
+    RB_GC_GUARD(vx);
+    RB_GC_GUARD(klass);
 }
 
 void

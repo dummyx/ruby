@@ -83,6 +83,7 @@ static VALUE
 echild_status(VALUE self)
 {
     return rb_ivar_get(self, rb_intern("status"));
+    RB_GC_GUARD(self);
 }
 
 struct pty_info {
@@ -258,6 +259,7 @@ establishShell(int argc, VALUE *argv, struct pty_info *info,
     info->fd = master;
 
     RB_GC_GUARD(carg.execarg_obj);
+    RB_GC_GUARD(v);
 }
 
 #if (defined(HAVE_POSIX_OPENPT) || defined(HAVE_PTSNAME)) && !defined(HAVE_PTSNAME_R)
@@ -516,6 +518,8 @@ pty_close_pty(VALUE assoc)
         }
     }
     return Qnil;
+    RB_GC_GUARD(assoc);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -579,6 +583,12 @@ pty_open(VALUE klass)
     }
 
     return assoc;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(assoc);
+    RB_GC_GUARD(slave_file);
+    RB_GC_GUARD(slave_path);
+    RB_GC_GUARD(master_io);
+    RB_GC_GUARD(master_path);
 }
 
 static VALUE
@@ -592,6 +602,7 @@ pty_detach_process(VALUE v)
 #endif
     rb_detach_process(info->child_pid);
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -679,6 +690,11 @@ pty_getpty(int argc, VALUE *argv, VALUE self)
         return Qnil;
     }
     return res;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(wport);
+    RB_GC_GUARD(rport);
+    RB_GC_GUARD(pty_path);
+    RB_GC_GUARD(res);
 }
 
 NORETURN(static void raise_from_check(rb_pid_t pid, int status));
@@ -708,6 +724,8 @@ raise_from_check(rb_pid_t pid, int status)
     exc = rb_exc_new_str(eChildExited, msg);
     rb_iv_set(exc, "status", rb_last_status_get());
     rb_exc_raise(exc);
+    RB_GC_GUARD(msg);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -750,6 +768,9 @@ pty_check(int argc, VALUE *argv, VALUE self)
     raise_from_check(cpid, status);
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(pid);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(exc);
 }
 
 static VALUE cPTY;

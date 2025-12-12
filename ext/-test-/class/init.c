@@ -9,4 +9,6 @@ Init_class(void)
     VALUE mod = rb_define_module_under(mBug, "Class");
     rb_define_class_under(mod, "TestClassDefinedInC", rb_cObject);
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(mod);
 }

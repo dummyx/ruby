@@ -2174,6 +2174,7 @@ call_thread_start_func_2(rb_thread_t *th)
 
     native_thread_init_stack(th, stack_start_addr);
     thread_start_func_2(th, th->ec->machine.stack_start);
+    RB_GC_GUARD(stack_start);
 }
 
 static void *
@@ -2708,6 +2709,7 @@ native_set_thread_name(rb_thread_t *th)
         SET_CURRENT_THREAD_NAME(buf);
     }
 #endif
+    RB_GC_GUARD(loc);
 }
 
 static void
@@ -2734,6 +2736,7 @@ native_set_another_thread_name(rb_nativethread_id_t thread_id, VALUE name)
     SET_CURRENT_THREAD_NAME(s);
 # endif
 #endif
+    RB_GC_GUARD(name);
 }
 
 #if defined(RB_THREAD_T_HAS_NATIVE_ID) || defined(__APPLE__)

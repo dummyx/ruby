@@ -48,6 +48,8 @@ rb_coverage_supported(VALUE self, VALUE _mode)
         mode == rb_intern("methods") ||
         mode == rb_intern("eval")
     );
+    RB_GC_GUARD(_mode);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -123,6 +125,9 @@ rb_coverage_setup(int argc, VALUE *argv, VALUE klass)
     }
 
     return Qnil;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(coverages);
 }
 
 /*
@@ -148,6 +153,7 @@ rb_coverage_resume(VALUE klass)
     rb_resume_coverages();
     current_state = RUNNING;
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -167,6 +173,7 @@ rb_coverage_start(int argc, VALUE *argv, VALUE klass)
     rb_coverage_setup(argc, argv, klass);
     rb_coverage_resume(klass);
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 struct branch_coverage_result_builder
@@ -191,6 +198,14 @@ branch_coverage_ii(VALUE _key, VALUE branch, VALUE v)
     rb_hash_aset(b->children, rb_ary_new_from_args(6, target_label, LONG2FIX(b->id++), target_first_lineno, target_first_column, target_last_lineno, target_last_column), RARRAY_AREF(b->counters, counter_idx));
 
     return ST_CONTINUE;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(branch);
+    RB_GC_GUARD(_key);
+    RB_GC_GUARD(target_last_column);
+    RB_GC_GUARD(target_last_lineno);
+    RB_GC_GUARD(target_first_column);
+    RB_GC_GUARD(target_first_lineno);
+    RB_GC_GUARD(target_label);
 }
 
 static int
@@ -210,6 +225,16 @@ branch_coverage_i(VALUE _key, VALUE branch_base, VALUE v)
     rb_hash_foreach(branches, branch_coverage_ii, v);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(branch_base);
+    RB_GC_GUARD(_key);
+    RB_GC_GUARD(children);
+    RB_GC_GUARD(branches);
+    RB_GC_GUARD(base_last_column);
+    RB_GC_GUARD(base_last_lineno);
+    RB_GC_GUARD(base_first_column);
+    RB_GC_GUARD(base_first_lineno);
+    RB_GC_GUARD(base_type);
 }
 
 static VALUE
@@ -225,6 +250,8 @@ branch_coverage(VALUE branches)
     rb_hash_foreach(structure, branch_coverage_i, (VALUE)&b);
 
     return b.result;
+    RB_GC_GUARD(branches);
+    RB_GC_GUARD(structure);
 }
 
 static int
@@ -283,6 +310,19 @@ method_coverage_i(void *vstart, void *vend, size_t stride, void *data)
                     rcount = LONG2FIX(FIX2LONG(rcount) + FIX2LONG(rcount2));
                 }
                 rb_hash_aset(methods, key, rcount);
+        RB_GC_GUARD(rcount2);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(rcount);
+        RB_GC_GUARD(method_id);
+        RB_GC_GUARD(path);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(methods_id);
+        RB_GC_GUARD(methods);
+        RB_GC_GUARD(ncoverage);
+        RB_GC_GUARD(last_column);
+        RB_GC_GUARD(last_lineno);
+        RB_GC_GUARD(first_column);
+        RB_GC_GUARD(first_lineno);
             }
         }
 
@@ -291,6 +331,8 @@ method_coverage_i(void *vstart, void *vend, size_t stride, void *data)
         }
     }
     return 0;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ncoverages);
 }
 
 static int
@@ -304,6 +346,7 @@ coverage_peek_result_i(st_data_t key, st_data_t val, st_data_t h)
         VALUE lines = rb_ary_dup(RARRAY_AREF(coverage, COVERAGE_INDEX_LINES));
         rb_ary_freeze(lines);
         coverage = lines;
+    RB_GC_GUARD(lines);
     }
     else {
         VALUE h = rb_hash_new();
@@ -314,11 +357,13 @@ coverage_peek_result_i(st_data_t key, st_data_t val, st_data_t h)
             lines = rb_ary_dup(lines);
             rb_ary_freeze(lines);
             rb_hash_aset(h, ID2SYM(rb_intern(kw)), lines);
+        RB_GC_GUARD(lines);
         }
 
         if (current_mode & COVERAGE_TARGET_BRANCHES) {
             VALUE branches = RARRAY_AREF(coverage, COVERAGE_INDEX_BRANCHES);
             rb_hash_aset(h, ID2SYM(rb_intern("branches")), branch_coverage(branches));
+        RB_GC_GUARD(branches);
         }
 
         if (current_mode & COVERAGE_TARGET_METHODS) {
@@ -326,10 +371,14 @@ coverage_peek_result_i(st_data_t key, st_data_t val, st_data_t h)
         }
 
         coverage = h;
+    RB_GC_GUARD(h);
     }
 
     rb_hash_aset(coverages, path, coverage);
     return ST_CONTINUE;
+    RB_GC_GUARD(coverages);
+    RB_GC_GUARD(coverage);
+    RB_GC_GUARD(path);
 }
 
 /*
@@ -362,6 +411,9 @@ rb_coverage_peek_result(VALUE klass)
 
     rb_hash_freeze(ncoverages);
     return ncoverages;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ncoverages);
+    RB_GC_GUARD(coverages);
 }
 
 
@@ -370,6 +422,9 @@ clear_me2counter_i(VALUE key, VALUE value, VALUE unused)
 {
     rb_hash_aset(me2counter, key, INT2FIX(0));
     return ST_CONTINUE;
+    RB_GC_GUARD(unused);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -388,6 +443,7 @@ rb_coverage_suspend(VALUE klass)
     rb_suspend_coverages();
     current_state = SUSPENDED;
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -435,6 +491,9 @@ rb_coverage_result(int argc, VALUE *argv, VALUE klass)
         current_state = IDLE;
     }
     return ncoverages;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(ncoverages);
 }
 
 
@@ -453,6 +512,7 @@ rb_coverage_state(VALUE klass)
         case RUNNING: return ID2SYM(rb_intern("running"));
     }
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -466,6 +526,7 @@ static VALUE
 rb_coverage_running(VALUE klass)
 {
     return current_state == RUNNING ? Qtrue : Qfalse;
+    RB_GC_GUARD(klass);
 }
 
 /* Coverage provides coverage measurement feature for Ruby.
@@ -630,4 +691,5 @@ Init_coverage(void)
     rb_define_module_function(rb_mCoverage, "state", rb_coverage_state, 0);
     rb_define_module_function(rb_mCoverage, "running?", rb_coverage_running, 0);
     rb_global_variable(&me2counter);
+    RB_GC_GUARD(rb_mCoverage);
 }

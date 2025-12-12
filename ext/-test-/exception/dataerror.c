@@ -21,6 +21,8 @@ dataerror_alloc(VALUE klass)
 {
     VALUE n = rb_str_new_cstr("[Bug #9167] error");
     return TypedData_Wrap_Struct(klass, &dataerror_type, (void *)n);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(n);
 }
 
 void
@@ -28,4 +30,5 @@ Init_dataerror(VALUE klass)
 {
     VALUE rb_eDataErr = rb_define_class_under(klass, "DataError", rb_eStandardError);
     rb_define_alloc_func(rb_eDataErr, dataerror_alloc);
+    RB_GC_GUARD(rb_eDataErr);
 }

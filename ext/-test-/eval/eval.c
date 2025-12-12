@@ -4,6 +4,8 @@ static VALUE
 eval_string(VALUE self, VALUE str)
 {
     return rb_eval_string(StringValueCStr(str));
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 void

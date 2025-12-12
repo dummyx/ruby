@@ -53,6 +53,7 @@ find_last_event(VALUE thread)
         } while (cursor > 0);
     }
     return 0;
+    RB_GC_GUARD(thread);
 }
 
 static const char *
@@ -84,6 +85,7 @@ unexpected(bool strict, const char *format, VALUE thread, rb_event_flag_t last_e
         fprintf(stderr, format, thread, last_event_name);
         fprintf(stderr, "\n");
     }
+        RB_GC_GUARD(thread);
 }
 
 static void
@@ -145,6 +147,8 @@ thread_register_callback(VALUE thread, VALUE strict)
     );
 
     return Qnil;
+    RB_GC_GUARD(strict);
+    RB_GC_GUARD(thread);
 }
 
 static VALUE
@@ -182,11 +186,14 @@ thread_unregister_callback(VALUE thread)
         rb_ary_push(pair, event_timeline[cursor].thread);
         rb_ary_push(pair, event_symbol(event_timeline[cursor].event));
         rb_ary_push(events, pair);
+    RB_GC_GUARD(pair);
     }
 
     reset_timeline();
 
     return events;
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(events);
 }
 
 static VALUE
@@ -203,6 +210,7 @@ thread_register_and_unregister_callback(VALUE thread)
     if (!rb_internal_thread_remove_event_hook(hooks[2])) return Qfalse;
     if (!rb_internal_thread_remove_event_hook(hooks[1])) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(thread);
 }
 
 void
@@ -217,4 +225,6 @@ Init_instrumentation(void)
     rb_define_singleton_method(klass, "register_callback", thread_register_callback, 1);
     rb_define_singleton_method(klass, "unregister_callback", thread_unregister_callback, 0);
     rb_define_singleton_method(klass, "register_and_unregister_callbacks", thread_register_and_unregister_callback, 0);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(klass);
 }

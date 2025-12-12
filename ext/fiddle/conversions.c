@@ -11,6 +11,7 @@ rb_fiddle_type_ensure(VALUE type)
         VALUE type_string = rb_check_string_type(type);
         if (!NIL_P(type_string)) {
             type = rb_to_symbol(type_string);
+    RB_GC_GUARD(type_string);
         }
     }
 
@@ -157,6 +158,8 @@ rb_fiddle_type_ensure(VALUE type)
     }
 
     return rb_to_int(type);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(original_type);
 }
 
 ffi_type *
@@ -305,6 +308,7 @@ value_to_generic(int type, VALUE src, fiddle_generic *dst)
     /* src isn't safe from GC when type is TYPE_CONST_STRING and src
      * isn't String. */
     rb_fiddle_value_to_generic(type, &src, dst);
+    RB_GC_GUARD(src);
 }
 
 VALUE
@@ -372,10 +376,13 @@ rb_fiddle_generic_to_value(VALUE rettype, fiddle_generic retval)
     }
 
     UNREACHABLE;
+    RB_GC_GUARD(cPointer);
+    RB_GC_GUARD(rettype);
 }
 
 VALUE
 generic_to_value(VALUE rettype, fiddle_generic retval)
 {
     return rb_fiddle_generic_to_value(rettype, retval);
+    RB_GC_GUARD(rettype);
 }

@@ -50,6 +50,8 @@ loop_alloc(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, rand_loop_t, &random_loop_type, rnd);
     rb_random_base_init(&rnd->base);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -117,4 +119,5 @@ Init_random_loop(VALUE mod, VALUE base)
     VALUE c = rb_define_class_under(mod, "Loop", base);
     rb_define_alloc_func(c, loop_alloc);
     RB_RANDOM_DATA_INIT_PARENT(random_loop_type);
+    RB_GC_GUARD(c);
 }

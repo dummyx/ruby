@@ -334,6 +334,7 @@ rb_rjit_iseq_mark(VALUE rjit_blocks)
     if (rjit_blocks) {
         rb_gc_mark_movable(rjit_blocks);
     }
+        RB_GC_GUARD(rjit_blocks);
 }
 
 // Called by rb_vm_mark()
@@ -401,6 +402,8 @@ rb_rjit_entry_stub_hit(VALUE branch_stub)
     RB_VM_LOCK_LEAVE();
 
     return (void *)NUM2SIZET(result);
+    RB_GC_GUARD(branch_stub);
+    RB_GC_GUARD(result);
 }
 
 void *
@@ -424,6 +427,8 @@ rb_rjit_branch_stub_hit(VALUE branch_stub, int sp_offset, int target0_p)
     RB_VM_LOCK_LEAVE();
 
     return (void *)NUM2SIZET(result);
+    RB_GC_GUARD(branch_stub);
+    RB_GC_GUARD(result);
 }
 
 void
@@ -467,6 +472,7 @@ rb_rjit_init(const struct rb_rjit_options *opts)
     // Enable RJIT and stats from here
     rb_rjit_call_p = !rb_rjit_opts.disable;
     rjit_stats_p = rb_rjit_opts.stats;
+    RB_GC_GUARD(rb_cRJITCompiler);
 }
 
 //
@@ -478,6 +484,7 @@ static VALUE
 rjit_stats_enabled_p(rb_execution_context_t *ec, VALUE self)
 {
     return RBOOL(rb_rjit_stats_enabled);
+    RB_GC_GUARD(self);
 }
 
 // Same as `rb_rjit_opts.trace_exits`, but this is used before rb_rjit_opts is set.
@@ -485,6 +492,7 @@ static VALUE
 rjit_trace_exits_enabled_p(rb_execution_context_t *ec, VALUE self)
 {
     return RBOOL(rb_rjit_trace_exits_enabled);
+    RB_GC_GUARD(self);
 }
 
 // Disable anything that could impact stats. It ends up disabling JIT calls as well.
@@ -494,6 +502,7 @@ rjit_stop_stats(rb_execution_context_t *ec, VALUE self)
     rb_rjit_call_p = false;
     rjit_stats_p = false;
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 #include "rjit.rbinc"

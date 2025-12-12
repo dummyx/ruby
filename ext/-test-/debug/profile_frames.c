@@ -32,9 +32,14 @@ profile_frames(VALUE self, VALUE start_v, VALUE num_v)
         rb_ary_push(ary, INT2NUM(lines[i]));
 
         rb_ary_push(result, ary);
+    RB_GC_GUARD(ary);
     }
 
     return result;
+    RB_GC_GUARD(num_v);
+    RB_GC_GUARD(start_v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -55,6 +60,11 @@ profile_thread_frames(VALUE self, VALUE thread, VALUE start_v, VALUE num_v)
     }
 
     return result;
+    RB_GC_GUARD(num_v);
+    RB_GC_GUARD(start_v);
+    RB_GC_GUARD(thread);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 void

@@ -10,6 +10,9 @@ iseq_load(int argc, VALUE *argv, VALUE self)
     rb_scan_args(argc, argv, "11", &data, &opt);
 
     return rb_iseq_load(data, 0, opt);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(data);
 }
 
 void
@@ -18,4 +21,5 @@ Init_iseq_load(void)
     VALUE rb_cISeq = rb_path2class("RubyVM::InstructionSequence");
 
     rb_define_singleton_method(rb_cISeq, "iseq_load", iseq_load, -1);
+    RB_GC_GUARD(rb_cISeq);
 }

@@ -195,6 +195,7 @@ file_path_convert(VALUE name)
     }
 #endif
     return name;
+    RB_GC_GUARD(name);
 }
 
 static rb_encoding *
@@ -206,6 +207,7 @@ check_path_encoding(VALUE str)
                  rb_enc_name(enc), rb_str_inspect(str));
     }
     return enc;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -221,6 +223,8 @@ rb_get_path_check_to_string(VALUE obj)
     tmp = rb_check_funcall_default(obj, to_path, 0, 0, obj);
     StringValue(tmp);
     return tmp;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
 }
 
 VALUE
@@ -234,18 +238,21 @@ rb_get_path_check_convert(VALUE obj)
     }
 
     return rb_str_new4(obj);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_get_path_no_checksafe(VALUE obj)
 {
     return rb_get_path(obj);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_get_path(VALUE obj)
 {
     return rb_get_path_check_convert(rb_get_path_check_to_string(obj));
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -265,6 +272,7 @@ rb_str_encode_ospath(VALUE path)
     }
 #endif /* USE_OSPATH */
     return path;
+    RB_GC_GUARD(path);
 }
 
 #ifdef __APPLE__
@@ -476,6 +484,7 @@ apply2files(int (*func)(const char *, void *), int argc, VALUE *argv, void *arg)
         path = rb_str_encode_ospath(path);
         aa->fn[aa->i].ptr = RSTRING_PTR(path);
         aa->fn[aa->i].path = path;
+    RB_GC_GUARD(path);
     }
 
     IO_WITHOUT_GVL(no_gvl_apply2files, aa);
@@ -491,6 +500,7 @@ apply2files(int (*func)(const char *, void *), int argc, VALUE *argv, void *arg)
         ALLOCV_END(v);
     }
     return LONG2FIX(argc);
+    RB_GC_GUARD(v);
 }
 
 static const rb_data_type_t stat_data_type = {
@@ -518,6 +528,8 @@ stat_new_0(VALUE klass, const struct stat *st)
         rb_st->initialized = true;
     }
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -533,6 +545,7 @@ get_stat(VALUE self)
     TypedData_Get_Struct(self, struct rb_stat, &stat_data_type, rb_st);
     if (!rb_st->initialized) rb_raise(rb_eTypeError, "uninitialized File::Stat");
     return &rb_st->stat;
+    RB_GC_GUARD(self);
 }
 
 static struct timespec stat_mtimespec(const struct stat *st);
@@ -567,6 +580,8 @@ rb_stat_cmp(VALUE self, VALUE other)
         return INT2FIX(1);
     }
     return Qnil;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 #define ST2UINT(val) ((val) & ~(~1UL << (sizeof(val) * CHAR_BIT - 1)))
@@ -596,6 +611,7 @@ rb_stat_dev(VALUE self)
 {
 #if SIZEOF_STRUCT_STAT_ST_DEV <= SIZEOF_DEV_T
     return DEVT2NUM(get_stat(self)->st_dev);
+    RB_GC_GUARD(self);
 #elif SIZEOF_STRUCT_STAT_ST_DEV <= SIZEOF_LONG
     return ULONG2NUM(get_stat(self)->st_dev);
 #else
@@ -619,6 +635,7 @@ rb_stat_dev_major(VALUE self)
 {
 #if defined(major)
     return UINT2NUM(major(get_stat(self)->st_dev));
+    RB_GC_GUARD(self);
 #else
     return Qnil;
 #endif
@@ -640,6 +657,7 @@ rb_stat_dev_minor(VALUE self)
 {
 #if defined(minor)
     return UINT2NUM(minor(get_stat(self)->st_dev));
+    RB_GC_GUARD(self);
 #else
     return Qnil;
 #endif
@@ -668,6 +686,7 @@ rb_stat_ino(VALUE self)
     return ULL2NUM(get_stat(self)->st_ino);
 #else
     return ULONG2NUM(get_stat(self)->st_ino);
+    RB_GC_GUARD(self);
 #endif
 }
 
@@ -688,6 +707,7 @@ static VALUE
 rb_stat_mode(VALUE self)
 {
     return UINT2NUM(ST2UINT(get_stat(self)->st_mode));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -720,6 +740,7 @@ rb_stat_nlink(VALUE self)
     else {
         rb_bug(":FIXME: don't know what to do");
     }
+        RB_GC_GUARD(self);
 }
 
 /*
@@ -736,6 +757,7 @@ static VALUE
 rb_stat_uid(VALUE self)
 {
     return UIDT2NUM(get_stat(self)->st_uid);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -752,6 +774,7 @@ static VALUE
 rb_stat_gid(VALUE self)
 {
     return GIDT2NUM(get_stat(self)->st_gid);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -772,6 +795,7 @@ rb_stat_rdev(VALUE self)
 #ifdef HAVE_STRUCT_STAT_ST_RDEV
 # if SIZEOF_STRUCT_STAT_ST_RDEV <= SIZEOF_DEV_T
     return DEVT2NUM(get_stat(self)->st_rdev);
+    RB_GC_GUARD(self);
 # elif SIZEOF_STRUCT_STAT_ST_RDEV <= SIZEOF_LONG
     return ULONG2NUM(get_stat(self)->st_rdev);
 # else
@@ -798,6 +822,7 @@ rb_stat_rdev_major(VALUE self)
 {
 #if defined(HAVE_STRUCT_STAT_ST_RDEV) && defined(major)
     return UINT2NUM(major(get_stat(self)->st_rdev));
+    RB_GC_GUARD(self);
 #else
     return Qnil;
 #endif
@@ -819,6 +844,7 @@ rb_stat_rdev_minor(VALUE self)
 {
 #if defined(HAVE_STRUCT_STAT_ST_RDEV) && defined(minor)
     return UINT2NUM(minor(get_stat(self)->st_rdev));
+    RB_GC_GUARD(self);
 #else
     return Qnil;
 #endif
@@ -837,6 +863,7 @@ static VALUE
 rb_stat_size(VALUE self)
 {
     return OFFT2NUM(get_stat(self)->st_size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -855,6 +882,7 @@ rb_stat_blksize(VALUE self)
 {
 #ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
     return ULONG2NUM(get_stat(self)->st_blksize);
+    RB_GC_GUARD(self);
 #else
     return Qnil;
 #endif
@@ -879,6 +907,7 @@ rb_stat_blocks(VALUE self)
     return ULL2NUM(get_stat(self)->st_blocks);
 # else
     return ULONG2NUM(get_stat(self)->st_blocks);
+    RB_GC_GUARD(self);
 # endif
 #else
     return Qnil;
@@ -991,6 +1020,7 @@ static VALUE
 rb_stat_atime(VALUE self)
 {
     return stat_atime(get_stat(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1007,6 +1037,7 @@ static VALUE
 rb_stat_mtime(VALUE self)
 {
     return stat_mtime(get_stat(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1027,6 +1058,7 @@ static VALUE
 rb_stat_ctime(VALUE self)
 {
     return stat_ctime(get_stat(self));
+    RB_GC_GUARD(self);
 }
 
 #if defined(HAVE_STAT_BIRTHTIME)
@@ -1130,11 +1162,14 @@ rb_stat_inspect(VALUE self)
         }
         else {
             rb_str_append(str, rb_inspect(v));
+    RB_GC_GUARD(v);
         }
     }
     rb_str_buf_cat2(str, ">");
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 typedef struct no_gvl_stat_data {
@@ -1260,6 +1295,8 @@ rb_statx(VALUE file, struct statx *stx, unsigned int mask)
     }
     RB_GC_GUARD(file);
     return result;
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(tmp);
 }
 
 # define statx_has_birthtime(st) ((st)->stx_mask & STATX_BTIME)
@@ -1284,6 +1321,7 @@ statx_birthtime(const struct statx *stx, VALUE fname)
         statx_notimplement("birthtime");
     }
     return rb_time_nano_new((time_t)stx->stx_btime.tv_sec, stx->stx_btime.tv_nsec);
+    RB_GC_GUARD(fname);
 }
 
 typedef struct statx statx_data;
@@ -1321,6 +1359,8 @@ rb_stat(VALUE file, struct stat *st)
     }
     RB_GC_GUARD(file);
     return result;
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -1344,6 +1384,8 @@ rb_file_s_stat(VALUE klass, VALUE fname)
         rb_sys_fail_path(fname);
     }
     return rb_stat_new(&st);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1372,6 +1414,7 @@ rb_io_stat(VALUE obj)
         rb_sys_fail_path(fptr->pathv);
     }
     return rb_stat_new(&st);
+    RB_GC_GUARD(obj);
 }
 
 #ifdef HAVE_LSTAT
@@ -1419,6 +1462,8 @@ rb_file_s_lstat(VALUE klass, VALUE fname)
         rb_sys_fail_path(fname);
     }
     return rb_stat_new(&st);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 #else
     return rb_file_s_stat(klass, fname);
 #endif
@@ -1453,6 +1498,8 @@ rb_file_lstat(VALUE obj)
         rb_sys_fail_path(fptr->pathv);
     }
     return rb_stat_new(&st);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(path);
 #else
     return rb_io_stat(obj);
 #endif
@@ -1486,6 +1533,7 @@ rb_group_member(GETGROUPS_T gid)
         ALLOCV_END(v);
 
     return rv;
+    RB_GC_GUARD(v);
 #endif /* defined(_WIN32) || !defined(HAVE_GETGROUPS) */
 }
 
@@ -1565,6 +1613,7 @@ rb_eaccess(VALUE fname, int mode)
     aa.mode = mode;
 
     return IO_WITHOUT_GVL_INT(nogvl_eaccess, &aa);
+    RB_GC_GUARD(fname);
 }
 
 static void *
@@ -1586,6 +1635,7 @@ rb_access(VALUE fname, int mode)
     aa.mode = mode;
 
     return IO_WITHOUT_GVL_INT(nogvl_access, &aa);
+    RB_GC_GUARD(fname);
 }
 
 /*
@@ -1628,6 +1678,8 @@ rb_file_directory_p(VALUE obj, VALUE fname)
     if (rb_stat(fname, &st) < 0) return Qfalse;
     if (S_ISDIR(st.st_mode)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1657,6 +1709,8 @@ rb_file_pipe_p(VALUE obj, VALUE fname)
 
 #endif
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1698,6 +1752,8 @@ rb_file_symlink_p(VALUE obj, VALUE fname)
 #endif
 
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1737,6 +1793,8 @@ rb_file_socket_p(VALUE obj, VALUE fname)
 #endif
 
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1769,6 +1827,8 @@ rb_file_blockdev_p(VALUE obj, VALUE fname)
 
 #endif
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1794,6 +1854,8 @@ rb_file_chardev_p(VALUE obj, VALUE fname)
     if (S_ISCHR(st.st_mode)) return Qtrue;
 
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1814,6 +1876,8 @@ rb_file_exist_p(VALUE obj, VALUE fname)
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1831,6 +1895,8 @@ static VALUE
 rb_file_readable_p(VALUE obj, VALUE fname)
 {
     return RBOOL(rb_eaccess(fname, R_OK) >= 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1848,6 +1914,8 @@ static VALUE
 rb_file_readable_real_p(VALUE obj, VALUE fname)
 {
     return RBOOL(rb_access(fname, R_OK) >= 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 #ifndef S_IRUGO
@@ -1886,6 +1954,8 @@ rb_file_world_readable_p(VALUE obj, VALUE fname)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1903,6 +1973,8 @@ static VALUE
 rb_file_writable_p(VALUE obj, VALUE fname)
 {
     return RBOOL(rb_eaccess(fname, W_OK) >= 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1920,6 +1992,8 @@ static VALUE
 rb_file_writable_real_p(VALUE obj, VALUE fname)
 {
     return RBOOL(rb_access(fname, W_OK) >= 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1950,6 +2024,8 @@ rb_file_world_writable_p(VALUE obj, VALUE fname)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1971,6 +2047,8 @@ static VALUE
 rb_file_executable_p(VALUE obj, VALUE fname)
 {
     return RBOOL(rb_eaccess(fname, X_OK) >= 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1992,6 +2070,8 @@ static VALUE
 rb_file_executable_real_p(VALUE obj, VALUE fname)
 {
     return RBOOL(rb_access(fname, X_OK) >= 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 #ifndef S_ISREG
@@ -2017,6 +2097,8 @@ rb_file_file_p(VALUE obj, VALUE fname)
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
     return RBOOL(S_ISREG(st.st_mode));
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2036,6 +2118,8 @@ rb_file_zero_p(VALUE obj, VALUE fname)
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
     return RBOOL(st.st_size == 0);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2056,6 +2140,8 @@ rb_file_size_p(VALUE obj, VALUE fname)
     if (rb_stat(fname, &st) < 0) return Qnil;
     if (st.st_size == 0) return Qnil;
     return OFFT2NUM(st.st_size);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2076,6 +2162,8 @@ rb_file_owned_p(VALUE obj, VALUE fname)
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
     return RBOOL(st.st_uid == geteuid());
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -2085,6 +2173,8 @@ rb_file_rowned_p(VALUE obj, VALUE fname)
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
     return RBOOL(st.st_uid == getuid());
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2108,6 +2198,8 @@ rb_file_grpowned_p(VALUE obj, VALUE fname)
     if (rb_group_member(st.st_gid)) return Qtrue;
 #endif
     return Qfalse;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 #if defined(S_ISUID) || defined(S_ISGID) || defined(S_ISVTX)
@@ -2118,6 +2210,7 @@ check3rdbyte(VALUE fname, int mode)
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
     return RBOOL(st.st_mode & mode);
+    RB_GC_GUARD(fname);
 }
 #endif
 
@@ -2135,6 +2228,8 @@ rb_file_suid_p(VALUE obj, VALUE fname)
 {
 #ifdef S_ISUID
     return check3rdbyte(fname, S_ISUID);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 #else
     return Qfalse;
 #endif
@@ -2154,6 +2249,8 @@ rb_file_sgid_p(VALUE obj, VALUE fname)
 {
 #ifdef S_ISGID
     return check3rdbyte(fname, S_ISGID);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 #else
     return Qfalse;
 #endif
@@ -2173,6 +2270,8 @@ rb_file_sticky_p(VALUE obj, VALUE fname)
 {
 #ifdef S_ISVTX
     return check3rdbyte(fname, S_ISVTX);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 #else
     return Qfalse;
 #endif
@@ -2208,6 +2307,9 @@ rb_file_identical_p(VALUE obj, VALUE fname1, VALUE fname2)
     if (st1.st_dev != st2.st_dev) return Qfalse;
     if (st1.st_ino != st2.st_ino) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(fname2);
+    RB_GC_GUARD(fname1);
+    RB_GC_GUARD(obj);
 #else
     extern VALUE rb_w32_file_identical_p(VALUE, VALUE);
     return rb_w32_file_identical_p(fname1, fname2);
@@ -2234,6 +2336,8 @@ rb_file_s_size(VALUE klass, VALUE fname)
         rb_syserr_fail_path(e, fname);
     }
     return OFFT2NUM(st.st_size);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -2304,6 +2408,8 @@ rb_file_s_ftype(VALUE klass, VALUE fname)
     }
 
     return rb_file_ftype(&st);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2329,6 +2435,8 @@ rb_file_s_atime(VALUE klass, VALUE fname)
         rb_syserr_fail_path(e, fname);
     }
     return stat_atime(&st);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2353,6 +2461,7 @@ rb_file_atime(VALUE obj)
         rb_sys_fail_path(fptr->pathv);
     }
     return stat_atime(&st);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2378,6 +2487,8 @@ rb_file_s_mtime(VALUE klass, VALUE fname)
         rb_syserr_fail_path(e, fname);
     }
     return stat_mtime(&st);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2401,6 +2512,7 @@ rb_file_mtime(VALUE obj)
         rb_sys_fail_path(fptr->pathv);
     }
     return stat_mtime(&st);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2430,6 +2542,8 @@ rb_file_s_ctime(VALUE klass, VALUE fname)
         rb_syserr_fail_path(e, fname);
     }
     return stat_ctime(&st);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2456,6 +2570,7 @@ rb_file_ctime(VALUE obj)
         rb_sys_fail_path(fptr->pathv);
     }
     return stat_ctime(&st);
+    RB_GC_GUARD(obj);
 }
 
 #if defined(HAVE_STAT_BIRTHTIME)
@@ -2484,6 +2599,8 @@ rb_file_s_birthtime(VALUE klass, VALUE fname)
         rb_syserr_fail_path(e, fname);
     }
     return statx_birthtime(&st, fname);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 #else
 # define rb_file_s_birthtime rb_f_notimplement
@@ -2513,6 +2630,7 @@ rb_file_birthtime(VALUE obj)
         rb_sys_fail_path(fptr->pathv);
     }
     return statx_birthtime(&st, fptr->pathv);
+    RB_GC_GUARD(obj);
 }
 #else
 # define rb_file_birthtime rb_f_notimplement
@@ -2538,6 +2656,7 @@ rb_file_size(VALUE file)
     }
     else {
         return NUM2OFFT(rb_funcall(file, idSize, 0));
+        RB_GC_GUARD(file);
     }
 }
 
@@ -2555,6 +2674,7 @@ static VALUE
 file_size(VALUE self)
 {
     return OFFT2NUM(rb_file_size(self));
+    RB_GC_GUARD(self);
 }
 
 struct nogvl_chmod_data {
@@ -2608,6 +2728,7 @@ rb_file_s_chmod(int argc, VALUE *argv, VALUE _)
     mode = NUM2MODET(*argv++);
 
     return apply2files(chmod_internal, argc, argv, &mode);
+    RB_GC_GUARD(_);
 }
 
 #ifdef HAVE_FCHMOD
@@ -2675,6 +2796,8 @@ rb_file_chmod(VALUE obj, VALUE vmode)
 #endif
 
     return INT2FIX(0);
+    RB_GC_GUARD(vmode);
+    RB_GC_GUARD(obj);
 }
 
 #if defined(HAVE_LCHMOD)
@@ -2703,6 +2826,7 @@ rb_file_s_lchmod(int argc, VALUE *argv, VALUE _)
     mode = NUM2MODET(*argv++);
 
     return apply2files(lchmod_internal, argc, argv, &mode);
+    RB_GC_GUARD(_);
 }
 #else
 #define rb_file_s_lchmod rb_f_notimplement
@@ -2715,6 +2839,7 @@ to_uid(VALUE u)
         return (rb_uid_t)-1;
     }
     return NUM2UIDT(u);
+    RB_GC_GUARD(u);
 }
 
 static inline rb_gid_t
@@ -2724,6 +2849,7 @@ to_gid(VALUE g)
         return (rb_gid_t)-1;
     }
     return NUM2GIDT(g);
+    RB_GC_GUARD(g);
 }
 
 struct chown_args {
@@ -2763,6 +2889,7 @@ rb_file_s_chown(int argc, VALUE *argv, VALUE _)
     arg.group = to_gid(*argv++);
 
     return apply2files(chown_internal, argc, argv, &arg);
+    RB_GC_GUARD(_);
 }
 
 struct nogvl_chown_data {
@@ -2849,6 +2976,9 @@ rb_file_chown(VALUE obj, VALUE owner, VALUE group)
 #endif
 
     return INT2FIX(0);
+    RB_GC_GUARD(group);
+    RB_GC_GUARD(owner);
+    RB_GC_GUARD(obj);
 }
 
 #if defined(HAVE_LCHOWN)
@@ -2880,6 +3010,7 @@ rb_file_s_lchown(int argc, VALUE *argv, VALUE _)
     arg.group = to_gid(*argv++);
 
     return apply2files(lchown_internal, argc, argv, &arg);
+    RB_GC_GUARD(_);
 }
 #else
 #define rb_file_s_lchown rb_f_notimplement
@@ -3079,6 +3210,7 @@ static VALUE
 rb_file_s_utime(int argc, VALUE *argv, VALUE _)
 {
     return utime_internal_i(argc, argv, FALSE);
+    RB_GC_GUARD(_);
 }
 
 #if defined(HAVE_UTIMES) && (defined(HAVE_LUTIMES) || (defined(HAVE_UTIMENSAT) && defined(AT_SYMLINK_NOFOLLOW)))
@@ -3098,6 +3230,7 @@ static VALUE
 rb_file_s_lutime(int argc, VALUE *argv, VALUE _)
 {
     return utime_internal_i(argc, argv, TRUE);
+    RB_GC_GUARD(_);
 }
 #else
 #define rb_file_s_lutime rb_f_notimplement
@@ -3133,6 +3266,9 @@ syserr_fail2_in(const char *func, int e, VALUE s1, VALUE s2)
 #else
     rb_syserr_fail_path(e, str);
 #endif
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s1);
 }
 
 #ifdef HAVE_LINK
@@ -3160,6 +3296,9 @@ rb_file_s_link(VALUE klass, VALUE from, VALUE to)
         sys_fail2(from, to);
     }
     return INT2FIX(0);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(klass);
 }
 #else
 #define rb_file_s_link rb_f_notimplement
@@ -3190,6 +3329,9 @@ rb_file_s_symlink(VALUE klass, VALUE from, VALUE to)
         sys_fail2(from, to);
     }
     return INT2FIX(0);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(klass);
 }
 #else
 #define rb_file_s_symlink rb_f_notimplement
@@ -3211,6 +3353,8 @@ static VALUE
 rb_file_s_readlink(VALUE klass, VALUE path)
 {
     return rb_readlink(path, rb_filesystem_encoding());
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(klass);
 }
 
 struct readlink_arg {
@@ -3237,6 +3381,8 @@ readlink_without_gvl(VALUE path, VALUE buf, size_t size)
     ra.size = size;
 
     return (ssize_t)IO_WITHOUT_GVL(nogvl_readlink, &ra);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(path);
 }
 
 VALUE
@@ -3266,6 +3412,8 @@ rb_readlink(VALUE path, rb_encoding *enc)
     rb_str_resize(v, rv);
 
     return v;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(v);
 }
 #else
 #define rb_file_s_readlink rb_f_notimplement
@@ -3297,6 +3445,7 @@ static VALUE
 rb_file_s_unlink(int argc, VALUE *argv, VALUE klass)
 {
     return apply2files(unlink_internal, argc, argv, 0);
+    RB_GC_GUARD(klass);
 }
 
 struct rename_args {
@@ -3352,6 +3501,11 @@ rb_file_s_rename(VALUE klass, VALUE from, VALUE to)
     }
 
     return INT2FIX(0);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(t);
+    RB_GC_GUARD(f);
 }
 
 /*
@@ -3386,6 +3540,7 @@ rb_file_s_umask(int argc, VALUE *argv, VALUE _)
         rb_error_arity(argc, 0, 1);
     }
     return MODET2NUM(omask);
+    RB_GC_GUARD(_);
 }
 
 #ifdef __CYGWIN__
@@ -3609,6 +3764,8 @@ fs_enc_check(VALUE path1, VALUE path2)
         enc = rb_enc_from_index(encidx);
     }
     return enc;
+    RB_GC_GUARD(path2);
+    RB_GC_GUARD(path1);
 }
 
 #if USE_NTFS
@@ -3698,6 +3855,7 @@ copy_home_path(VALUE result, const char *dir)
     }
 #endif
     return result;
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -3733,6 +3891,9 @@ rb_home_dir_of(VALUE user, VALUE result)
 #endif
     copy_home_path(result, dir);
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(user);
+    RB_GC_GUARD(dirname);
 }
 
 #ifndef _WIN32 /* this encompasses rb_file_expand_path_internal */
@@ -3779,12 +3940,15 @@ rb_default_home_dir(VALUE result)
         copy_home_path(result, RSTRING_PTR(pw_dir));
         rb_str_resize(pw_dir, 0);
         return result;
+        RB_GC_GUARD(pw_dir);
+        RB_GC_GUARD(login_name);
     }
 #endif /* defined HAVE_PWD_H */
     if (!dir) {
         rb_raise(rb_eArgError, "couldn't find HOME environment -- expanding '~'");
     }
     return copy_home_path(result, dir);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -3833,6 +3997,9 @@ append_fspath(VALUE result, VALUE fname, char *dir, rb_encoding **enc, rb_encodi
     if (!NIL_P(dirname)) rb_str_resize(dirname, 0);
     rb_enc_associate(result, *enc);
     return buf + dirlen;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(dirname);
 }
 
 VALUE
@@ -4182,6 +4349,9 @@ rb_file_expand_path_internal(VALUE fname, VALUE dname, int abs_mode, int long_na
     rb_enc_check(fname, result);
     ENC_CODERANGE_CLEAR(result);
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(dname);
+    RB_GC_GUARD(fname);
 }
 #endif /* !_WIN32 (this ifdef started above rb_default_home_dir) */
 
@@ -4192,6 +4362,7 @@ str_shrink(VALUE str)
 {
     rb_str_resize(str, RSTRING_LEN(str));
     return str;
+    RB_GC_GUARD(str);
 }
 
 #define expand_path(fname, dname, abs_mode, long_name, result) \
@@ -4205,6 +4376,7 @@ static VALUE
 file_expand_path_1(VALUE fname)
 {
     return rb_file_expand_path_internal(fname, Qnil, 0, 0, EXPAND_PATH_BUFFER());
+    RB_GC_GUARD(fname);
 }
 
 VALUE
@@ -4212,12 +4384,16 @@ rb_file_expand_path(VALUE fname, VALUE dname)
 {
     check_expand_path_args(fname, dname);
     return expand_path(fname, dname, 0, 1, EXPAND_PATH_BUFFER());
+    RB_GC_GUARD(dname);
+    RB_GC_GUARD(fname);
 }
 
 VALUE
 rb_file_expand_path_fast(VALUE fname, VALUE dname)
 {
     return expand_path(fname, dname, 0, 0, EXPAND_PATH_BUFFER());
+    RB_GC_GUARD(dname);
+    RB_GC_GUARD(fname);
 }
 
 VALUE
@@ -4259,6 +4435,7 @@ static VALUE
 s_expand_path(int c, const VALUE * v, VALUE _)
 {
     return rb_file_s_expand_path(c, v);
+    RB_GC_GUARD(_);
 }
 
 VALUE
@@ -4266,6 +4443,8 @@ rb_file_absolute_path(VALUE fname, VALUE dname)
 {
     check_expand_path_args(fname, dname);
     return expand_path(fname, dname, 1, 1, EXPAND_PATH_BUFFER());
+    RB_GC_GUARD(dname);
+    RB_GC_GUARD(fname);
 }
 
 VALUE
@@ -4292,6 +4471,7 @@ static VALUE
 s_absolute_path(int c, const VALUE * v, VALUE _)
 {
     return rb_file_s_absolute_path(c, v);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -4311,6 +4491,9 @@ s_absolute_path_p(VALUE klass, VALUE fname)
 
     if (!rb_is_absolute_path(RSTRING_PTR(path))) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
 }
 
 enum rb_realpath_mode {
@@ -4421,6 +4604,8 @@ realpath_rec(long *prefixlenp, VALUE *resolvedp, const char *unresolved, VALUE f
                         return -1;
                     RB_GC_GUARD(link_orig);
                     rb_hash_aset(loopcheck, testpath, rb_str_dup_frozen(*resolvedp));
+                RB_GC_GUARD(link_orig);
+                RB_GC_GUARD(link);
                 }
                 else
 #endif /* HAVE_READLINK */
@@ -4428,11 +4613,16 @@ realpath_rec(long *prefixlenp, VALUE *resolvedp, const char *unresolved, VALUE f
                     VALUE s = rb_str_dup_frozen(testpath);
                     rb_hash_aset(loopcheck, s, s);
                     *resolvedp = testpath;
+    RB_GC_GUARD(s);
                 }
+    RB_GC_GUARD(checkval);
+    RB_GC_GUARD(testpath);
             }
         }
     }
     return 0;
+    RB_GC_GUARD(loopcheck);
+    RB_GC_GUARD(fallback);
 }
 
 static VALUE
@@ -4526,6 +4716,12 @@ rb_check_realpath_emulate(VALUE basedir, VALUE path, rb_encoding *origenc, enum 
     RB_GC_GUARD(unresolved_path);
     RB_GC_GUARD(curdir);
     return resolved;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(basedir);
+    RB_GC_GUARD(curdir);
+    RB_GC_GUARD(loopcheck);
+    RB_GC_GUARD(unresolved_path);
+    RB_GC_GUARD(resolved);
 }
 
 static VALUE rb_file_join(VALUE ary);
@@ -4622,6 +4818,10 @@ rb_check_realpath_internal(VALUE basedir, VALUE path, rb_encoding *origenc, enum
 
     RB_GC_GUARD(unresolved_path);
     return resolved;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(basedir);
+    RB_GC_GUARD(resolved);
+    RB_GC_GUARD(unresolved_path);
 #else /* !HAVE_REALPATH */
     if (mode == RB_REALPATH_CHECK) {
         VALUE arg[3];
@@ -4644,12 +4844,16 @@ rb_realpath_internal(VALUE basedir, VALUE path, int strict)
     const enum rb_realpath_mode mode =
         strict ? RB_REALPATH_STRICT : RB_REALPATH_DIR;
     return rb_check_realpath_internal(basedir, path, rb_enc_get(path), mode);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(basedir);
 }
 
 VALUE
 rb_check_realpath(VALUE basedir, VALUE path, rb_encoding *enc)
 {
     return rb_check_realpath_internal(basedir, path, enc, RB_REALPATH_CHECK);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(basedir);
 }
 
 /*
@@ -4672,6 +4876,9 @@ rb_file_s_realpath(int argc, VALUE *argv, VALUE klass)
     VALUE path = argv[0];
     FilePathValue(path);
     return rb_realpath_internal(basedir, path, 1);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(basedir);
 }
 
 /*
@@ -4693,6 +4900,9 @@ rb_file_s_realdirpath(int argc, VALUE *argv, VALUE klass)
     VALUE path = argv[0];
     FilePathValue(path);
     return rb_realpath_internal(basedir, path, 0);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(basedir);
 }
 
 static size_t
@@ -4853,6 +5063,10 @@ rb_file_s_basename(int argc, VALUE *argv, VALUE _)
     basename = rb_str_new(p, f);
     rb_enc_copy(basename, fname);
     return basename;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(basename);
+    RB_GC_GUARD(fext);
+    RB_GC_GUARD(fname);
 }
 
 static VALUE rb_file_dirname_n(VALUE fname, int n);
@@ -4884,12 +5098,14 @@ rb_file_s_dirname(int argc, VALUE *argv, VALUE klass)
         n = NUM2INT(argv[1]);
     }
     return rb_file_dirname_n(argv[0], n);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_file_dirname(VALUE fname)
 {
     return rb_file_dirname_n(fname, 1);
+    RB_GC_GUARD(fname);
 }
 
 static VALUE
@@ -4964,6 +5180,9 @@ rb_file_dirname_n(VALUE fname, int n)
 #endif
     rb_enc_copy(dirname, fname);
     return dirname;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(sepsv);
+    RB_GC_GUARD(dirname);
 }
 
 /*
@@ -5072,6 +5291,9 @@ rb_file_s_extname(VALUE klass, VALUE fname)
         return rb_str_new(0, 0);
     extname = rb_str_subseq(fname, e - name, len); /* keep the dot, too! */
     return extname;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(extname);
 }
 
 /*
@@ -5089,6 +5311,8 @@ static VALUE
 rb_file_s_path(VALUE klass, VALUE fname)
 {
     return rb_get_path(fname);
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -5107,6 +5331,8 @@ rb_file_s_split(VALUE klass, VALUE path)
 {
     FilePathStringValue(path);		/* get rid of converting twice */
     return rb_assoc_new(rb_file_dirname(path), rb_file_s_basename(1,&path,Qundef));
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -5114,6 +5340,8 @@ file_inspect_join(VALUE ary, VALUE arg, int recur)
 {
     if (recur || ary == arg) rb_raise(rb_eArgError, "recursive array");
     return rb_file_join(arg);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -5180,6 +5408,9 @@ rb_file_join(VALUE ary)
     RBASIC_SET_CLASS_RAW(result, rb_cString);
 
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -5197,6 +5428,8 @@ static VALUE
 rb_file_s_join(VALUE klass, VALUE args)
 {
     return rb_file_join(args);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(klass);
 }
 
 #if defined(HAVE_TRUNCATE)
@@ -5242,6 +5475,9 @@ rb_file_s_truncate(VALUE klass, VALUE path, VALUE len)
     if (r < 0)
         rb_sys_fail_path(path);
     return INT2FIX(0);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(klass);
 }
 #else
 #define rb_file_s_truncate rb_f_notimplement
@@ -5292,6 +5528,8 @@ rb_file_truncate(VALUE obj, VALUE len)
         rb_sys_fail_path(fptr->pathv);
     }
     return INT2FIX(0);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(obj);
 }
 #else
 #define rb_file_truncate rb_f_notimplement
@@ -5415,6 +5653,8 @@ rb_file_flock(VALUE obj, VALUE operation)
         }
     }
     return INT2FIX(0);
+    RB_GC_GUARD(operation);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -5612,6 +5852,7 @@ rb_f_test(int argc, VALUE *argv, VALUE _)
             return stat_mtime(&st);
           case 'C':
             return stat_ctime(&st);
+    RB_GC_GUARD(fname);
         }
     }
 
@@ -5656,6 +5897,7 @@ rb_f_test(int argc, VALUE *argv, VALUE _)
         rb_raise(rb_eArgError, "unknown command \"\\x%02X\"", cmd);
     }
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(_);
 }
 
 
@@ -5675,6 +5917,7 @@ static VALUE
 rb_stat_s_alloc(VALUE klass)
 {
     return stat_new_0(klass, 0);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -5704,6 +5947,8 @@ rb_stat_init(VALUE obj, VALUE fname)
     rb_st->initialized = true;
 
     return Qnil;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -5720,6 +5965,8 @@ rb_stat_init_copy(VALUE copy, VALUE orig)
 
     *copy_rb_st = *orig_rb_st;
     return copy;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(copy);
 }
 
 /*
@@ -5740,6 +5987,7 @@ static VALUE
 rb_stat_ftype(VALUE obj)
 {
     return rb_file_ftype(get_stat(obj));
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5758,6 +6006,7 @@ rb_stat_d(VALUE obj)
 {
     if (S_ISDIR(get_stat(obj)->st_mode)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5776,6 +6025,7 @@ rb_stat_p(VALUE obj)
 
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5801,6 +6051,7 @@ rb_stat_l(VALUE obj)
     if (S_ISLNK(get_stat(obj)->st_mode)) return Qtrue;
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5823,6 +6074,7 @@ rb_stat_S(VALUE obj)
 
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5846,6 +6098,7 @@ rb_stat_b(VALUE obj)
 
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5866,6 +6119,7 @@ rb_stat_c(VALUE obj)
     if (S_ISCHR(get_stat(obj)->st_mode)) return Qtrue;
 
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5885,6 +6139,7 @@ rb_stat_owned(VALUE obj)
 {
     if (get_stat(obj)->st_uid == geteuid()) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -5892,6 +6147,7 @@ rb_stat_rowned(VALUE obj)
 {
     if (get_stat(obj)->st_uid == getuid()) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5913,6 +6169,7 @@ rb_stat_grpowned(VALUE obj)
     if (rb_group_member(get_stat(obj)->st_gid)) return Qtrue;
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5946,6 +6203,7 @@ rb_stat_r(VALUE obj)
     if (!(st->st_mode & S_IROTH)) return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5979,6 +6237,7 @@ rb_stat_R(VALUE obj)
     if (!(st->st_mode & S_IROTH)) return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6004,6 +6263,7 @@ rb_stat_wr(VALUE obj)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6037,6 +6297,7 @@ rb_stat_w(VALUE obj)
     if (!(st->st_mode & S_IWOTH)) return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6070,6 +6331,7 @@ rb_stat_W(VALUE obj)
     if (!(st->st_mode & S_IWOTH)) return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6095,6 +6357,7 @@ rb_stat_ww(VALUE obj)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6132,6 +6395,7 @@ rb_stat_x(VALUE obj)
     if (!(st->st_mode & S_IXOTH)) return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6164,6 +6428,7 @@ rb_stat_X(VALUE obj)
     if (!(st->st_mode & S_IXOTH)) return Qfalse;
 #endif
     return Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6182,6 +6447,7 @@ rb_stat_f(VALUE obj)
 {
     if (S_ISREG(get_stat(obj)->st_mode)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6200,6 +6466,7 @@ rb_stat_z(VALUE obj)
 {
     if (get_stat(obj)->st_size == 0) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6221,6 +6488,7 @@ rb_stat_s(VALUE obj)
 
     if (size == 0) return Qnil;
     return OFFT2NUM(size);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6241,6 +6509,7 @@ rb_stat_suid(VALUE obj)
     if (get_stat(obj)->st_mode & S_ISUID) return Qtrue;
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6262,6 +6531,7 @@ rb_stat_sgid(VALUE obj)
     if (get_stat(obj)->st_mode & S_ISGID) return Qtrue;
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -6283,6 +6553,7 @@ rb_stat_sticky(VALUE obj)
     if (get_stat(obj)->st_mode & S_ISVTX) return Qtrue;
 #endif
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 #if !defined HAVE_MKFIFO && defined HAVE_MKNOD && defined S_IFIFO
@@ -6333,6 +6604,8 @@ rb_file_s_mkfifo(int argc, VALUE *argv, VALUE _)
         rb_sys_fail_path(path);
     }
     return INT2FIX(0);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(path);
 }
 #else
 #define rb_file_s_mkfifo rb_f_notimplement
@@ -6344,6 +6617,7 @@ void
 rb_file_const(const char *name, VALUE value)
 {
     rb_define_const(rb_mFConst, name, value);
+    RB_GC_GUARD(value);
 }
 
 int
@@ -6390,6 +6664,7 @@ path_check_0(VALUE path)
         rb_str_cat2(newpath, p0);
         path = newpath;
         p0 = RSTRING_PTR(path);
+    RB_GC_GUARD(newpath);
     }
     e0 = p0 + RSTRING_LEN(path);
     enc = rb_enc_get(path);
@@ -6419,6 +6694,7 @@ path_check_0(VALUE path)
         p = s;
         e0 = p;
         *p = '\0';
+        RB_GC_GUARD(path);
     }
 }
 #endif
@@ -6524,6 +6800,8 @@ copy_path_class(VALUE path, VALUE orig)
     RBASIC_SET_CLASS(path, rb_obj_class(orig));
     OBJ_FREEZE(path);
     return path;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(path);
 }
 
 int
@@ -6576,6 +6854,7 @@ rb_find_file_ext(VALUE *filep, const char *const *ext)
             if (rb_file_load_ok(RSTRING_PTR(tmp))) {
                 *filep = copy_path_class(tmp, *filep);
                 return (int)(j+1);
+        RB_GC_GUARD(str);
             }
         }
         rb_str_set_len(fname, fnlen);
@@ -6583,6 +6862,9 @@ rb_find_file_ext(VALUE *filep, const char *const *ext)
     rb_str_resize(tmp, 0);
     RB_GC_GUARD(load_path);
     return 0;
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(load_path);
+    RB_GC_GUARD(fname);
 }
 
 VALUE
@@ -6619,6 +6901,7 @@ rb_find_file(VALUE path)
                 rb_file_expand_path_internal(path, str, 0, 0, tmp);
                 f = RSTRING_PTR(tmp);
                 if (rb_file_load_ok(f)) goto found;
+        RB_GC_GUARD(str);
             }
         }
         rb_str_resize(tmp, 0);
@@ -6630,6 +6913,9 @@ rb_find_file(VALUE path)
 
   found:
     return copy_path_class(tmp, path);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(load_path);
+    RB_GC_GUARD(tmp);
 }
 
 #define define_filetest_function(name, func, argc) do {        \
@@ -8010,4 +8296,5 @@ Init_File(void)
     rb_define_method(rb_cStat, "setuid?",  rb_stat_suid, 0);
     rb_define_method(rb_cStat, "setgid?",  rb_stat_sgid, 0);
     rb_define_method(rb_cStat, "sticky?",  rb_stat_sticky, 0);
+    RB_GC_GUARD(separator);
 }

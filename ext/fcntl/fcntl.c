@@ -251,4 +251,5 @@ Init_fcntl(void)
      */
     rb_define_const(mFcntl, "F_DUP2FD_CLOEXEC", INT2NUM(F_DUP2FD_CLOEXEC));
 #endif
+    RB_GC_GUARD(mFcntl);
 }

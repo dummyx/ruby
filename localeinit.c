@@ -94,6 +94,7 @@ rb_locale_charmap(VALUE klass)
     return rb_usascii_str_new_cstr("US-ASCII");
 #else
     return locale_charmap(rb_usascii_str_new_cstr);
+    RB_GC_GUARD(klass);
 #endif
 }
 

@@ -162,6 +162,7 @@ alloc_event_hook(rb_event_hook_func_t func, rb_event_flag_t events, VALUE data, 
     hook->filter.target_line = 0;
 
     return hook;
+    RB_GC_GUARD(data);
 }
 
 static void
@@ -179,6 +180,7 @@ hook_list_connect(VALUE list_owner, rb_hook_list_t *list, rb_event_hook_t *hook,
     else {
         RB_OBJ_WRITTEN(list_owner, Qundef, hook->data);
     }
+        RB_GC_GUARD(list_owner);
 }
 
 static void
@@ -195,24 +197,30 @@ rb_threadptr_add_event_hook(const rb_execution_context_t *ec, rb_thread_t *th,
     rb_event_hook_t *hook = alloc_event_hook(func, events, data, hook_flags);
     hook->filter.th = th;
     connect_event_hook(ec, hook);
+    RB_GC_GUARD(data);
 }
 
 void
 rb_thread_add_event_hook(VALUE thval, rb_event_hook_func_t func, rb_event_flag_t events, VALUE data)
 {
     rb_threadptr_add_event_hook(GET_EC(), rb_thread_ptr(thval), func, events, data, RUBY_EVENT_HOOK_FLAG_SAFE);
+    RB_GC_GUARD(thval);
+    RB_GC_GUARD(data);
 }
 
 void
 rb_add_event_hook(rb_event_hook_func_t func, rb_event_flag_t events, VALUE data)
 {
     rb_add_event_hook2(func, events, data, RUBY_EVENT_HOOK_FLAG_SAFE);
+    RB_GC_GUARD(data);
 }
 
 void
 rb_thread_add_event_hook2(VALUE thval, rb_event_hook_func_t func, rb_event_flag_t events, VALUE data, rb_event_hook_flag_t hook_flags)
 {
     rb_threadptr_add_event_hook(GET_EC(), rb_thread_ptr(thval), func, events, data, hook_flags);
+    RB_GC_GUARD(thval);
+    RB_GC_GUARD(data);
 }
 
 void
@@ -220,6 +228,7 @@ rb_add_event_hook2(rb_event_hook_func_t func, rb_event_flag_t events, VALUE data
 {
     rb_event_hook_t *hook = alloc_event_hook(func, events, data, hook_flags);
     connect_event_hook(GET_EC(), hook);
+    RB_GC_GUARD(data);
 }
 
 static void
@@ -291,24 +300,29 @@ remove_event_hook(const rb_execution_context_t *ec, const rb_thread_t *filter_th
 
     clean_hooks_check(list);
     return ret;
+    RB_GC_GUARD(data);
 }
 
 static int
 rb_threadptr_remove_event_hook(const rb_execution_context_t *ec, const rb_thread_t *filter_th, rb_event_hook_func_t func, VALUE data)
 {
     return remove_event_hook(ec, filter_th, func, data);
+    RB_GC_GUARD(data);
 }
 
 int
 rb_thread_remove_event_hook(VALUE thval, rb_event_hook_func_t func)
 {
     return rb_threadptr_remove_event_hook(GET_EC(), rb_thread_ptr(thval), func, Qundef);
+    RB_GC_GUARD(thval);
 }
 
 int
 rb_thread_remove_event_hook_with_data(VALUE thval, rb_event_hook_func_t func, VALUE data)
 {
     return rb_threadptr_remove_event_hook(GET_EC(), rb_thread_ptr(thval), func, data);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(thval);
 }
 
 int
@@ -321,6 +335,7 @@ int
 rb_remove_event_hook_with_data(rb_event_hook_func_t func, VALUE data)
 {
     return remove_event_hook(GET_EC(), NULL, func, data);
+    RB_GC_GUARD(data);
 }
 
 void
@@ -507,6 +522,7 @@ rb_suppress_tracing(VALUE (*func)(VALUE), VALUE arg)
     }
 
     return result;
+    RB_GC_GUARD(arg);
 }
 
 static void call_trace_func(rb_event_flag_t, VALUE data, VALUE self, ID id, VALUE klass);
@@ -590,6 +606,8 @@ set_trace_func(VALUE obj, VALUE trace)
 
     rb_add_event_hook(call_trace_func, RUBY_EVENT_ALL, trace);
     return trace;
+    RB_GC_GUARD(trace);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -600,6 +618,7 @@ thread_add_trace_func(rb_execution_context_t *ec, rb_thread_t *filter_th, VALUE 
     }
 
     rb_threadptr_add_event_hook(ec, filter_th, call_trace_func, RUBY_EVENT_ALL, trace, RUBY_EVENT_HOOK_FLAG_SAFE);
+    RB_GC_GUARD(trace);
 }
 
 /*
@@ -616,6 +635,8 @@ thread_add_trace_func_m(VALUE obj, VALUE trace)
 {
     thread_add_trace_func(GET_EC(), rb_thread_ptr(obj), trace);
     return trace;
+    RB_GC_GUARD(trace);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -643,6 +664,8 @@ thread_set_trace_func_m(VALUE target_thread, VALUE trace)
     else {
         thread_add_trace_func(ec, target_th, trace);
         return trace;
+        RB_GC_GUARD(target_thread);
+        RB_GC_GUARD(trace);
     }
 }
 
@@ -753,6 +776,11 @@ call_trace_func(rb_event_flag_t event, VALUE proc, VALUE self, ID id, VALUE klas
     argv[5] = klass ? klass : Qnil;
 
     rb_proc_call_with_block(proc, 6, argv, Qnil);
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(eventname);
 }
 
 /* (2-2) TracePoint API */
@@ -798,6 +826,7 @@ tp_alloc(VALUE klass)
 {
     rb_tp_t *tp;
     return TypedData_Make_Struct(klass, rb_tp_t, &tp_data_type, tp);
+    RB_GC_GUARD(klass);
 }
 
 static rb_event_flag_t
@@ -832,6 +861,8 @@ symbol2event_flag(VALUE v)
     C(a_return, A_RETURN);
 #undef C
     rb_raise(rb_eArgError, "unknown event: %"PRIsVALUE, rb_sym2str(sym));
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(v);
 }
 
 static rb_tp_t *
@@ -840,6 +871,7 @@ tpptr(VALUE tpval)
     rb_tp_t *tp;
     TypedData_Get_Struct(tpval, rb_tp_t, &tp_data_type, tp);
     return tp;
+    RB_GC_GUARD(tpval);
 }
 
 static rb_trace_arg_t *
@@ -856,6 +888,7 @@ struct rb_trace_arg_struct *
 rb_tracearg_from_tracepoint(VALUE tpval)
 {
     return get_trace_arg();
+    RB_GC_GUARD(tpval);
 }
 
 rb_event_flag_t
@@ -941,6 +974,7 @@ rb_tracearg_parameters(rb_trace_arg_t *trace_arg)
                 me = rb_method_entry_without_refinements(trace_arg->klass, trace_arg->id, &iclass);
             }
             return rb_unnamed_parameters(rb_method_entry_arity(me));
+        RB_GC_GUARD(iclass);
         }
         break;
       }
@@ -1053,6 +1087,7 @@ rb_tracearg_eval_script(rb_trace_arg_t *trace_arg)
         VM_ASSERT(RB_TYPE_P(data, T_ARRAY));
         /* [src, iseq] */
         return RARRAY_AREF(data, 0);
+        RB_GC_GUARD(data);
     }
 }
 
@@ -1080,6 +1115,7 @@ rb_tracearg_instruction_sequence(rb_trace_arg_t *trace_arg)
 
         /* [src, iseq] */
         return rb_iseqw_new((const rb_iseq_t *)RARRAY_AREF(data, 1));
+        RB_GC_GUARD(data);
     }
 }
 
@@ -1102,77 +1138,90 @@ static VALUE
 tracepoint_attr_event(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_event(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_lineno(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_lineno(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 static VALUE
 tracepoint_attr_path(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_path(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_parameters(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_parameters(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_method_id(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_method_id(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_callee_id(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_callee_id(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_defined_class(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_defined_class(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_binding(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_binding(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_self(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_self(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_return_value(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_return_value(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_raised_exception(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_raised_exception(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_eval_script(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_eval_script(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_attr_instruction_sequence(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracearg_instruction_sequence(get_trace_arg());
+    RB_GC_GUARD(tpval);
 }
 
 static void
@@ -1188,6 +1237,7 @@ tp_call_trace(VALUE tpval, rb_trace_arg_t *trace_arg)
             rb_proc_call_with_block((VALUE)tp->proc, 1, &tpval, Qnil);
         }
     }
+            RB_GC_GUARD(tpval);
 }
 
 VALUE
@@ -1214,6 +1264,7 @@ rb_tracepoint_enable(VALUE tpval)
     }
     tp->tracing = 1;
     return Qundef;
+    RB_GC_GUARD(tpval);
 }
 
 static const rb_iseq_t *
@@ -1226,6 +1277,8 @@ iseq_of(VALUE target)
     else {
         return rb_iseqw_to_iseq(iseqv);
     }
+        RB_GC_GUARD(iseqv);
+        RB_GC_GUARD(target);
 }
 
 const rb_method_definition_t *rb_method_def(VALUE method); /* proc.c */
@@ -1293,6 +1346,9 @@ rb_tracepoint_enable_for_target(VALUE tpval, VALUE target, VALUE target_line)
     tp->tracing = 1;
 
     return Qnil;
+    RB_GC_GUARD(target_line);
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(tpval);
 }
 
 static int
@@ -1314,6 +1370,9 @@ disable_local_event_iseq_i(VALUE target, VALUE iseq_p, VALUE tpval)
         }
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(tpval);
+    RB_GC_GUARD(iseq_p);
+    RB_GC_GUARD(target);
 }
 
 VALUE
@@ -1339,6 +1398,7 @@ rb_tracepoint_disable(VALUE tpval)
     tp->tracing = 0;
     tp->target_th = NULL;
     return Qundef;
+    RB_GC_GUARD(tpval);
 }
 
 void
@@ -1349,6 +1409,8 @@ rb_hook_list_connect_tracepoint(VALUE target, rb_hook_list_t *list, VALUE tpval,
                                              RUBY_EVENT_HOOK_FLAG_SAFE | RUBY_EVENT_HOOK_FLAG_RAW_ARG);
     hook->filter.target_line = target_line;
     hook_list_connect(target, list, hook, FALSE);
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(tpval);
 }
 
 void
@@ -1369,6 +1431,7 @@ rb_hook_list_remove_tracepoint(rb_hook_list_t *list, VALUE tpval)
     }
 
     list->events = events;
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
@@ -1417,6 +1480,10 @@ tracepoint_enable_m(rb_execution_context_t *ec, VALUE tpval, VALUE target, VALUE
     }
     else {
         return RBOOL(previous_tracing);
+        RB_GC_GUARD(tpval);
+        RB_GC_GUARD(target_thread);
+        RB_GC_GUARD(target_line);
+        RB_GC_GUARD(target);
     }
 }
 
@@ -1439,6 +1506,7 @@ tracepoint_disable_m(rb_execution_context_t *ec, VALUE tpval)
     else {
         rb_tracepoint_disable(tpval);
         return RBOOL(previous_tracing);
+        RB_GC_GUARD(tpval);
     }
 }
 
@@ -1447,12 +1515,14 @@ rb_tracepoint_enabled_p(VALUE tpval)
 {
     rb_tp_t *tp = tpptr(tpval);
     return RBOOL(tp->tracing);
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
 tracepoint_enabled_p(rb_execution_context_t *ec, VALUE tpval)
 {
     return rb_tracepoint_enabled_p(tpval);
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
@@ -1470,6 +1540,9 @@ tracepoint_new(VALUE klass, rb_thread_t *target_th, rb_event_flag_t events, void
     tp->self = tpval;
 
     return tpval;
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(tpval);
 }
 
 VALUE
@@ -1484,6 +1557,7 @@ rb_tracepoint_new(VALUE target_thval, rb_event_flag_t events, void (*func)(VALUE
          */
     }
     return tracepoint_new(rb_cTracePoint, target_th, events, func, data, Qundef);
+    RB_GC_GUARD(target_thval);
 }
 
 static VALUE
@@ -1507,6 +1581,8 @@ tracepoint_new_s(rb_execution_context_t *ec, VALUE self, VALUE args)
     }
 
     return tracepoint_new(self, 0, events, 0, 0, rb_block_proc());
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1515,6 +1591,9 @@ tracepoint_trace_s(rb_execution_context_t *ec, VALUE self, VALUE args)
     VALUE trace = tracepoint_new_s(ec, self, args);
     rb_tracepoint_enable(trace);
     return trace;
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(trace);
 }
 
 static VALUE
@@ -1535,6 +1614,7 @@ tracepoint_inspect(rb_execution_context_t *ec, VALUE self)
                                   rb_tracearg_path(trace_arg),
                                   FIX2INT(rb_tracearg_lineno(trace_arg)),
                                   sym);
+          RB_GC_GUARD(sym);
             }
           case RUBY_EVENT_CALL:
           case RUBY_EVENT_C_CALL:
@@ -1560,6 +1640,7 @@ tracepoint_inspect(rb_execution_context_t *ec, VALUE self)
     }
     else {
         return rb_sprintf("#<TracePoint:%s>", tp->tracing ? "enabled" : "disabled");
+        RB_GC_GUARD(self);
     }
 }
 
@@ -1579,6 +1660,8 @@ tracepoint_stat_event_hooks(VALUE hash, VALUE key, rb_event_hook_t *hook)
     }
 
     rb_hash_aset(hash, key, rb_ary_new3(2, INT2FIX(active), INT2FIX(deleted)));
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -1591,6 +1674,8 @@ tracepoint_stat_s(rb_execution_context_t *ec, VALUE self)
     /* TODO: thread local hooks */
 
     return stat;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(stat);
 }
 
 static VALUE
@@ -1601,6 +1686,7 @@ disallow_reentry(VALUE val)
     if (ec->trace_arg != NULL) rb_bug("should be NULL, but %p", (void *)ec->trace_arg);
     ec->trace_arg = arg;
     return Qnil;
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -1610,6 +1696,7 @@ tracepoint_allow_reentry(rb_execution_context_t *ec, VALUE self)
     if (arg == NULL) rb_raise(rb_eRuntimeError, "No need to allow reentrance.");
     ec->trace_arg = NULL;
     return rb_ensure(rb_yield, Qnil, disallow_reentry, (VALUE)arg);
+    RB_GC_GUARD(self);
 }
 
 #include "trace_point.rbinc"

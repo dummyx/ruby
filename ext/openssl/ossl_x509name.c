@@ -70,6 +70,7 @@ ossl_x509name_new(X509_NAME *name)
     SetX509Name(obj, new);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 X509_NAME *
@@ -80,6 +81,7 @@ GetX509NamePtr(VALUE obj)
     GetX509Name(obj, name);
 
     return name;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -98,6 +100,8 @@ ossl_x509name_alloc(VALUE klass)
     SetX509Name(obj, name);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static ID id_aref;
@@ -120,6 +124,11 @@ ossl_x509name_init_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
     ossl_x509name_add_entry(3, entry, self);
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(template);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -159,6 +168,7 @@ ossl_x509name_initialize(int argc, VALUE *argv, VALUE self)
 	    if(NIL_P(template)) template = OBJECT_TYPE_TEMPLATE;
 	    args = rb_ary_new3(2, self, template);
 	    rb_block_call(tmp, rb_intern("each"), 0, 0, ossl_x509name_init_i, args);
+	RB_GC_GUARD(args);
 	}
 	else{
 	    const unsigned char *p;
@@ -170,11 +180,16 @@ ossl_x509name_initialize(int argc, VALUE *argv, VALUE self)
 	    DATA_PTR(self) = name;
 	    if(!x){
 		ossl_raise(eX509NameError, NULL);
+    RB_GC_GUARD(str);
 	    }
+    RB_GC_GUARD(tmp);
 	}
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(template);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -194,6 +209,8 @@ ossl_x509name_initialize_copy(VALUE self, VALUE other)
     X509_NAME_free(name);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -243,6 +260,11 @@ VALUE ossl_x509name_add_entry(int argc, VALUE *argv, VALUE self)
 				    RSTRING_LENINT(value), loc, set))
 	ossl_raise(eX509NameError, "X509_NAME_add_entry_by_txt");
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(oid);
 }
 
 static VALUE
@@ -256,6 +278,7 @@ ossl_x509name_to_s_old(VALUE self)
     if (!buf)
 	ossl_raise(eX509NameError, "X509_NAME_oneline");
     return ossl_buf2str(buf, rb_long2int(strlen(buf)));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -275,6 +298,7 @@ x509name_print(VALUE self, unsigned long iflag)
 	ossl_raise(eX509NameError, "X509_NAME_print_ex");
     }
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -309,6 +333,7 @@ ossl_x509name_to_s(int argc, VALUE *argv, VALUE self)
 	return ossl_x509name_to_s_old(self);
     else
 	return x509name_print(self, NUM2ULONG(argv[0]));
+	RB_GC_GUARD(self);
 }
 
 /*
@@ -324,6 +349,8 @@ ossl_x509name_to_utf8(VALUE self)
     VALUE str = x509name_print(self, XN_FLAG_RFC2253 & ~ASN1_STRFLGS_ESC_MSB);
     rb_enc_associate_index(str, rb_utf8_encindex());
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /* :nodoc: */
@@ -332,6 +359,7 @@ ossl_x509name_inspect(VALUE self)
 {
     return rb_enc_sprintf(rb_utf8_encoding(), "#<%"PRIsVALUE" %"PRIsVALUE">",
 			  rb_obj_class(self), ossl_x509name_to_utf8(self));
+			  RB_GC_GUARD(self);
 }
 
 /*
@@ -379,6 +407,10 @@ ossl_x509name_to_a(VALUE self)
 	rb_ary_push(ret, ary);
     }
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(vname);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -390,6 +422,8 @@ ossl_x509name_cmp0(VALUE self, VALUE other)
     GetX509Name(other, name2);
 
     return X509_NAME_cmp(name1, name2);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -414,6 +448,8 @@ ossl_x509name_cmp(VALUE self, VALUE other)
     if (result > 0) return INT2FIX(1);
 
     return INT2FIX(0);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -429,6 +465,8 @@ ossl_x509name_eql(VALUE self, VALUE other)
 	return Qfalse;
 
     return ossl_x509name_cmp0(self, other) == 0 ? Qtrue : Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -449,6 +487,7 @@ ossl_x509name_hash(VALUE self)
     hash = X509_NAME_hash(name);
 
     return ULONG2NUM(hash);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -468,6 +507,7 @@ ossl_x509name_hash_old(VALUE self)
     hash = X509_NAME_hash_old(name);
 
     return ULONG2NUM(hash);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -494,6 +534,8 @@ ossl_x509name_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -594,4 +636,8 @@ Init_ossl_x509name(void)
      * Returns a multiline format.
      */
     rb_define_const(cX509Name, "MULTILINE", ULONG2NUM(XN_FLAG_MULTILINE));
+    RB_GC_GUARD(utf8str);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(ia5str);
+    RB_GC_GUARD(ptrstr);
 }

@@ -53,6 +53,7 @@ range_init(VALUE range, VALUE beg, VALUE end, VALUE exclude_end)
         v = rb_funcall(beg, id_cmp, 1, end);
         if (NIL_P(v))
             rb_raise(rb_eArgError, "bad value for range");
+    RB_GC_GUARD(v);
     }
 
     RANGE_SET_EXCL(range, exclude_end);
@@ -62,6 +63,10 @@ range_init(VALUE range, VALUE beg, VALUE end, VALUE exclude_end)
     if (CLASS_OF(range) == rb_cRange) {
         rb_obj_freeze(range);
     }
+        RB_GC_GUARD(range);
+        RB_GC_GUARD(exclude_end);
+        RB_GC_GUARD(end);
+        RB_GC_GUARD(beg);
 }
 
 VALUE
@@ -71,6 +76,9 @@ rb_range_new(VALUE beg, VALUE end, int exclude_end)
 
     range_init(range, beg, end, RBOOL(exclude_end));
     return range;
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(range);
 }
 
 static void
@@ -81,6 +89,7 @@ range_modify(VALUE range)
     if (RANGE_EXCL(range) != Qnil) {
         rb_name_err_raise("'initialize' called twice", range, ID2SYM(idInitialize));
     }
+        RB_GC_GUARD(range);
 }
 
 /*
@@ -107,6 +116,10 @@ range_initialize(int argc, VALUE *argv, VALUE range)
     range_modify(range);
     range_init(range, beg, end, RBOOL(RTEST(flags)));
     return Qnil;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 /* :nodoc: */
@@ -116,6 +129,8 @@ range_initialize_copy(VALUE range, VALUE orig)
     range_modify(range);
     rb_struct_init_copy(range, orig);
     return range;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(range);
 }
 
 /*
@@ -134,6 +149,7 @@ static VALUE
 range_exclude_end_p(VALUE range)
 {
     return RBOOL(EXCL(range));
+    RB_GC_GUARD(range);
 }
 
 static VALUE
@@ -146,6 +162,8 @@ recursive_equal(VALUE range, VALUE obj, int recur)
         return Qfalse;
 
     return RBOOL(EXCL(range) == EXCL(obj));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(range);
 }
 
 
@@ -189,6 +207,8 @@ range_eq(VALUE range, VALUE obj)
         return Qfalse;
 
     return rb_exec_recursive_paired(recursive_equal, range, obj, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(range);
 }
 
 /* compares _a_ and _b_ and returns:
@@ -204,6 +224,9 @@ r_less(VALUE a, VALUE b)
     if (NIL_P(r))
         return INT_MAX;
     return rb_cmpint(r, a, b);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(r);
 }
 
 static VALUE
@@ -216,6 +239,8 @@ recursive_eql(VALUE range, VALUE obj, int recur)
         return Qfalse;
 
     return RBOOL(EXCL(range) == EXCL(obj));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(range);
 }
 
 /*
@@ -256,6 +281,8 @@ range_eql(VALUE range, VALUE obj)
     if (!rb_obj_is_kind_of(obj, rb_cRange))
         return Qfalse;
     return rb_exec_recursive_paired(recursive_eql, range, obj, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(range);
 }
 
 /*
@@ -284,6 +311,8 @@ range_hash(VALUE range)
     hash = rb_hash_end(hash);
 
     return ST2FIX(hash);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -307,6 +336,11 @@ range_each_func(VALUE range, int (*func)(VALUE, VALUE), VALUE arg)
             v = rb_funcallv(v, id_succ, 0, 0);
         }
     }
+            RB_GC_GUARD(b);
+            RB_GC_GUARD(arg);
+            RB_GC_GUARD(range);
+            RB_GC_GUARD(v);
+            RB_GC_GUARD(e);
 }
 
 // NB: Two functions below (step_i_iter, sym_step_i and step_i) are used only to maintain the
@@ -326,6 +360,7 @@ step_i_iter(VALUE arg)
     if (iter[0] != INT2FIX(0)) return false;
     iter[0] = iter[1];
     return true;
+    RB_GC_GUARD(arg);
 }
 
 static int
@@ -335,6 +370,8 @@ sym_step_i(VALUE i, VALUE arg)
         rb_yield(rb_str_intern(i));
     }
     return 0;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(i);
 }
 
 static int
@@ -344,12 +381,15 @@ step_i(VALUE i, VALUE arg)
         rb_yield(i);
     }
     return 0;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(i);
 }
 
 static int
 discrete_object_p(VALUE obj)
 {
     return rb_respond_to(obj, id_succ);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -367,6 +407,7 @@ linear_object_p(VALUE obj)
     if (rb_obj_is_kind_of(obj, rb_cNumeric)) return TRUE;
     if (rb_obj_is_kind_of(obj, rb_cTime)) return TRUE;
     return FALSE;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -385,6 +426,8 @@ check_step_domain(VALUE step)
         rb_raise(rb_eArgError, "step can't be 0");
     }
     return step;
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(zero);
 }
 
 static VALUE
@@ -400,6 +443,12 @@ range_step_size(VALUE range, VALUE args, VALUE eobj)
         return ruby_num_interval_step_size(b, e, step, EXCL(range));
     }
     return Qnil;
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 /*
@@ -642,6 +691,11 @@ range_step(int argc, VALUE *argv, VALUE range)
         }
     }
     return range;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 /*
@@ -670,6 +724,8 @@ static VALUE
 range_percent_step(VALUE range, VALUE step)
 {
     return range_step(1, &step, range);
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(range);
 }
 
 #if SIZEOF_DOUBLE == 8 && defined(HAVE_INT64_T)
@@ -713,6 +769,8 @@ is_integer_p(VALUE v)
     CONST_ID(id_integer_p, "integer?");
     is_int = rb_check_funcall(v, id_integer_p, 0, 0);
     return RTEST(is_int) && !UNDEF_P(is_int);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(is_int);
 }
 
 static VALUE
@@ -775,6 +833,12 @@ bsearch_integer_range(VALUE beg, VALUE end, int excl)
         }
     }
     return satisfied;
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(mid);
+    RB_GC_GUARD(high);
+    RB_GC_GUARD(low);
+    RB_GC_GUARD(satisfied);
 }
 
 /*
@@ -874,6 +938,8 @@ range_bsearch(VALUE range)
             }
             diff = rb_funcall(diff, '*', 1, LONG2FIX(2));
             beg = mid;
+    RB_GC_GUARD(mid);
+    RB_GC_GUARD(diff);
         }
     }
     else if (NIL_P(beg) && is_integer_p(end)) {
@@ -892,12 +958,18 @@ range_bsearch(VALUE range)
             }
             diff = rb_funcall(diff, '*', 1, LONG2FIX(2));
             end = mid;
+    RB_GC_GUARD(mid);
+    RB_GC_GUARD(diff);
         }
     }
     else {
         rb_raise(rb_eTypeError, "can't do binary search for %s", rb_obj_classname(beg));
     }
     return range;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(satisfied);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static int
@@ -905,12 +977,16 @@ each_i(VALUE v, VALUE arg)
 {
     rb_yield(v);
     return 0;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(v);
 }
 
 static int
 sym_each_i(VALUE v, VALUE arg)
 {
     return each_i(rb_str_intern(v), arg);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(v);
 }
 
 #define CANT_ITERATE_FROM(x) \
@@ -957,6 +1033,9 @@ range_size(VALUE range)
     }
 
     return Qnil;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 static VALUE
@@ -991,6 +1070,9 @@ range_reverse_size(VALUE range)
     }
 
     return Qnil;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 #undef CANT_ITERATE_FROM
@@ -1015,18 +1097,25 @@ range_to_a(VALUE range)
         rb_raise(rb_eRangeError, "cannot convert endless range to an array");
     }
     return rb_call_super(0, 0);
+    RB_GC_GUARD(range);
 }
 
 static VALUE
 range_enum_size(VALUE range, VALUE args, VALUE eobj)
 {
     return range_size(range);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(range);
 }
 
 static VALUE
 range_enum_reverse_size(VALUE range, VALUE args, VALUE eobj)
 {
     return range_reverse_size(range);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(range);
 }
 
 RBIMPL_ATTR_NORETURN()
@@ -1037,6 +1126,7 @@ range_each_bignum_endless(VALUE beg)
         rb_yield(beg);
     }
     UNREACHABLE;
+    RB_GC_GUARD(beg);
 }
 
 RBIMPL_ATTR_NORETURN()
@@ -1049,6 +1139,7 @@ range_each_fixnum_endless(VALUE beg)
 
     range_each_bignum_endless(LONG2NUM(RUBY_FIXNUM_MAX + 1));
     UNREACHABLE;
+    RB_GC_GUARD(beg);
 }
 
 static VALUE
@@ -1059,6 +1150,9 @@ range_each_fixnum_loop(VALUE beg, VALUE end, VALUE range)
         rb_yield(LONG2FIX(i));
     }
     return range;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 /*
@@ -1130,6 +1224,7 @@ range_each(VALUE range)
             else {
                 VALUE c;
                 while ((c = rb_big_cmp(beg, end)) != INT2FIX(1)) {
+                    RB_GC_GUARD(c);
                     rb_yield(beg);
                     if (c == INT2FIX(0)) break;
                     beg = rb_big_plus(beg, INT2FIX(1));
@@ -1167,9 +1262,13 @@ range_each(VALUE range)
             else
                 for (;; beg = rb_funcallv(beg, id_succ, 0, 0))
                     rb_yield(beg);
+    RB_GC_GUARD(tmp);
         }
     }
     return range;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 RBIMPL_ATTR_NORETURN()
@@ -1182,6 +1281,7 @@ range_reverse_each_bignum_beginless(VALUE end)
         rb_yield(end);
     }
     UNREACHABLE;
+    RB_GC_GUARD(end);
 }
 
 static void
@@ -1195,6 +1295,9 @@ range_reverse_each_bignum(VALUE beg, VALUE end)
         if (c == INT2FIX(0)) break;
         end = rb_big_minus(end, INT2FIX(1));
     }
+        RB_GC_GUARD(c);
+        RB_GC_GUARD(end);
+        RB_GC_GUARD(beg);
 }
 
 static void
@@ -1209,6 +1312,8 @@ range_reverse_each_positive_bignum_section(VALUE beg, VALUE end)
     }
 
     range_reverse_each_bignum(beg, end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(end);
 }
 
 static void
@@ -1233,6 +1338,8 @@ range_reverse_each_fixnum_section(VALUE beg, VALUE end)
     for (long i = e; i >= b; --i) {
         rb_yield(LONG2FIX(i));
     }
+        RB_GC_GUARD(beg);
+        RB_GC_GUARD(end);
 }
 
 static void
@@ -1251,6 +1358,8 @@ range_reverse_each_negative_bignum_section(VALUE beg, VALUE end)
     if (FIXNUM_P(beg) || RBIGNUM_POSITIVE_P(beg)) return;
 
     range_reverse_each_bignum(beg, end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(end);
 }
 
 /*
@@ -1308,6 +1417,9 @@ range_reverse_each(VALUE range)
     }
 
     return range;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 /*
@@ -1326,6 +1438,7 @@ static VALUE
 range_begin(VALUE range)
 {
     return RANGE_BEG(range);
+    RB_GC_GUARD(range);
 }
 
 
@@ -1347,6 +1460,7 @@ static VALUE
 range_end(VALUE range)
 {
     return RANGE_END(range);
+    RB_GC_GUARD(range);
 }
 
 
@@ -1363,6 +1477,9 @@ first_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, cbarg))
     n--;
     ary[0] = LONG2NUM(n);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(cbarg);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -1403,6 +1520,8 @@ range_first(int argc, VALUE *argv, VALUE range)
     rb_block_call(range, idEach, 0, 0, first_i, (VALUE)ary);
 
     return ary[1];
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(n);
 }
 
 static VALUE
@@ -1456,6 +1575,13 @@ rb_int_range_last(int argc, VALUE *argv, VALUE range)
     }
 
     return ary;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(nv);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(len_1);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 /*
@@ -1510,6 +1636,9 @@ range_last(int argc, VALUE *argv, VALUE range)
         return rb_int_range_last(argc, argv, range);
     }
     return rb_ary_last(argc, argv, rb_Array(range));
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 
@@ -1618,6 +1747,9 @@ range_min(int argc, VALUE *argv, VALUE range)
         if (c > 0 || (c == 0 && EXCL(range)))
             return Qnil;
         return b;
+        RB_GC_GUARD(e);
+        RB_GC_GUARD(b);
+        RB_GC_GUARD(range);
     }
 }
 
@@ -1739,6 +1871,9 @@ range_max(int argc, VALUE *argv, VALUE range)
             return rb_funcall(e, '-', 1, INT2FIX(1));
         }
         return e;
+        RB_GC_GUARD(e);
+        RB_GC_GUARD(range);
+        RB_GC_GUARD(b);
     }
 }
 
@@ -1798,6 +1933,7 @@ range_minmax(VALUE range)
         rb_funcall(range, id_min, 0),
         rb_funcall(range, id_max, 0)
     );
+    RB_GC_GUARD(range);
 }
 
 int
@@ -1823,11 +1959,15 @@ rb_range_values(VALUE range, VALUE *begp, VALUE *endp, int *exclp)
         x = rb_check_funcall(range, rb_intern("exclude_end?"), 0, 0);
         if (UNDEF_P(x)) return (int)Qfalse;
         excl = RTEST(x);
+    RB_GC_GUARD(x);
     }
     *begp = b;
     *endp = e;
     *exclp = excl;
     return (int)Qtrue;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 /* Extract the components of a Range.
@@ -1886,6 +2026,8 @@ rb_range_component_beg_len(VALUE b, VALUE e, int excl,
 
   out_of_range:
     return Qnil;
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 VALUE
@@ -1903,6 +2045,10 @@ rb_range_beg_len(VALUE range, long *begp, long *lenp, long len, int err)
     }
 
     return res;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(res);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(b);
 }
 
 /*
@@ -1938,6 +2084,9 @@ range_to_s(VALUE range)
     rb_str_append(str, str2);
 
     return str;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1961,6 +2110,10 @@ inspect_range(VALUE range, VALUE dummy, int recur)
     if (!UNDEF_P(str2)) rb_str_append(str, str2);
 
     return str;
+    RB_GC_GUARD(dummy);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1989,6 +2142,7 @@ static VALUE
 range_inspect(VALUE range)
 {
     return rb_exec_recursive(inspect_range, range, 0);
+    RB_GC_GUARD(range);
 }
 
 static VALUE range_include_internal(VALUE range, VALUE val);
@@ -2037,6 +2191,8 @@ static VALUE
 range_eqq(VALUE range, VALUE val)
 {
     return r_cover_p(range, RANGE_BEG(range), RANGE_END(range), val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(range);
 }
 
 
@@ -2075,6 +2231,9 @@ range_include(VALUE range, VALUE val)
     VALUE ret = range_include_internal(range, val);
     if (!UNDEF_P(ret)) return ret;
     return rb_call_super(1, &val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(ret);
 }
 
 static inline bool
@@ -2082,12 +2241,16 @@ range_integer_edge_p(VALUE beg, VALUE end)
 {
     return (!NIL_P(rb_check_to_integer(beg, "to_int")) ||
             !NIL_P(rb_check_to_integer(end, "to_int")));
+            RB_GC_GUARD(end);
+            RB_GC_GUARD(beg);
 }
 
 static inline bool
 range_string_range_p(VALUE beg, VALUE end)
 {
     return RB_TYPE_P(beg, T_STRING) && RB_TYPE_P(end, T_STRING);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static inline VALUE
@@ -2102,6 +2265,9 @@ range_include_fallback(VALUE beg, VALUE end, VALUE val)
     }
 
     return Qundef;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static VALUE
@@ -2120,6 +2286,10 @@ range_include_internal(VALUE range, VALUE val)
     }
 
     return range_include_fallback(beg, end, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static int r_cover_range_p(VALUE range, VALUE beg, VALUE end, VALUE val);
@@ -2263,12 +2433,17 @@ range_cover(VALUE range, VALUE val)
         return RBOOL(r_cover_range_p(range, beg, end, val));
     }
     return r_cover_p(range, beg, end, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static VALUE
 r_call_max(VALUE r)
 {
     return rb_funcallv(r, rb_intern("max"), 0, 0);
+    RB_GC_GUARD(r);
 }
 
 static int
@@ -2290,6 +2465,7 @@ r_cover_range_p(VALUE range, VALUE beg, VALUE end, VALUE val)
         VALUE r_cmp_end = rb_funcall(end, id_cmp, 1, val_end);
         if (NIL_P(r_cmp_end)) return FALSE;
         cmp_end = rb_cmpint(r_cmp_end, end, val_end);
+    RB_GC_GUARD(r_cmp_end);
     }
     else {
         cmp_end = r_less(end, val_end);
@@ -2310,6 +2486,13 @@ r_cover_range_p(VALUE range, VALUE beg, VALUE end, VALUE val)
     if (NIL_P(val_max)) return FALSE;
 
     return r_less(end, val_max) >= 0;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(val_max);
+    RB_GC_GUARD(val_end);
+    RB_GC_GUARD(val_beg);
 }
 
 static VALUE
@@ -2321,6 +2504,10 @@ r_cover_p(VALUE range, VALUE beg, VALUE end, VALUE val)
             return Qtrue;
     }
     return Qfalse;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(range);
 }
 
 static VALUE
@@ -2332,6 +2519,8 @@ range_dumper(VALUE range)
     rb_ivar_set(v, id_beg, RANGE_BEG(range));
     rb_ivar_set(v, id_end, RANGE_END(range));
     return v;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -2351,6 +2540,11 @@ range_loader(VALUE range, VALUE obj)
         range_init(range, beg, end, RBOOL(RTEST(excl)));
     }
     return range;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(excl);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static VALUE
@@ -2359,6 +2553,7 @@ range_alloc(VALUE klass)
     /* rb_struct_alloc_noinit itself should not be used because
      * rb_marshal_define_compat uses equality of allocation function */
     return rb_struct_alloc_noinit(klass);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2417,10 +2612,14 @@ range_count(int argc, VALUE *argv, VALUE range)
         VALUE size = range_size(range);
         if (!NIL_P(size)) {
             return size;
+    RB_GC_GUARD(size);
         }
     }
 
     return rb_call_super(argc, argv);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 static bool
@@ -2433,6 +2632,8 @@ empty_region_p(VALUE beg, VALUE end, int excl)
     if (less > 0) return true;
     if (excl && less == 0) return true;
     return false;
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 /*
@@ -2526,16 +2727,24 @@ range_overlap(VALUE range, VALUE other)
         if (NIL_P(cmp)) return Qfalse;
         /* if both begin values are equal, no more comparisons needed */
         if (rb_cmpint(cmp, self_beg, other_beg) == 0) return Qtrue;
+    RB_GC_GUARD(cmp);
     }
     else if (NIL_P(self_beg) && !NIL_P(self_end) && NIL_P(other_beg)) {
         VALUE cmp = rb_funcall(self_end, id_cmp, 1, other_end);
         return RBOOL(!NIL_P(cmp));
+    RB_GC_GUARD(cmp);
     }
 
     if (empty_region_p(self_beg, self_end, self_excl)) return Qfalse;
     if (empty_region_p(other_beg, other_end, other_excl)) return Qfalse;
 
     return Qtrue;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(other_end);
+    RB_GC_GUARD(other_beg);
+    RB_GC_GUARD(self_end);
+    RB_GC_GUARD(self_beg);
 }
 
 /* A \Range object represents a collection of values

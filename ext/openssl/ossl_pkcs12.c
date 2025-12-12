@@ -58,6 +58,8 @@ ossl_pkcs12_s_allocate(VALUE klass)
     SetPKCS12(obj, p12);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -77,6 +79,8 @@ ossl_pkcs12_initialize_copy(VALUE self, VALUE other)
     PKCS12_free(p12_old);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -151,24 +155,39 @@ ossl_pkcs12_s_create(int argc, VALUE *argv, VALUE self)
     ossl_pkcs12_set_ca_certs(obj, ca);
 
     return obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(keytype);
+    RB_GC_GUARD(mac_iter);
+    RB_GC_GUARD(key_iter);
+    RB_GC_GUARD(cert_nid);
+    RB_GC_GUARD(key_nid);
+    RB_GC_GUARD(ca);
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(pkey);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(pass);
 }
 
 static VALUE
 ossl_pkey_new_i(VALUE arg)
 {
     return ossl_pkey_new((EVP_PKEY *)arg);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
 ossl_x509_new_i(VALUE arg)
 {
     return ossl_x509_new((X509 *)arg);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
 ossl_x509_sk2ary_i(VALUE arg)
 {
     return ossl_x509_sk2ary((STACK_OF(X509) *)arg);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -229,6 +248,12 @@ ossl_pkcs12_initialize(int argc, VALUE *argv, VALUE self)
     if(st) rb_jump_tag(st);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ca);
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(pkey);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -249,6 +274,8 @@ ossl_pkcs12_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -291,6 +318,11 @@ pkcs12_set_mac(int argc, VALUE *argv, VALUE self)
         ossl_raise(ePKCS12Error, "PKCS12_set_mac");
 
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(md_name);
+    RB_GC_GUARD(iter);
+    RB_GC_GUARD(salt);
+    RB_GC_GUARD(pass);
 }
 
 void

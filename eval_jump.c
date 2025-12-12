@@ -11,6 +11,7 @@ void
 rb_call_end_proc(VALUE data)
 {
     rb_proc_call(data, rb_ary_new());
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -45,6 +46,8 @@ rb_f_at_exit(VALUE _)
     proc = rb_block_proc();
     rb_set_end_proc(rb_call_end_proc, proc);
     return proc;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(proc);
 }
 
 struct end_proc_data {
@@ -72,6 +75,7 @@ rb_set_end_proc(void (*func)(VALUE), VALUE data)
     link->func = func;
     link->data = data;
     *list = link;
+    RB_GC_GUARD(data);
 }
 
 void
@@ -105,6 +109,7 @@ exec_end_procs_chain(struct end_proc_data *volatile *procs, VALUE *errp)
         (*endproc.func) (endproc.data);
         *errp = errinfo;
     }
+        RB_GC_GUARD(errinfo);
 }
 
 static void

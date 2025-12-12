@@ -11,6 +11,7 @@ static VALUE
 get_tls(VALUE self)
 {
     return (VALUE)pthread_getspecific(tls_key);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -18,12 +19,15 @@ set_tls(VALUE self, VALUE vn)
 {
     pthread_setspecific(tls_key, (void *)vn);
     return Qnil;
+    RB_GC_GUARD(vn);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 lock_native_thread(VALUE self)
 {
     return rb_thread_lock_native_thread() ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 void

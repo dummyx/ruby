@@ -6,6 +6,8 @@ VALUE
 bug_s_fstring(VALUE self, VALUE str)
 {
     return rb_str_to_interned_str(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -14,18 +16,23 @@ bug_s_fstring_fake_str(VALUE self)
     static const char literal[] = "abcdefghijklmnopqrstuvwxyz";
     struct RString fake_str;
     return rb_str_to_interned_str(rb_setup_fake_str(&fake_str, literal, sizeof(literal) - 1, 0));
+    RB_GC_GUARD(self);
 }
 
 VALUE
 bug_s_rb_enc_interned_str(VALUE self, VALUE encoding)
 {
     return rb_enc_interned_str("foo", 3, NIL_P(encoding) ? NULL : RDATA(encoding)->data);
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(self);
 }
 
 VALUE
 bug_s_rb_enc_str_new(VALUE self, VALUE encoding)
 {
     return rb_enc_str_new("foo", 3, NIL_P(encoding) ? NULL : RDATA(encoding)->data);
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(self);
 }
 
 void

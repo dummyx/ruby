@@ -105,6 +105,7 @@ Init_sym(void)
 
     Init_op_tbl();
     Init_id();
+    RB_GC_GUARD(dsym_fstrs);
 }
 
 WARN_UNUSED_RESULT(static VALUE dsymbol_alloc(rb_symbols_t *symbols, const VALUE klass, const VALUE str, rb_encoding *const enc, const ID type));
@@ -174,6 +175,8 @@ rb_id_attrset(ID id)
     sym = lookup_str_sym(str);
     id = sym ? rb_sym2id(sym) : intern_str(str, 1);
     return id;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -425,6 +428,7 @@ rb_str_symname_type(VALUE name, unsigned int allowed_attrset)
     int type = rb_enc_symname_type(ptr, len, rb_enc_get(name), allowed_attrset);
     RB_GC_GUARD(name);
     return type;
+    RB_GC_GUARD(name);
 }
 
 static void
@@ -444,6 +448,10 @@ set_id_entry(rb_symbols_t *symbols, rb_id_serial_t num, VALUE str, VALUE sym)
     idx = (num % ID_ENTRY_UNIT) * ID_ENTRY_SIZE;
     rb_ary_store(ary, (long)idx + ID_ENTRY_STR, str);
     rb_ary_store(ary, (long)idx + ID_ENTRY_SYM, sym);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ids);
 }
 
 static VALUE
@@ -474,9 +482,12 @@ get_id_serial_entry(rb_id_serial_t num, ID id, const enum id_entry_type t)
                         }
                         else {
                             if (RSYMBOL(sym)->id != id) result = 0;
+    RB_GC_GUARD(sym);
                         }
                     }
                 }
+    RB_GC_GUARD(ids);
+    RB_GC_GUARD(ary);
             }
         }
     }
@@ -496,6 +507,7 @@ get_id_serial_entry(rb_id_serial_t num, ID id, const enum id_entry_type t)
     }
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -517,6 +529,7 @@ rb_id_serial_to_id(rb_id_serial_t num)
         VALUE sym = get_id_serial_entry(num, 0, ID_ENTRY_SYM);
         if (sym) return SYM2ID(sym);
         return ((ID)num << ID_SCOPE_SHIFT) | ID_INTERNAL | ID_STATIC_SYM;
+    RB_GC_GUARD(sym);
     }
     else {
         return (ID)num;
@@ -546,6 +559,8 @@ register_sym(rb_symbols_t *symbols, VALUE str, VALUE sym)
     else {
         st_add_direct(symbols->str_sym, (st_data_t)str, (st_data_t)sym);
     }
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(sym);
 }
 
 void
@@ -567,6 +582,8 @@ unregister_sym(rb_symbols_t *symbols, VALUE str, VALUE sym)
     if (!st_delete(symbols->str_sym, &str_data, NULL)) {
         rb_bug("%p can't remove str from str_id (%s)", (void *)sym, RSTRING_PTR(str));
     }
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(sym);
 }
 
 static ID
@@ -574,6 +591,7 @@ register_static_symid(ID id, const char *name, long len, rb_encoding *enc)
 {
     VALUE str = rb_enc_str_new(name, len, enc);
     return register_static_symid_str(id, str);
+    RB_GC_GUARD(str);
 }
 
 static ID
@@ -595,6 +613,8 @@ register_static_symid_str(ID id, VALUE str)
     GLOBAL_SYMBOLS_LEAVE();
 
     return id;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sym);
 }
 
 static int
@@ -612,6 +632,7 @@ sym_check_asciionly(VALUE str, bool fake_str)
         return TRUE;
     }
     return FALSE;
+    RB_GC_GUARD(str);
 }
 
 #if 0
@@ -711,6 +732,7 @@ lookup_str_id(VALUE str)
         }
     }
     return (ID)0;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -723,6 +745,7 @@ lookup_str_sym_with_lock(rb_symbols_t *symbols, const VALUE str)
             sym = dsymbol_check(symbols, sym);
         }
         return sym;
+    RB_GC_GUARD(sym);
     }
     else {
         return Qfalse;
@@ -741,6 +764,7 @@ lookup_str_sym(const VALUE str)
     GLOBAL_SYMBOLS_LEAVE();
 
     return sym;
+    RB_GC_GUARD(sym);
 }
 
 static VALUE
@@ -760,6 +784,8 @@ rb_intern3(const char *name, long len, rb_encoding *enc)
     if (sym) return rb_sym2id(sym);
     str = rb_enc_str_new(name, len, enc); /* make true string */
     return intern_str(str, 1);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sym);
 }
 
 static ID
@@ -811,6 +837,7 @@ intern_str(VALUE str, int mutable)
     id |= nid;
     id |= ID_STATIC_SYM;
     return register_static_symid_str(id, str);
+    RB_GC_GUARD(str);
 }
 
 ID
@@ -836,6 +863,8 @@ rb_intern_str(VALUE str)
     }
 
     return intern_str(str, 0);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sym);
 }
 
 void
@@ -853,6 +882,8 @@ rb_gc_free_dsymbol(VALUE sym)
         }
         GLOBAL_SYMBOLS_LEAVE();
     }
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(sym);
 }
 
 /*
@@ -912,6 +943,8 @@ rb_str_intern(VALUE str)
     }
     GLOBAL_SYMBOLS_LEAVE();
     return sym;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(sym);
 }
 
 ID
@@ -936,6 +969,7 @@ rb_sym2id(VALUE sym)
 
                 set_id_entry(symbols, rb_id_to_serial(num), fstr, sym);
                 rb_hash_delete_entry(symbols->dsymbol_fstr_hash, fstr);
+        RB_GC_GUARD(fstr);
             }
         }
         GLOBAL_SYMBOLS_LEAVE();
@@ -945,6 +979,7 @@ rb_sym2id(VALUE sym)
                  rb_builtin_class_name(sym));
     }
     return id;
+    RB_GC_GUARD(sym);
 }
 
 #undef rb_id2sym
@@ -981,6 +1016,8 @@ rb_sym2str(VALUE sym)
     }
 
     return str;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -996,6 +1033,7 @@ rb_id2name(ID id)
 
     if (!str) return 0;
     return RSTRING_PTR(str);
+    RB_GC_GUARD(str);
 }
 
 ID
@@ -1037,6 +1075,8 @@ symbols_i(st_data_t key, st_data_t value, st_data_t arg)
         return ST_CONTINUE;
     }
 
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(sym);
 }
 
 VALUE
@@ -1052,6 +1092,7 @@ rb_sym_all_symbols(void)
     GLOBAL_SYMBOLS_LEAVE();
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 size_t
@@ -1106,12 +1147,14 @@ int
 rb_is_const_sym(VALUE sym)
 {
     return is_const_sym(sym);
+    RB_GC_GUARD(sym);
 }
 
 int
 rb_is_attrset_sym(VALUE sym)
 {
     return is_attrset_sym(sym);
+    RB_GC_GUARD(sym);
 }
 
 ID
@@ -1145,6 +1188,8 @@ rb_check_id(volatile VALUE *namep)
     sym_check_asciionly(name, false);
 
     return lookup_str_id(name);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(tmp);
 }
 
 // Used by yjit for handling .send without throwing exceptions
@@ -1167,6 +1212,7 @@ rb_get_symbol_id(VALUE name)
     }
     else {
         return 0;
+        RB_GC_GUARD(name);
     }
 }
 
@@ -1210,6 +1256,9 @@ rb_check_symbol(volatile VALUE *namep)
     }
 
     return Qnil;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(sym);
 }
 
 ID
@@ -1237,6 +1286,7 @@ rb_check_symbol_cstr(const char *ptr, long len, rb_encoding *enc)
     }
 
     return Qnil;
+    RB_GC_GUARD(sym);
 }
 
 #undef rb_sym_intern_ascii_cstr
@@ -1272,30 +1322,35 @@ VALUE
 rb_to_symbol_type(VALUE obj)
 {
     return rb_convert_type_with_id(obj, T_SYMBOL, "Symbol", idTo_sym);
+    RB_GC_GUARD(obj);
 }
 
 int
 rb_is_const_name(VALUE name)
 {
     return rb_str_symname_type(name, 0) == ID_CONST;
+    RB_GC_GUARD(name);
 }
 
 int
 rb_is_class_name(VALUE name)
 {
     return rb_str_symname_type(name, 0) == ID_CLASS;
+    RB_GC_GUARD(name);
 }
 
 int
 rb_is_instance_name(VALUE name)
 {
     return rb_str_symname_type(name, 0) == ID_INSTANCE;
+    RB_GC_GUARD(name);
 }
 
 int
 rb_is_local_name(VALUE name)
 {
     return rb_str_symname_type(name, 0) == ID_LOCAL;
+    RB_GC_GUARD(name);
 }
 
 #include "id_table.c"

@@ -9,6 +9,8 @@ bug_str_capacity(VALUE klass, VALUE str)
     }
 
     return LONG2FIX(rb_str_capacity(str));
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 void

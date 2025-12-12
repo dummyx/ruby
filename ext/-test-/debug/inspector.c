@@ -15,14 +15,18 @@ callback(const rb_debug_inspector_t *dbg_context, void *data)
         rb_ary_push(entry, rb_debug_inspector_frame_class_get(dbg_context, i));
         rb_ary_push(entry, rb_debug_inspector_frame_iseq_get(dbg_context, i));
         rb_ary_push(entry, rb_ary_entry(locs, i));
+    RB_GC_GUARD(entry);
     }
     return binds;
+    RB_GC_GUARD(binds);
+    RB_GC_GUARD(locs);
 }
 
 static VALUE
 debug_inspector(VALUE self)
 {
     return rb_debug_inspector_open(callback, NULL);
+    RB_GC_GUARD(self);
 }
 
 void

@@ -92,6 +92,8 @@ f_add(VALUE x, VALUE y)
     }
 
     return rb_funcall(x, '+', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -100,6 +102,8 @@ f_div(VALUE x, VALUE y)
     if (FIXNUM_P(y) && FIX2LONG(y) == 1)
         return x;
     return rb_funcall(x, '/', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -117,6 +121,8 @@ f_gt_p(VALUE x, VALUE y)
         return cmp > 0;
     }
     return RTEST(rb_funcall(x, '>', 1, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -146,6 +152,8 @@ f_mul(VALUE x, VALUE y)
         if (y == ONE) return x;
     }
     return rb_funcall(x, '*', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -156,6 +164,8 @@ f_sub(VALUE x, VALUE y)
         return x;
     }
     return rb_funcall(x, '-', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -174,6 +184,7 @@ f_abs(VALUE x)
         return rb_complex_abs(x);
     }
     return rb_funcall(x, id_abs, 0);
+    RB_GC_GUARD(x);
 }
 
 static VALUE numeric_arg(VALUE self);
@@ -195,6 +206,7 @@ f_arg(VALUE x)
         return rb_complex_arg(x);
     }
     return rb_funcall(x, id_arg, 0);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -207,6 +219,7 @@ f_numerator(VALUE x)
         return rb_float_numerator(x);
     }
     return x;
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -219,6 +232,7 @@ f_denominator(VALUE x)
         return rb_float_denominator(x);
     }
     return INT2FIX(1);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -237,6 +251,7 @@ f_negate(VALUE x)
         return rb_complex_uminus(x);
     }
     return rb_funcall(x, id_negate, 0);
+    RB_GC_GUARD(x);
 }
 
 static bool nucomp_real_p(VALUE self);
@@ -257,6 +272,7 @@ f_real_p(VALUE x)
         return nucomp_real_p(x);
     }
     return rb_funcall(x, id_real_p, 0);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -265,6 +281,7 @@ f_to_i(VALUE x)
     if (RB_TYPE_P(x, T_STRING))
         return rb_str_to_inum(x, 10, 0);
     return rb_funcall(x, id_to_i, 0);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -273,6 +290,7 @@ f_to_f(VALUE x)
     if (RB_TYPE_P(x, T_STRING))
         return DBL2NUM(rb_str_to_dbl(x, 0));
     return rb_funcall(x, id_to_f, 0);
+    RB_GC_GUARD(x);
 }
 
 fun1(to_r)
@@ -285,6 +303,8 @@ f_eqeq_p(VALUE x, VALUE y)
     else if (RB_FLOAT_TYPE_P(x) || RB_FLOAT_TYPE_P(y))
         return NUM2DBL(x) == NUM2DBL(y);
     return (int)rb_equal(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 fun2(expt)
@@ -301,6 +321,8 @@ f_quo(VALUE x, VALUE y)
         return rb_numeric_quo(x, y);
 
     return rb_funcallv(x, id_quo, 1, &y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -313,6 +335,7 @@ f_negative_p(VALUE x)
     else if (RB_TYPE_P(x, T_RATIONAL))
         return INT_NEGATIVE_P(RRATIONAL(x)->num);
     return rb_num_negative_p(x);
+    RB_GC_GUARD(x);
 }
 
 #define f_positive_p(x) (!f_negative_p(x))
@@ -331,6 +354,7 @@ f_zero_p(VALUE x)
         return FIXNUM_ZERO_P(num);
     }
     return rb_equal(x, ZERO) != 0;
+    RB_GC_GUARD(x);
 }
 
 #define f_nonzero_p(x) (!f_zero_p(x))
@@ -341,6 +365,7 @@ always_finite_type_p(VALUE x)
     if (FIXNUM_P(x)) return true;
     if (FLONUM_P(x)) return true; /* Infinity can't be a flonum */
     return (RB_INTEGER_TYPE_P(x) || RB_TYPE_P(x, T_RATIONAL));
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -353,6 +378,7 @@ f_finite_p(VALUE x)
         return isfinite(RFLOAT_VALUE(x));
     }
     return RTEST(rb_funcallv(x, id_finite_p, 0, 0));
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -365,18 +391,22 @@ f_infinite_p(VALUE x)
         return isinf(RFLOAT_VALUE(x));
     }
     return RTEST(rb_funcallv(x, id_infinite_p, 0, 0));
+    RB_GC_GUARD(x);
 }
 
 inline static int
 f_kind_of_p(VALUE x, VALUE c)
 {
     return (int)rb_obj_is_kind_of(x, c);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(x);
 }
 
 inline static int
 k_numeric_p(VALUE x)
 {
     return f_kind_of_p(x, rb_cNumeric);
+    RB_GC_GUARD(x);
 }
 
 #define k_exact_p(x) (!RB_FLOAT_TYPE_P(x))
@@ -400,12 +430,16 @@ nucomp_s_new_internal(VALUE klass, VALUE real, VALUE imag)
     OBJ_FREEZE((VALUE)obj);
 
     return (VALUE)obj;
+    RB_GC_GUARD(imag);
+    RB_GC_GUARD(real);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 nucomp_s_alloc(VALUE klass)
 {
     return nucomp_s_new_internal(klass, ZERO, ZERO);
+    RB_GC_GUARD(klass);
 }
 
 inline static VALUE
@@ -413,6 +447,8 @@ f_complex_new_bang1(VALUE klass, VALUE x)
 {
     RUBY_ASSERT(!RB_TYPE_P(x, T_COMPLEX));
     return nucomp_s_new_internal(klass, x, ZERO);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 inline static VALUE
@@ -421,6 +457,9 @@ f_complex_new_bang2(VALUE klass, VALUE x, VALUE y)
     RUBY_ASSERT(!RB_TYPE_P(x, T_COMPLEX));
     RUBY_ASSERT(!RB_TYPE_P(y, T_COMPLEX));
     return nucomp_s_new_internal(klass, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 WARN_UNUSED_RESULT(inline static VALUE nucomp_real_check(VALUE num));
@@ -434,11 +473,13 @@ nucomp_real_check(VALUE num)
             VALUE real = RCOMPLEX(num)->real;
             RUBY_ASSERT(!RB_TYPE_P(real, T_COMPLEX));
             return real;
+        RB_GC_GUARD(real);
         }
         if (!k_numeric_p(num) || !f_real_p(num))
             rb_raise(rb_eTypeError, "not a real");
     }
     return num;
+    RB_GC_GUARD(num);
 }
 
 inline static VALUE
@@ -470,6 +511,9 @@ nucomp_s_canonicalize_internal(VALUE klass, VALUE real, VALUE imag)
         return nucomp_s_new_internal(klass,
                                      f_sub(adat->real, bdat->imag),
                                      f_add(adat->imag, bdat->real));
+                                     RB_GC_GUARD(klass);
+                                     RB_GC_GUARD(imag);
+                                     RB_GC_GUARD(real);
     }
 }
 
@@ -506,6 +550,9 @@ nucomp_s_new(int argc, VALUE *argv, VALUE klass)
     }
 
     return nucomp_s_new_internal(klass, real, imag);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(imag);
+    RB_GC_GUARD(real);
 }
 
 inline static VALUE
@@ -517,6 +564,9 @@ f_complex_new2(VALUE klass, VALUE x, VALUE y)
         y = f_add(dat->imag, y);
     }
     return nucomp_s_canonicalize_internal(klass, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE nucomp_convert(VALUE klass, VALUE a1, VALUE a2, int raise);
@@ -589,6 +639,10 @@ nucomp_f_complex(int argc, VALUE *argv, VALUE klass)
         return a1;
     }
     return nucomp_convert(rb_cComplex, a1, a2, raise);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(a2);
+    RB_GC_GUARD(a1);
 }
 
 #define imp1(n) \
@@ -606,6 +660,7 @@ static VALUE
 m_log_bang(VALUE x)
 {
     return rb_math_log(1, &x);
+    RB_GC_GUARD(x);
 }
 
 imp1(sin)
@@ -623,6 +678,7 @@ m_cos(VALUE x)
                                     m_cosh_bang(dat->imag)),
                               f_mul(f_negate(m_sin_bang(dat->real)),
                                     m_sinh_bang(dat->imag)));
+                                    RB_GC_GUARD(x);
     }
 }
 
@@ -638,6 +694,7 @@ m_sin(VALUE x)
                                     m_cosh_bang(dat->imag)),
                               f_mul(m_cos_bang(dat->real),
                                     m_sinh_bang(dat->imag)));
+                                    RB_GC_GUARD(x);
     }
 }
 
@@ -677,6 +734,9 @@ f_complex_polar_real(VALUE klass, VALUE x, VALUE y)
     return nucomp_s_canonicalize_internal(klass,
                                           f_mul(x, m_cos(y)),
                                           f_mul(x, m_sin(y)));
+                                          RB_GC_GUARD(y);
+                                          RB_GC_GUARD(x);
+                                          RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -685,6 +745,9 @@ f_complex_polar(VALUE klass, VALUE x, VALUE y)
     x = nucomp_real_check(x);
     y = nucomp_real_check(y);
     return f_complex_polar_real(klass, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 #ifdef HAVE___COSPI
@@ -749,6 +812,9 @@ nucomp_s_polar(int argc, VALUE *argv, VALUE klass)
         arg = ZERO;
     }
     return f_complex_polar_real(klass, abs, arg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(abs);
 }
 
 /*
@@ -772,6 +838,7 @@ rb_complex_real(VALUE self)
 {
     get_dat1(self);
     return dat->real;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -795,6 +862,7 @@ rb_complex_imag(VALUE self)
 {
     get_dat1(self);
     return dat->imag;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -813,6 +881,7 @@ rb_complex_uminus(VALUE self)
     get_dat1(self);
     return f_complex_new2(CLASS_OF(self),
                           f_negate(dat->real), f_negate(dat->imag));
+                          RB_GC_GUARD(self);
 }
 
 /*
@@ -840,6 +909,8 @@ rb_complex_plus(VALUE self, VALUE other)
         imag = f_add(adat->imag, bdat->imag);
 
         return f_complex_new2(CLASS_OF(self), real, imag);
+    RB_GC_GUARD(imag);
+    RB_GC_GUARD(real);
     }
     if (k_numeric_p(other) && f_real_p(other)) {
         get_dat1(self);
@@ -848,6 +919,8 @@ rb_complex_plus(VALUE self, VALUE other)
                               f_add(dat->real, other), dat->imag);
     }
     return rb_num_coerce_bin(self, other, '+');
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -875,6 +948,8 @@ rb_complex_minus(VALUE self, VALUE other)
         imag = f_sub(adat->imag, bdat->imag);
 
         return f_complex_new2(CLASS_OF(self), real, imag);
+    RB_GC_GUARD(imag);
+    RB_GC_GUARD(real);
     }
     if (k_numeric_p(other) && f_real_p(other)) {
         get_dat1(self);
@@ -883,6 +958,8 @@ rb_complex_minus(VALUE self, VALUE other)
                               f_sub(dat->real, other), dat->imag);
     }
     return rb_num_coerce_bin(self, other, '-');
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -896,6 +973,8 @@ safe_mul(VALUE a, VALUE b, bool az, bool bz)
         b = signbit(v) ? DBL2NUM(-1.0) : DBL2NUM(1.0);
     }
     return f_mul(a, b);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 static void
@@ -909,6 +988,10 @@ comp_mul(VALUE areal, VALUE aimag, VALUE breal, VALUE bimag, VALUE *real, VALUE 
                   safe_mul(aimag, bimag, aizero, bizero));
     *imag = f_add(safe_mul(areal, bimag, arzero, bizero),
                   safe_mul(aimag, breal, aizero, brzero));
+                  RB_GC_GUARD(areal);
+                  RB_GC_GUARD(bimag);
+                  RB_GC_GUARD(breal);
+                  RB_GC_GUARD(aimag);
 }
 
 /*
@@ -934,6 +1017,8 @@ rb_complex_mul(VALUE self, VALUE other)
         comp_mul(adat->real, adat->imag, bdat->real, bdat->imag, &real, &imag);
 
         return f_complex_new2(CLASS_OF(self), real, imag);
+    RB_GC_GUARD(imag);
+    RB_GC_GUARD(real);
     }
     if (k_numeric_p(other) && f_real_p(other)) {
         get_dat1(self);
@@ -943,6 +1028,8 @@ rb_complex_mul(VALUE self, VALUE other)
                               f_mul(dat->imag, other));
     }
     return rb_num_coerce_bin(self, other, '*');
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 inline static VALUE
@@ -974,6 +1061,10 @@ f_divide(VALUE self, VALUE other,
             y = rb_rational_canonicalize(y);
         }
         return f_complex_new2(CLASS_OF(self), x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(r);
     }
     if (k_numeric_p(other) && f_real_p(other)) {
         VALUE x, y;
@@ -981,8 +1072,12 @@ f_divide(VALUE self, VALUE other,
         x = rb_rational_canonicalize((*func)(dat->real, other));
         y = rb_rational_canonicalize((*func)(dat->imag, other));
         return f_complex_new2(CLASS_OF(self), x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
     }
     return rb_num_coerce_bin(self, other, id);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 #define rb_raise_zerodiv() rb_raise(rb_eZeroDivError, "divided by 0")
@@ -1004,6 +1099,8 @@ VALUE
 rb_complex_div(VALUE self, VALUE other)
 {
     return f_divide(self, other, f_quo, id_quo);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 #define nucomp_quo rb_complex_div
@@ -1021,12 +1118,15 @@ static VALUE
 nucomp_fdiv(VALUE self, VALUE other)
 {
     return f_divide(self, other, f_fdiv, id_fdiv);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 inline static VALUE
 f_reciprocal(VALUE x)
 {
     return f_quo(ONE, x);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -1038,6 +1138,7 @@ zero_for(VALUE x)
         return rb_rational_new(INT2FIX(0), INT2FIX(1));
 
     return INT2FIX(0);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -1106,6 +1207,12 @@ complex_pow_for_special_angle(VALUE self, VALUE other)
       case -1: zi = f_negate(zx); break;
     }
     return nucomp_s_new_internal(CLASS_OF(self), zr, zi);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(zi);
+    RB_GC_GUARD(zr);
+    RB_GC_GUARD(zx);
+    RB_GC_GUARD(x);
 }
 
 
@@ -1156,6 +1263,10 @@ rb_complex_pow(VALUE self, VALUE other)
         ntheta = f_add(f_mul(theta, dat->real),
                        f_mul(dat->imag, m_log_bang(r)));
         return f_complex_polar(CLASS_OF(self), nr, ntheta);
+    RB_GC_GUARD(ntheta);
+    RB_GC_GUARD(nr);
+    RB_GC_GUARD(theta);
+    RB_GC_GUARD(r);
     }
     if (FIXNUM_P(other)) {
         long n = FIX2LONG(other);
@@ -1181,6 +1292,7 @@ rb_complex_pow(VALUE self, VALUE other)
                     VALUE tmp = zr;
                     zr = zi;
                     zi = tmp;
+            RB_GC_GUARD(tmp);
                 }
             }
             else {
@@ -1191,11 +1303,16 @@ rb_complex_pow(VALUE self, VALUE other)
                         VALUE tmp = f_sub(f_mul(xr, xr), f_mul(xi, xi));
                         xi = f_mul(f_mul(TWO, xr), xi);
                         xr = tmp;
+                    RB_GC_GUARD(tmp);
                     }
                     comp_mul(zr, zi, xr, xi, &zr, &zi);
                 }
             }
             return nucomp_s_new_internal(CLASS_OF(self), zr, zi);
+    RB_GC_GUARD(zi);
+    RB_GC_GUARD(zr);
+    RB_GC_GUARD(xi);
+    RB_GC_GUARD(xr);
         }
     }
     if (k_numeric_p(other) && f_real_p(other)) {
@@ -1209,8 +1326,13 @@ rb_complex_pow(VALUE self, VALUE other)
 
         return f_complex_polar(CLASS_OF(self), f_expt(r, other),
                                f_mul(theta, other));
+    RB_GC_GUARD(theta);
+    RB_GC_GUARD(r);
     }
     return rb_num_coerce_bin(self, other, id_expt);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -1238,6 +1360,8 @@ nucomp_eqeq_p(VALUE self, VALUE other)
         return RBOOL(f_eqeq_p(dat->real, other) && f_zero_p(dat->imag));
     }
     return RBOOL(f_eqeq_p(other, self));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static bool
@@ -1245,6 +1369,7 @@ nucomp_real_p(VALUE self)
 {
     get_dat1(self);
     return f_zero_p(dat->imag);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1295,6 +1420,8 @@ nucomp_cmp(VALUE self, VALUE other)
         }
     }
     return Qnil;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1309,6 +1436,8 @@ nucomp_coerce(VALUE self, VALUE other)
     rb_raise(rb_eTypeError, "%"PRIsVALUE" can't be coerced into %"PRIsVALUE,
              rb_obj_class(other), rb_obj_class(self));
     return Qnil;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1337,14 +1466,17 @@ rb_complex_abs(VALUE self)
         if (RB_FLOAT_TYPE_P(dat->real) && !RB_FLOAT_TYPE_P(dat->imag))
             a = f_to_f(a);
         return a;
+    RB_GC_GUARD(a);
     }
     if (f_zero_p(dat->imag)) {
         VALUE a = f_abs(dat->real);
         if (!RB_FLOAT_TYPE_P(dat->real) && RB_FLOAT_TYPE_P(dat->imag))
             a = f_to_f(a);
         return a;
+    RB_GC_GUARD(a);
     }
     return rb_math_hypot(dat->real, dat->imag);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1369,6 +1501,7 @@ nucomp_abs2(VALUE self)
     get_dat1(self);
     return f_add(f_mul(dat->real, dat->real),
                  f_mul(dat->imag, dat->imag));
+                 RB_GC_GUARD(self);
 }
 
 /*
@@ -1392,6 +1525,7 @@ rb_complex_arg(VALUE self)
 {
     get_dat1(self);
     return rb_math_atan2(dat->imag, dat->real);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1418,6 +1552,7 @@ nucomp_rect(VALUE self)
 {
     get_dat1(self);
     return rb_assoc_new(dat->real, dat->imag);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1441,6 +1576,7 @@ static VALUE
 nucomp_polar(VALUE self)
 {
     return rb_assoc_new(f_abs(self), f_arg(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1457,6 +1593,7 @@ rb_complex_conjugate(VALUE self)
 {
     get_dat1(self);
     return f_complex_new2(CLASS_OF(self), dat->real, f_negate(dat->imag));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1469,6 +1606,7 @@ static VALUE
 nucomp_real_p_m(VALUE self)
 {
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1490,6 +1628,7 @@ nucomp_denominator(VALUE self)
 {
     get_dat1(self);
     return rb_lcm(f_denominator(dat->real), f_denominator(dat->imag));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1525,6 +1664,8 @@ nucomp_numerator(VALUE self)
                                 f_div(cd, f_denominator(dat->real))),
                           f_mul(f_numerator(dat->imag),
                                 f_div(cd, f_denominator(dat->imag))));
+                                RB_GC_GUARD(self);
+                                RB_GC_GUARD(cd);
 }
 
 /* :nodoc: */
@@ -1541,6 +1682,8 @@ rb_complex_hash(VALUE self)
     h[1] = NUM2LONG(n);
     v = rb_memhash(h, sizeof(h));
     return v;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -1559,6 +1702,7 @@ static VALUE
 nucomp_hash(VALUE self)
 {
     return ST2FIX(rb_complex_hash(self));
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1574,6 +1718,8 @@ nucomp_eql_p(VALUE self, VALUE other)
 
     }
     return Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 inline static int
@@ -1584,12 +1730,14 @@ f_signbit(VALUE x)
         return !isnan(f) && signbit(f);
     }
     return f_negative_p(x);
+    RB_GC_GUARD(x);
 }
 
 inline static int
 f_tpositive_p(VALUE x)
 {
     return !f_signbit(x);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -1610,6 +1758,8 @@ f_format(VALUE self, VALUE s, VALUE (*func)(VALUE))
     rb_str_cat2(s, "i");
 
     return s;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1629,6 +1779,7 @@ static VALUE
 nucomp_to_s(VALUE self)
 {
     return f_format(self, rb_usascii_str_new2(""), rb_String);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1654,6 +1805,8 @@ nucomp_inspect(VALUE self)
     rb_str_cat2(s, ")");
 
     return s;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(s);
 }
 
 #define FINITE_TYPE_P(v) (RB_INTEGER_TYPE_P(v) || RB_TYPE_P(v, T_RATIONAL))
@@ -1676,6 +1829,7 @@ rb_complex_finite_p(VALUE self)
     get_dat1(self);
 
     return RBOOL(f_finite_p(dat->real) && f_finite_p(dat->imag));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1699,6 +1853,7 @@ rb_complex_infinite_p(VALUE self)
         return Qnil;
     }
     return ONE;
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1706,6 +1861,7 @@ static VALUE
 nucomp_dumper(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1719,6 +1875,8 @@ nucomp_loader(VALUE self, VALUE a)
     OBJ_FREEZE(self);
 
     return self;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1731,6 +1889,8 @@ nucomp_marshal_dump(VALUE self)
     a = rb_assoc_new(dat->real, dat->imag);
     rb_copy_generic_ivar(a, self);
     return a;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(a);
 }
 
 /* :nodoc: */
@@ -1743,30 +1903,40 @@ nucomp_marshal_load(VALUE self, VALUE a)
     rb_ivar_set(self, id_i_real, RARRAY_AREF(a, 0));
     rb_ivar_set(self, id_i_imag, RARRAY_AREF(a, 1));
     return self;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(self);
 }
 
 VALUE
 rb_complex_raw(VALUE x, VALUE y)
 {
     return nucomp_s_new_internal(rb_cComplex, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_complex_new(VALUE x, VALUE y)
 {
     return nucomp_s_canonicalize_internal(rb_cComplex, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_complex_new_polar(VALUE x, VALUE y)
 {
     return f_complex_polar(rb_cComplex, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_complex_polar(VALUE x, VALUE y)
 {
     return rb_complex_new_polar(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -1776,6 +1946,8 @@ rb_Complex(VALUE x, VALUE y)
     a[0] = x;
     a[1] = y;
     return nucomp_s_convert(2, a, rb_cComplex);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -1806,6 +1978,7 @@ nucomp_to_i(VALUE self)
                  self);
     }
     return f_to_i(dat->real);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1830,6 +2003,7 @@ nucomp_to_f(VALUE self)
                  self);
     }
     return f_to_f(dat->real);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1861,9 +2035,11 @@ nucomp_to_r(VALUE self)
         if (NIL_P(imag) || !k_exact_zero_p(imag)) {
             rb_raise(rb_eRangeError, "can't convert %"PRIsVALUE" into Rational",
                      self);
+    RB_GC_GUARD(imag);
         }
     }
     return f_to_r(dat->real);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1910,6 +2086,7 @@ nucomp_rationalize(int argc, VALUE *argv, VALUE self)
                 self);
     }
     return rb_funcallv(dat->real, id_rationalize, argc, argv);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1922,6 +2099,7 @@ static VALUE
 nucomp_to_c(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1937,6 +2115,7 @@ static VALUE
 nilclass_to_c(VALUE self)
 {
     return rb_complex_new1(INT2FIX(0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1949,6 +2128,7 @@ static VALUE
 numeric_to_c(VALUE self)
 {
     return rb_complex_new1(self);
+    RB_GC_GUARD(self);
 }
 
 inline static int
@@ -2179,6 +2359,8 @@ read_comp(const char **s, int strict,
     {
         *ret = rb_complex_new2(num, ZERO);
         return 1; /* e.g. "3" */
+        RB_GC_GUARD(num);
+        RB_GC_GUARD(num2);
     }
 }
 
@@ -2213,6 +2395,7 @@ parse_comp(const char *s, int strict, VALUE *num)
     ALLOCV_END(tmp);
 
     return ret;
+    RB_GC_GUARD(tmp);
 }
 
 static VALUE
@@ -2237,6 +2420,8 @@ string_to_c_strict(VALUE self, int raise)
     }
 
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2276,12 +2461,15 @@ string_to_c(VALUE self)
     (void)parse_comp(rb_str_fill_terminator(self, 1), FALSE, &num);
 
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
 to_complex(VALUE val)
 {
     return rb_convert_type(val, T_COMPLEX, "Complex", "to_c");
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -2361,6 +2549,9 @@ nucomp_convert(VALUE klass, VALUE a1, VALUE a2, int raise)
             argc = 2;
         }
         return nucomp_s_new(argc, argv2, klass);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(a2);
+        RB_GC_GUARD(a1);
     }
 }
 
@@ -2374,6 +2565,9 @@ nucomp_s_convert(int argc, VALUE *argv, VALUE klass)
     }
 
     return nucomp_convert(klass, a1, a2, TRUE);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(a2);
+    RB_GC_GUARD(a1);
 }
 
 /*
@@ -2386,6 +2580,7 @@ static VALUE
 numeric_abs2(VALUE self)
 {
     return f_mul(self, self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2400,6 +2595,7 @@ numeric_arg(VALUE self)
     if (f_positive_p(self))
         return INT2FIX(0);
     return DBL2NUM(M_PI);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2412,6 +2608,7 @@ static VALUE
 numeric_rect(VALUE self)
 {
     return rb_assoc_new(self, INT2FIX(0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2442,6 +2639,9 @@ numeric_polar(VALUE self)
         arg = f_arg(self);
     }
     return rb_assoc_new(abs, arg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(abs);
 }
 
 /*
@@ -2458,6 +2658,7 @@ float_arg(VALUE self)
     if (f_tpositive_p(self))
         return INT2FIX(0);
     return rb_const_get(rb_mMath, id_PI);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2726,4 +2927,5 @@ Init_Complex(void)
 #endif
 
     rb_provide("complex.so");	/* for backward compatibility */
+    RB_GC_GUARD(compat);
 }

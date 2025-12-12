@@ -76,6 +76,8 @@ bubblebabble_str_new(VALUE str_digest)
     p[j] = 'x';
 
     return str;
+    RB_GC_GUARD(str_digest);
+    RB_GC_GUARD(str);
 }
 
 /* Document-method: Digest::bubblebabble
@@ -89,6 +91,8 @@ static VALUE
 rb_digest_s_bubblebabble(VALUE klass, VALUE str)
 {
     return bubblebabble_str_new(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 /* Document-method: Digest::Class::bubblebabble
@@ -102,6 +106,7 @@ static VALUE
 rb_digest_class_s_bubblebabble(int argc, VALUE *argv, VALUE klass)
 {
     return bubblebabble_str_new(rb_funcallv(klass, id_digest, argc, argv));
+    RB_GC_GUARD(klass);
 }
 
 /* Document-method: Digest::Instance#bubblebabble
@@ -115,6 +120,7 @@ static VALUE
 rb_digest_instance_bubblebabble(VALUE self)
 {
     return bubblebabble_str_new(rb_funcall(self, id_digest, 0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -143,4 +149,7 @@ Init_bubblebabble(void)
     rb_define_method(rb_mDigest_Instance, "bubblebabble", rb_digest_instance_bubblebabble, 0);
 
     id_digest = rb_intern("digest");
+    RB_GC_GUARD(rb_mDigest);
+    RB_GC_GUARD(rb_cDigest_Class);
+    RB_GC_GUARD(rb_mDigest_Instance);
 }

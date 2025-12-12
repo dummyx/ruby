@@ -69,6 +69,7 @@ enum_yield(int argc, VALUE ary)
     if (argc == 1)
         return rb_yield(ary);
     return rb_yield_values2(0, 0);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -81,6 +82,7 @@ enum_yield_array(VALUE ary)
     if (len == 1)
         return rb_yield(RARRAY_AREF(ary, 0));
     return rb_yield_values2(0, 0);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -93,6 +95,9 @@ grep_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         rb_ary_push(memo->v2, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -109,6 +114,11 @@ grep_regexp_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         rb_ary_push(memo->v2, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(converted_element);
 }
 
 static VALUE
@@ -121,6 +131,9 @@ grep_iter_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         rb_ary_push(memo->v2, enum_yield(argc, i));
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -142,6 +155,10 @@ enum_grep0(VALUE obj, VALUE pat, VALUE test)
     rb_block_call(obj, id_each, 0, 0, fn, (VALUE)memo);
 
     return ary;
+    RB_GC_GUARD(test);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -173,6 +190,8 @@ static VALUE
 enum_grep(VALUE obj, VALUE pat)
 {
     return enum_grep0(obj, pat, Qtrue);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -205,6 +224,8 @@ static VALUE
 enum_grep_v(VALUE obj, VALUE pat)
 {
     return enum_grep0(obj, pat, Qfalse);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(obj);
 }
 
 #define COUNT_BIGNUM IMEMO_FL_USER0
@@ -246,6 +267,9 @@ count_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
         imemo_count_up(memo);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -257,6 +281,9 @@ count_iter_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
         imemo_count_up(memo);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -266,6 +293,9 @@ count_all_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
 
     imemo_count_up(memo);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -320,6 +350,8 @@ enum_count(int argc, VALUE *argv, VALUE obj)
     memo = MEMO_NEW(item, 0, 0);
     rb_block_call(obj, id_each, 0, 0, func, (VALUE)memo);
     return imemo_count_value(memo);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(item);
 }
 
 NORETURN(static void found(VALUE i, VALUE memop));
@@ -329,6 +361,8 @@ found(VALUE i, VALUE memop) {
     MEMO_V1_SET(memo, i);
     memo->u3.cnt = 1;
     rb_iter_break();
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(memop);
 }
 
 static VALUE
@@ -339,6 +373,9 @@ find_i_fast(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
         found(i, memop);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -350,6 +387,9 @@ find_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
         found(i, memop);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -393,6 +433,8 @@ enum_find(int argc, VALUE *argv, VALUE obj)
         return rb_funcallv(if_none, id_call, 0, 0);
     }
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(if_none);
 }
 
 static VALUE
@@ -408,6 +450,9 @@ find_index_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
     }
     imemo_count_up(memo);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -421,6 +466,9 @@ find_index_iter_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
     }
     imemo_count_up(memo);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memop);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -469,6 +517,8 @@ enum_find_index(int argc, VALUE *argv, VALUE obj)
     memo = MEMO_NEW(Qnil, condition_value, 0);
     rb_block_call(obj, id_each, 0, 0, func, (VALUE)memo);
     return memo->v1;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(condition_value);
 }
 
 static VALUE
@@ -480,12 +530,18 @@ find_all_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
         rb_ary_push(ary, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
 enum_size(VALUE self, VALUE args, VALUE eobj)
 {
     return rb_check_funcall_default(self, id_size, 0, 0, Qnil);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
 }
 
 static long
@@ -496,6 +552,8 @@ limit_by_enum_size(VALUE obj, long n)
     if (!FIXNUM_P(size)) return n;
     limit = FIX2ULONG(size);
     return ((unsigned long)n > limit) ? (long)limit : n;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(size);
 }
 
 static int
@@ -504,6 +562,8 @@ enum_size_over_p(VALUE obj, long n)
     VALUE size = rb_check_funcall(obj, id_size, 0, 0);
     if (!FIXNUM_P(size)) return 0;
     return ((unsigned long)n > FIX2ULONG(size));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(size);
 }
 
 /*
@@ -535,6 +595,8 @@ enum_find_all(VALUE obj)
     rb_block_call(obj, id_each, 0, 0, find_all_i, ary);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -547,6 +609,9 @@ filter_map_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
     }
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -576,6 +641,8 @@ enum_filter_map(VALUE obj)
     rb_block_call(obj, id_each, 0, 0, filter_map_i, ary);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 
@@ -588,6 +655,9 @@ reject_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
         rb_ary_push(ary, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -619,6 +689,8 @@ enum_reject(VALUE obj)
     rb_block_call(obj, id_each, 0, 0, reject_i, ary);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -627,6 +699,9 @@ collect_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
     rb_ary_push(ary, rb_yield_values2(argc, argv));
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -635,6 +710,9 @@ collect_all(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
     rb_ary_push(ary, rb_enum_values_pack(argc, argv));
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -666,6 +744,8 @@ enum_collect(VALUE obj)
     rb_lambda_call(obj, id_each, 0, 0, collect_i, min_argc, max_argc, ary);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -683,6 +763,10 @@ flat_map_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
         rb_ary_concat(ary, tmp);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -715,6 +799,8 @@ enum_flat_map(VALUE obj)
     rb_block_call(obj, id_each, 0, 0, flat_map_i, ary);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -734,6 +820,8 @@ enum_to_a(int argc, VALUE *argv, VALUE obj)
     rb_block_call_kw(obj, id_each, argc, argv, collect_all, ary, RB_PASS_CALLED_KEYWORDS);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -741,12 +829,15 @@ enum_hashify_into(VALUE obj, int argc, const VALUE *argv, rb_block_call_func *it
 {
     rb_block_call(obj, id_each, argc, argv, iter, hash);
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
 enum_hashify(VALUE obj, int argc, const VALUE *argv, rb_block_call_func *iter)
 {
     return enum_hashify_into(obj, argc, argv, iter, rb_hash_new());
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -754,12 +845,18 @@ enum_to_h_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, hash))
 {
     ENUM_WANT_SVALUE();
     return rb_hash_set_pair(hash, i);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
 enum_to_h_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, hash))
 {
     return rb_hash_set_pair(hash, rb_yield_values2(argc, argv));
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -788,6 +885,7 @@ enum_to_h(int argc, VALUE *argv, VALUE obj)
 {
     rb_block_call_func *iter = rb_block_given_p() ? enum_to_h_ii : enum_to_h_i;
     return enum_hashify(obj, argc, argv, iter);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -804,6 +902,9 @@ inject_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, p))
         MEMO_V1_SET(memo, rb_yield_values(2, memo->v1, i));
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -828,6 +929,10 @@ inject_op_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, p))
         MEMO_V1_SET(memo, rb_f_send(numberof(args), args, memo->v1));
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(name);
 }
 
 static VALUE
@@ -883,8 +988,14 @@ ary_inject_op(VALUE ary, VALUE init, VALUE op)
     for (; i < RARRAY_LEN(ary); i++) {
         VALUE arg = RARRAY_AREF(ary, i);
         v = rb_funcallv_public(v, id, 1, &arg);
+    RB_GC_GUARD(arg);
     }
     return v;
+    RB_GC_GUARD(op);
+    RB_GC_GUARD(init);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -1087,6 +1198,9 @@ enum_inject(int argc, VALUE *argv, VALUE obj)
     rb_block_call(obj, id_each, 0, 0, iter, (VALUE)memo);
     if (UNDEF_P(memo->v1)) return Qnil;
     return memo->v1;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(op);
+    RB_GC_GUARD(init);
 }
 
 static VALUE
@@ -1104,6 +1218,10 @@ partition_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, arys))
     }
     rb_ary_push(ary, i);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(arys);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1145,6 +1263,7 @@ enum_partition(VALUE obj)
     rb_block_call(obj, id_each, 0, 0, partition_i, (VALUE)memo);
 
     return rb_assoc_new(memo->v1, memo->v2);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1165,6 +1284,11 @@ group_by_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, hash))
         rb_ary_push(values, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(values);
+    RB_GC_GUARD(group);
 }
 
 /*
@@ -1195,6 +1319,7 @@ enum_group_by(VALUE obj)
     RETURN_SIZED_ENUMERATOR(obj, 0, 0, enum_size);
 
     return enum_hashify(obj, 0, 0, group_by_i);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -1216,6 +1341,8 @@ tally_up(st_data_t *group, st_data_t *value, st_data_t arg, int existing)
     *value = (st_data_t)tally;
     if (!SPECIAL_CONST_P(*group)) RB_OBJ_WRITTEN(hash, Qundef, *group);
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(tally);
 }
 
 static VALUE
@@ -1223,6 +1350,8 @@ rb_enum_tally_up(VALUE hash, VALUE group)
 {
     rb_hash_stlike_update(hash, group, tally_up, (st_data_t)hash);
     return hash;
+    RB_GC_GUARD(group);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -1231,6 +1360,9 @@ tally_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, hash))
     ENUM_WANT_SVALUE();
     rb_enum_tally_up(hash, i);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -1292,6 +1424,8 @@ enum_tally(int argc, VALUE *argv, VALUE obj)
     }
 
     return enum_hashify_into(obj, 0, 0, tally_i, hash);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(hash);
 }
 
 NORETURN(static VALUE first_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, params)));
@@ -1305,6 +1439,7 @@ first_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, params))
     rb_iter_break();
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(blockarg);
 }
 
 static VALUE enum_take(VALUE obj, VALUE n);
@@ -1346,6 +1481,7 @@ enum_first(int argc, VALUE *argv, VALUE obj)
         memo = MEMO_NEW(Qnil, 0, 0);
         rb_block_call(obj, id_each, 0, 0, first_i, (VALUE)memo);
         return memo->v1;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -1385,6 +1521,7 @@ static VALUE
 enum_sort(VALUE obj)
 {
     return rb_ary_sort_bang(enum_to_a(0, 0, obj));
+    RB_GC_GUARD(obj);
 }
 
 #define SORT_BY_BUFSIZE 16
@@ -1427,6 +1564,11 @@ sort_by_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, _data))
         data->n = 0;
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_data);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -1444,6 +1586,9 @@ sort_by_cmp(const void *ap, const void *bp, void *data)
     b = *(VALUE *)bp;
 
     return OPTIMIZED_CMP(a, b);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 
@@ -1474,6 +1619,8 @@ rb_uniform_is_less(VALUE a, VALUE b)
     else {
         RUBY_ASSERT(RB_FLOAT_TYPE_P(a));
         return rb_float_cmp(a, b) < 0;
+        RB_GC_GUARD(a);
+        RB_GC_GUARD(b);
     }
 }
 
@@ -1491,6 +1638,8 @@ rb_uniform_is_larger(VALUE a, VALUE b)
     else {
         RUBY_ASSERT(RB_FLOAT_TYPE_P(a));
         return rb_float_cmp(a, b) > 0;
+        RB_GC_GUARD(a);
+        RB_GC_GUARD(b);
     }
 }
 
@@ -1588,6 +1737,7 @@ rb_uniform_quicksort_intro_2(struct rb_uniform_sort_data* ptr_begin,
     j++;
     if (ptr_end - j > 1)   rb_uniform_quicksort_intro_2(j, ptr_end, d-1);
     if (i - ptr_begin > 1) rb_uniform_quicksort_intro_2(ptr_begin, i, d-1);
+    RB_GC_GUARD(x);
 }
 
 /**
@@ -1757,6 +1907,9 @@ enum_sort_by(VALUE obj)
     RBASIC_SET_CLASS_RAW(ary, rb_cArray);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(ary);
 }
 
 #define ENUMFUNC(name) argc ? name##_eqq : rb_block_given_p() ? name##_iter_i : name##_i
@@ -1859,6 +2012,7 @@ enum_all(int argc, VALUE *argv, VALUE obj)
     WARN_UNUSED_BLOCK(argc);
     ENUM_BLOCK_CALL(all);
     return memo->v1;
+    RB_GC_GUARD(obj);
 }
 
 DEFINE_ENUMFUNCS(any)
@@ -1921,6 +2075,7 @@ enum_any(int argc, VALUE *argv, VALUE obj)
     WARN_UNUSED_BLOCK(argc);
     ENUM_BLOCK_CALL(any);
     return memo->v1;
+    RB_GC_GUARD(obj);
 }
 
 DEFINE_ENUMFUNCS(one)
@@ -1957,6 +2112,7 @@ cmpint_reenter_check(struct nmin_data *data, VALUE val)
                  data->by ? "_by" : "");
     }
     return val;
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -1966,6 +2122,8 @@ nmin_cmp(const void *ap, const void *bp, void *_data)
     VALUE a = *(const VALUE *)ap, b = *(const VALUE *)bp;
 #define rb_cmpint(cmp, a, b) rb_cmpint(cmpint_reenter_check(data, (cmp)), a, b)
     return OPTIMIZED_CMP(a, b);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 #undef rb_cmpint
 }
 
@@ -1977,6 +2135,9 @@ nmin_block_cmp(const void *ap, const void *bp, void *_data)
     VALUE cmp = rb_yield_values(2, a, b);
     cmpint_reenter_check(data, cmp);
     return rb_cmpint(cmp, a, b);
+    RB_GC_GUARD(cmp);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 static void
@@ -2094,6 +2255,10 @@ nmin_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, _data))
     }
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_data);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(cmpv);
 }
 
 VALUE
@@ -2155,6 +2320,9 @@ rb_nmin_run(VALUE obj, VALUE num, int by, int rev, int ary)
     }
     RBASIC_SET_CLASS(result, rb_cArray);
     return result;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 
 }
 
@@ -2212,6 +2380,8 @@ enum_one(int argc, VALUE *argv, VALUE obj)
     result = memo->v1;
     if (UNDEF_P(result)) return Qfalse;
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 
 DEFINE_ENUMFUNCS(none)
@@ -2271,6 +2441,7 @@ enum_none(int argc, VALUE *argv, VALUE obj)
     WARN_UNUSED_BLOCK(argc);
     ENUM_BLOCK_CALL(none);
     return memo->v1;
+    RB_GC_GUARD(obj);
 }
 
 struct min_t {
@@ -2293,6 +2464,9 @@ min_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         }
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -2313,6 +2487,10 @@ min_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         }
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(cmp);
 }
 
 
@@ -2394,6 +2572,10 @@ enum_min(int argc, VALUE *argv, VALUE obj)
     result = m->min;
     if (UNDEF_P(result)) return Qnil;
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(memo);
 }
 
 struct max_t {
@@ -2416,6 +2598,9 @@ max_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         }
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -2436,6 +2621,10 @@ max_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         }
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(cmp);
 }
 
 /*
@@ -2516,6 +2705,10 @@ enum_max(int argc, VALUE *argv, VALUE obj)
     result = m->max;
     if (UNDEF_P(result)) return Qnil;
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(memo);
 }
 
 struct minmax_t {
@@ -2543,6 +2736,8 @@ minmax_i_update(VALUE i, VALUE j, struct minmax_t *memo)
             memo->max = j;
         }
     }
+            RB_GC_GUARD(i);
+            RB_GC_GUARD(j);
 }
 
 static VALUE
@@ -2569,11 +2764,16 @@ minmax_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, _memo))
         tmp = i;
         i = j;
         j = tmp;
+    RB_GC_GUARD(tmp);
     }
 
     minmax_i_update(i, j, memo);
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_memo);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(j);
 }
 
 static void
@@ -2595,6 +2795,8 @@ minmax_ii_update(VALUE i, VALUE j, struct minmax_t *memo)
             memo->max = j;
         }
     }
+            RB_GC_GUARD(i);
+            RB_GC_GUARD(j);
 }
 
 static VALUE
@@ -2621,11 +2823,16 @@ minmax_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, _memo))
         tmp = i;
         i = j;
         j = tmp;
+    RB_GC_GUARD(tmp);
     }
 
     minmax_ii_update(i, j, memo);
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_memo);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(j);
 }
 
 /*
@@ -2681,6 +2888,8 @@ enum_minmax(VALUE obj)
         return rb_assoc_new(m->min, m->max);
     }
     return rb_assoc_new(Qnil, Qnil);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(memo);
 }
 
 static VALUE
@@ -2701,6 +2910,10 @@ min_by_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         MEMO_V2_SET(memo, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -2755,6 +2968,8 @@ enum_min_by(int argc, VALUE *argv, VALUE obj)
     memo = MEMO_NEW(Qundef, Qnil, 0);
     rb_block_call(obj, id_each, 0, 0, min_by_i, (VALUE)memo);
     return memo->v2;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -2775,6 +2990,10 @@ max_by_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         MEMO_V2_SET(memo, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -2829,6 +3048,8 @@ enum_max_by(int argc, VALUE *argv, VALUE obj)
     memo = MEMO_NEW(Qundef, Qnil, 0);
     rb_block_call(obj, id_each, 0, 0, max_by_i, (VALUE)memo);
     return memo->v2;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(num);
 }
 
 struct minmax_by_t {
@@ -2859,6 +3080,10 @@ minmax_by_i_update(VALUE v1, VALUE v2, VALUE i1, VALUE i2, struct minmax_by_t *m
             memo->max = i2;
         }
     }
+            RB_GC_GUARD(v1);
+            RB_GC_GUARD(i2);
+            RB_GC_GUARD(i1);
+            RB_GC_GUARD(v2);
 }
 
 static VALUE
@@ -2894,11 +3119,18 @@ minmax_by_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, _memo))
         tmp = vi;
         vi = vj;
         vj = tmp;
+    RB_GC_GUARD(tmp);
     }
 
     minmax_by_i_update(vi, vj, i, j, memo);
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_memo);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(j);
+    RB_GC_GUARD(vj);
+    RB_GC_GUARD(vi);
 }
 
 /*
@@ -2943,6 +3175,8 @@ enum_minmax_by(VALUE obj)
         minmax_by_i_update(m->last_bv, m->last_bv, m->last, m->last, m);
     m = MEMO_FOR(struct minmax_by_t, memo);
     return rb_assoc_new(m->min, m->max);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(memo);
 }
 
 static VALUE
@@ -2955,6 +3189,9 @@ member_i(RB_BLOCK_CALL_FUNC_ARGLIST(iter, args))
         rb_iter_break();
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(iter);
 }
 
 /*
@@ -2981,6 +3218,8 @@ enum_member(VALUE obj, VALUE val)
 
     rb_block_call(obj, id_each, 0, 0, member_i, (VALUE)memo);
     return memo->v2;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -2990,6 +3229,9 @@ each_with_index_i(RB_BLOCK_CALL_FUNC_ARGLIST(_, index))
     ifunc->data = (const void *)rb_int_succ(index);
 
     return rb_yield_values(2, rb_enum_values_pack(argc, argv), index);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(index);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -3027,6 +3269,7 @@ enum_each_with_index(int argc, VALUE *argv, VALUE obj)
 
     rb_block_call(obj, id_each, argc, argv, each_with_index_i, INT2FIX(0));
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 
@@ -3077,6 +3320,8 @@ enum_reverse_each(int argc, VALUE *argv, VALUE obj)
     }
 
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 
@@ -3086,6 +3331,9 @@ each_val_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, p))
     ENUM_WANT_SVALUE();
     enum_yield(argc, i);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3132,6 +3380,7 @@ enum_each_entry(int argc, VALUE *argv, VALUE obj)
     RETURN_SIZED_ENUMERATOR(obj, argc, argv, enum_size);
     rb_block_call(obj, id_each, argc, argv, each_val_i, 0);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3140,6 +3389,7 @@ add_int(VALUE x, long n)
     const VALUE y = LONG2NUM(n);
     if (RB_INTEGER_TYPE_P(x)) return rb_int_plus(x, y);
     return rb_funcallv(x, '+', 1, &y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -3148,6 +3398,7 @@ div_int(VALUE x, long n)
     const VALUE y = LONG2NUM(n);
     if (RB_INTEGER_TYPE_P(x)) return rb_int_idiv(x, y);
     return rb_funcallv(x, id_div, 1, &y);
+    RB_GC_GUARD(x);
 }
 
 #define dont_recycle_block_arg(arity) ((arity) == 1 || (arity) < 0)
@@ -3175,6 +3426,11 @@ each_slice_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, m))
     }
 
     return v;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3194,6 +3450,11 @@ enum_each_slice_size(VALUE obj, VALUE args, VALUE eobj)
 
     n = add_int(size, slice_size-1);
     return div_int(n, slice_size);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -3235,6 +3496,9 @@ enum_each_slice(VALUE obj, VALUE n)
     if (RARRAY_LEN(ary) > 0) rb_yield(ary);
 
     return obj;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3257,6 +3521,11 @@ each_cons_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         v = rb_yield(ary);
     }
     return v;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3272,6 +3541,11 @@ enum_each_cons_size(VALUE obj, VALUE args, VALUE eobj)
 
     n = add_int(size, 1 - cons_size);
     return (OPTIMIZED_CMP(n, zero) == -1) ? zero : n;
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -3309,6 +3583,8 @@ enum_each_cons(VALUE obj, VALUE n)
     rb_block_call(obj, id_each, 0, 0, each_cons_i, (VALUE)memo);
 
     return obj;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3316,6 +3592,9 @@ each_with_object_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memo))
 {
     ENUM_WANT_SVALUE();
     return rb_yield_values(2, i, memo);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memo);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3343,6 +3622,8 @@ enum_each_with_object(VALUE obj, VALUE memo)
     rb_block_call(obj, id_each, 0, 0, each_with_object_i, memo);
 
     return memo;
+    RB_GC_GUARD(memo);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3365,6 +3646,7 @@ zip_ary(RB_BLOCK_CALL_FUNC_ARGLIST(val, memoval))
         }
         else {
             rb_ary_push(tmp, RARRAY_AREF(e, n));
+    RB_GC_GUARD(e);
         }
     }
     if (NIL_P(result)) {
@@ -3377,6 +3659,12 @@ zip_ary(RB_BLOCK_CALL_FUNC_ARGLIST(val, memoval))
     RB_GC_GUARD(args);
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memoval);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -3384,6 +3672,7 @@ call_next(VALUE w)
 {
     VALUE *v = (VALUE *)w;
     return v[0] = rb_funcallv(v[1], id_next, 0, 0);
+    RB_GC_GUARD(w);
 }
 
 static VALUE
@@ -3391,6 +3680,8 @@ call_stop(VALUE w, VALUE _)
 {
     VALUE *v = (VALUE *)w;
     return v[0] = Qundef;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(w);
 }
 
 static VALUE
@@ -3430,6 +3721,12 @@ zip_i(RB_BLOCK_CALL_FUNC_ARGLIST(val, memoval))
     RB_GC_GUARD(args);
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(memoval);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -3517,6 +3814,7 @@ enum_zip(int argc, VALUE *argv, VALUE obj)
             break;
         }
         argv[i] = ary;
+    RB_GC_GUARD(ary);
     }
     if (!allary) {
         static const VALUE sym_each = STATIC_ID2SYM(id_each);
@@ -3538,6 +3836,9 @@ enum_zip(int argc, VALUE *argv, VALUE obj)
     rb_block_call(obj, id_each, 0, 0, allary ? zip_ary : zip_i, (VALUE)memo);
 
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -3547,6 +3848,9 @@ take_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
     rb_ary_push(memo->v1, rb_enum_values_pack(argc, argv));
     if (--memo->u3.cnt == 0) rb_iter_break();
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3580,6 +3884,9 @@ enum_take(VALUE obj, VALUE n)
     memo = MEMO_NEW(result, 0, len);
     rb_block_call(obj, id_each, 0, 0, take_i, (VALUE)memo);
     return result;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 
 
@@ -3589,6 +3896,9 @@ take_while_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
     if (!RTEST(rb_yield_values2(argc, argv))) rb_iter_break();
     rb_ary_push(ary, rb_enum_values_pack(argc, argv));
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3619,6 +3929,8 @@ enum_take_while(VALUE obj)
     ary = rb_ary_new();
     rb_block_call(obj, id_each, 0, 0, take_while_i, ary);
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -3632,6 +3944,9 @@ drop_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         memo->u3.cnt--;
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3668,6 +3983,9 @@ enum_drop(VALUE obj, VALUE n)
     memo = MEMO_NEW(result, 0, len);
     rb_block_call(obj, id_each, 0, 0, drop_i, (VALUE)memo);
     return result;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 
 
@@ -3684,6 +4002,9 @@ drop_while_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
         rb_ary_push(memo->v1, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -3716,6 +4037,8 @@ enum_drop_while(VALUE obj)
     memo = MEMO_NEW(result, 0, FALSE);
     rb_block_call(obj, id_each, 0, 0, drop_while_i, (VALUE)memo);
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -3726,6 +4049,9 @@ cycle_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
     rb_ary_push(ary, argc > 1 ? i : rb_ary_new_from_values(argc, argv));
     enum_yield(argc, i);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -3747,6 +4073,11 @@ enum_cycle_size(VALUE self, VALUE args, VALUE eobj)
     if (mul <= 0) return INT2FIX(0);
     n = LONG2FIX(mul);
     return rb_funcallv(size, '*', 1, &n);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -3804,6 +4135,9 @@ enum_cycle(int argc, VALUE *argv, VALUE obj)
         }
     }
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(nv);
+    RB_GC_GUARD(ary);
 }
 
 struct chunk_arg {
@@ -3862,6 +4196,13 @@ chunk_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, _argp))
         }
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_argp);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(separator);
+    RB_GC_GUARD(alone);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -3884,6 +4225,11 @@ chunk_i(RB_BLOCK_CALL_FUNC_ARGLIST(yielder, enumerator))
         rb_funcallv(memo->yielder, id_lshift, 1, &arg);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(enumerator);
+    RB_GC_GUARD(yielder);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(enumerable);
 }
 
 /*
@@ -4002,6 +4348,8 @@ enum_chunk(VALUE enumerable)
     rb_ivar_set(enumerator, id_chunk_categorize, rb_block_proc());
     rb_block_call(enumerator, idInitialize, 0, 0, chunk_i, enumerator);
     return enumerator;
+    RB_GC_GUARD(enumerable);
+    RB_GC_GUARD(enumerator);
 }
 
 
@@ -4037,6 +4385,10 @@ slicebefore_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, _argp))
     }
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_argp);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(header_p);
 }
 
 static VALUE
@@ -4057,6 +4409,11 @@ slicebefore_i(RB_BLOCK_CALL_FUNC_ARGLIST(yielder, enumerator))
     if (!NIL_P(memo->prev_elts))
         rb_funcallv(memo->yielder, id_lshift, 1, &memo->prev_elts);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(enumerator);
+    RB_GC_GUARD(yielder);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(enumerable);
 }
 
 /*
@@ -4235,10 +4592,13 @@ enum_slice_before(int argc, VALUE *argv, VALUE enumerable)
         rb_scan_args(argc, argv, "1", &sep_pat);
         enumerator = rb_obj_alloc(rb_cEnumerator);
         rb_ivar_set(enumerator, id_slicebefore_sep_pat, sep_pat);
+    RB_GC_GUARD(sep_pat);
     }
     rb_ivar_set(enumerator, id_slicebefore_enumerable, enumerable);
     rb_block_call(enumerator, idInitialize, 0, 0, slicebefore_i, enumerator);
     return enumerator;
+    RB_GC_GUARD(enumerable);
+    RB_GC_GUARD(enumerator);
 }
 
 
@@ -4282,6 +4642,9 @@ sliceafter_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, _memo))
     }
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_memo);
+    RB_GC_GUARD(i);
 #undef UPDATE_MEMO
 }
 
@@ -4303,6 +4666,11 @@ sliceafter_i(RB_BLOCK_CALL_FUNC_ARGLIST(yielder, enumerator))
     if (!NIL_P(memo->prev_elts))
         rb_funcallv(memo->yielder, id_lshift, 1, &memo->prev_elts);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(enumerator);
+    RB_GC_GUARD(yielder);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(enumerable);
 }
 
 /*
@@ -4363,6 +4731,10 @@ enum_slice_after(int argc, VALUE *argv, VALUE enumerable)
 
     rb_block_call(enumerator, idInitialize, 0, 0, sliceafter_i, enumerator);
     return enumerator;
+    RB_GC_GUARD(enumerable);
+    RB_GC_GUARD(pred);
+    RB_GC_GUARD(pat);
+    RB_GC_GUARD(enumerator);
 }
 
 struct slicewhen_arg {
@@ -4411,6 +4783,9 @@ slicewhen_ii(RB_BLOCK_CALL_FUNC_ARGLIST(i, _memo))
     }
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_memo);
+    RB_GC_GUARD(i);
 #undef UPDATE_MEMO
 }
 
@@ -4434,6 +4809,11 @@ slicewhen_i(RB_BLOCK_CALL_FUNC_ARGLIST(yielder, enumerator))
     if (!NIL_P(memo->prev_elts))
         rb_funcallv(memo->yielder, id_lshift, 1, &memo->prev_elts);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(enumerator);
+    RB_GC_GUARD(yielder);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(enumerable);
 }
 
 /*
@@ -4513,6 +4893,9 @@ enum_slice_when(VALUE enumerable)
 
     rb_block_call(enumerator, idInitialize, 0, 0, slicewhen_i, enumerator);
     return enumerator;
+    RB_GC_GUARD(enumerable);
+    RB_GC_GUARD(pred);
+    RB_GC_GUARD(enumerator);
 }
 
 /*
@@ -4579,6 +4962,9 @@ enum_chunk_while(VALUE enumerable)
 
     rb_block_call(enumerator, idInitialize, 0, 0, slicewhen_i, enumerator);
     return enumerator;
+    RB_GC_GUARD(enumerable);
+    RB_GC_GUARD(pred);
+    RB_GC_GUARD(enumerator);
 }
 
 struct enum_sum_memo {
@@ -4612,12 +4998,14 @@ sum_iter_fixnum(VALUE i, struct enum_sum_memo *memo)
         memo->v = rb_big_plus(LONG2NUM(memo->n), memo->v);
         memo->n = 0;
     }
+        RB_GC_GUARD(i);
 }
 
 static void
 sum_iter_bignum(VALUE i, struct enum_sum_memo *memo)
 {
     memo->v = rb_big_plus(i, memo->v);
+    RB_GC_GUARD(i);
 }
 
 static void
@@ -4629,12 +5017,14 @@ sum_iter_rational(VALUE i, struct enum_sum_memo *memo)
     else {
         memo->r = rb_rational_plus(memo->r, i);
     }
+        RB_GC_GUARD(i);
 }
 
 static void
 sum_iter_some_value(VALUE i, struct enum_sum_memo *memo)
 {
     memo->v = rb_funcallv(memo->v, idPLUS, 1, &i);
+    RB_GC_GUARD(i);
 }
 
 static void
@@ -4689,6 +5079,7 @@ sum_iter_Kahan_Babuska(VALUE i, struct enum_sum_memo *memo)
 
     memo->f = f;
     memo->c = c;
+    RB_GC_GUARD(i);
 }
 
 static void
@@ -4725,6 +5116,7 @@ sum_iter(VALUE i, struct enum_sum_memo *memo)
             return;
         }
     }
+            RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -4733,6 +5125,9 @@ enum_sum_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, args))
     ENUM_WANT_SVALUE();
     sum_iter(i, (struct enum_sum_memo *) args);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(i);
 }
 
 static int
@@ -4740,6 +5135,9 @@ hash_sum_i(VALUE key, VALUE value, VALUE arg)
 {
     sum_iter(rb_assoc_new(key, value), (struct enum_sum_memo *) arg);
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static void
@@ -4749,6 +5147,7 @@ hash_sum(VALUE hash, struct enum_sum_memo *memo)
     RUBY_ASSERT(memo != NULL);
 
     rb_hash_foreach(hash, hash_sum_i, (VALUE)memo);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -4767,9 +5166,13 @@ int_range_sum(VALUE beg, VALUE end, int excl, VALUE init)
         a = rb_int_mul(a, rb_int_plus(end, beg));
         a = rb_int_idiv(a, LONG2FIX(2));
         return rb_int_plus(init, a);
+    RB_GC_GUARD(a);
     }
 
     return init;
+    RB_GC_GUARD(init);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
 }
 
 /*
@@ -4848,6 +5251,9 @@ enum_sum(int argc, VALUE* argv, VALUE obj)
             memo.v = rb_rational_plus(memo.r, memo.v);
         }
         return memo.v;
+        RB_GC_GUARD(beg);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(end);
     }
 }
 
@@ -4857,6 +5263,9 @@ uniq_func(RB_BLOCK_CALL_FUNC_ARGLIST(i, hash))
     ENUM_WANT_SVALUE();
     rb_hash_add_new_element(hash, i, i);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -4865,6 +5274,9 @@ uniq_iter(RB_BLOCK_CALL_FUNC_ARGLIST(i, hash))
     ENUM_WANT_SVALUE();
     rb_hash_add_new_element(hash, rb_yield_values2(argc, argv), i);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -4900,6 +5312,9 @@ enum_uniq(VALUE obj)
     ret = rb_hash_values(hash);
     rb_hash_clear(hash);
     return ret;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -4911,6 +5326,9 @@ compact_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ary))
         rb_ary_push(ary, i);
     }
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(i);
 }
 
 /*
@@ -4933,6 +5351,8 @@ enum_compact(VALUE obj)
     rb_block_call(obj, id_each, 0, 0, compact_i, ary);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ary);
 }
 
 

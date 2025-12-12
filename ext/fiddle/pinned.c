@@ -40,6 +40,8 @@ allocate(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, struct pinned_data, &pinned_data_type, data);
     data->ptr = 0;
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -56,6 +58,8 @@ initialize(VALUE self, VALUE ref)
     TypedData_Get_Struct(self, struct pinned_data, &pinned_data_type, data);
     RB_OBJ_WRITE(self, &data->ptr, ref);
     return self;
+    RB_GC_GUARD(ref);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -73,6 +77,7 @@ ref(VALUE self)
     } else {
       rb_raise(rb_eFiddleClearedReferenceError, "`ref` called on a cleared object");
     }
+      RB_GC_GUARD(self);
 }
 
 /*
@@ -87,6 +92,7 @@ clear(VALUE self)
     TypedData_Get_Struct(self, struct pinned_data, &pinned_data_type, data);
     data->ptr = 0;
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -103,6 +109,7 @@ cleared_p(VALUE self)
         return Qfalse;
     } else {
         return Qtrue;
+        RB_GC_GUARD(self);
     }
 }
 

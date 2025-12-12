@@ -114,6 +114,7 @@ long
 rb_yjit_array_len(VALUE a)
 {
     return rb_array_len(a);
+    RB_GC_GUARD(a);
 }
 
 // `start` is inclusive and `end` is exclusive.
@@ -168,7 +169,14 @@ rb_yjit_add_frame(VALUE hash, VALUE frame)
         }
 
        rb_hash_aset(hash, frame_id, frame_info);
+       RB_GC_GUARD(line);
+       RB_GC_GUARD(file);
+       RB_GC_GUARD(name);
+       RB_GC_GUARD(frame_info);
     }
+       RB_GC_GUARD(frame_id);
+       RB_GC_GUARD(frame);
+       RB_GC_GUARD(hash);
 }
 
 // Parses the YjitExitLocations raw_samples and line_samples collected by
@@ -222,6 +230,10 @@ rb_yjit_exit_locations_dict(VALUE *yjit_raw_samples, int *yjit_line_samples, int
     rb_hash_aset(result, ID2SYM(rb_intern("frames")), frames);
 
     return result;
+    RB_GC_GUARD(frames);
+    RB_GC_GUARD(line_samples);
+    RB_GC_GUARD(raw_samples);
+    RB_GC_GUARD(result);
 }
 
 uint32_t
@@ -395,6 +407,7 @@ rb_full_cfunc_return(rb_execution_context_t *ec, VALUE return_value)
     // uses cfp->sp because we are patching a call done with gen_send_cfunc().
     ec->cfp->sp[0] = return_value;
     ec->cfp->sp++;
+    RB_GC_GUARD(return_value);
 }
 
 unsigned int
@@ -464,12 +477,14 @@ unsigned long
 rb_RSTRING_LEN(VALUE str)
 {
     return RSTRING_LEN(str);
+    RB_GC_GUARD(str);
 }
 
 char *
 rb_RSTRING_PTR(VALUE str)
 {
     return RSTRING_PTR(str);
+    RB_GC_GUARD(str);
 }
 
 rb_proc_t *
@@ -478,6 +493,7 @@ rb_yjit_get_proc_ptr(VALUE procv)
     rb_proc_t *proc;
     GetProcPtr(procv, proc);
     return proc;
+    RB_GC_GUARD(procv);
 }
 
 // This is defined only as a named struct inside rb_iseq_constant_body.
@@ -489,6 +505,7 @@ const char *
 rb_insn_name(VALUE insn)
 {
     return insn_name(insn);
+    RB_GC_GUARD(insn);
 }
 
 unsigned int
@@ -751,6 +768,7 @@ rb_optimized_call(VALUE *recv, rb_execution_context_t *ec, int argc, VALUE *argv
     rb_proc_t *proc;
     GetProcPtr(recv, proc);
     return rb_vm_invoke_proc(ec, proc, argc, argv, kw_splat, block_handler);
+    RB_GC_GUARD(block_handler);
 }
 
 unsigned int
@@ -788,6 +806,8 @@ VALUE
 rb_yjit_str_simple_append(VALUE str1, VALUE str2)
 {
     return rb_str_cat(str1, RSTRING_PTR(str2), RSTRING_LEN(str2));
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 struct rb_control_frame_struct *
@@ -855,6 +875,7 @@ VALUE
 rb_yarv_class_of(VALUE obj)
 {
     return rb_class_of(obj);
+    RB_GC_GUARD(obj);
 }
 
 // YJIT needs this function to never allocate and never raise
@@ -863,12 +884,16 @@ rb_yarv_str_eql_internal(VALUE str1, VALUE str2)
 {
     // We wrap this since it's static inline
     return rb_str_eql_internal(str1, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 VALUE
 rb_str_neq_internal(VALUE str1, VALUE str2)
 {
     return rb_str_eql_internal(str1, str2) == Qtrue ? Qfalse : Qtrue;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 // YJIT needs this function to never allocate and never raise
@@ -876,6 +901,7 @@ VALUE
 rb_yarv_ary_entry_internal(VALUE ary, long offset)
 {
     return rb_ary_entry_internal(ary, offset);
+    RB_GC_GUARD(ary);
 }
 
 extern VALUE rb_ary_unshift_m(int argc, VALUE *argv, VALUE ary);
@@ -885,18 +911,23 @@ rb_yjit_rb_ary_subseq_length(VALUE ary, long beg)
 {
     long len = RARRAY_LEN(ary);
     return rb_ary_subseq(ary, beg, len);
+    RB_GC_GUARD(ary);
 }
 
 VALUE
 rb_yjit_fix_div_fix(VALUE recv, VALUE obj)
 {
     return rb_fix_div_fix(recv, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(recv);
 }
 
 VALUE
 rb_yjit_fix_mod_fix(VALUE recv, VALUE obj)
 {
     return rb_fix_mod_fix(recv, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(recv);
 }
 
 // Return non-zero when `obj` is an array and its last item is a
@@ -910,6 +941,8 @@ rb_yjit_ruby2_keywords_splat_p(VALUE obj)
     VALUE last = RARRAY_AREF(obj, len - 1);
     if (!RB_TYPE_P(last, T_HASH)) return 0;
     return FL_TEST_RAW(last, RHASH_PASS_AS_KEYWORDS);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(last);
 }
 
 // Checks to establish preconditions for rb_yjit_splat_varg_cfunc()
@@ -931,10 +964,12 @@ rb_yjit_splat_varg_checks(VALUE *sp, VALUE splat_array, rb_control_frame_t *cfp)
         if (RB_TYPE_P(last_hash, T_HASH) &&
                 FL_TEST_RAW(last_hash, RHASH_PASS_AS_KEYWORDS)) {
             return Qfalse;
+    RB_GC_GUARD(last_hash);
         }
     }
 
     return Qtrue;
+    RB_GC_GUARD(splat_array);
 }
 
 // Push array elements to the stack for a C method that has a variable number
@@ -953,6 +988,7 @@ rb_yjit_splat_varg_cfunc(VALUE *stack_splat_array)
     MEMCPY(stack_splat_array, RARRAY_CONST_PTR(splat_array), VALUE, len);
 
     return len;
+    RB_GC_GUARD(splat_array);
 }
 
 // Print the Ruby source location of some ISEQ for debugging purposes
@@ -964,6 +1000,7 @@ rb_yjit_dump_iseq_loc(const rb_iseq_t *iseq, uint32_t insn_idx)
     VALUE path = rb_iseq_path(iseq);
     RSTRING_GETMEM(path, ptr, len);
     fprintf(stderr, "%s %.*s:%u\n", __func__, (int)len, ptr, rb_iseq_line_no(iseq, insn_idx));
+    RB_GC_GUARD(path);
 }
 
 // Get the number of digits required to print an integer
@@ -995,6 +1032,8 @@ VALUE
 rb_FL_TEST(VALUE obj, VALUE flags)
 {
     return RB_FL_TEST(obj, flags);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(obj);
 }
 
 // The FL_TEST_RAW() macro, normally an internal implementation detail
@@ -1002,6 +1041,8 @@ VALUE
 rb_FL_TEST_RAW(VALUE obj, VALUE flags)
 {
     return FL_TEST_RAW(obj, flags);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(obj);
 }
 
 // The RB_TYPE_P macro
@@ -1009,12 +1050,14 @@ bool
 rb_RB_TYPE_P(VALUE obj, enum ruby_value_type t)
 {
     return RB_TYPE_P(obj, t);
+    RB_GC_GUARD(obj);
 }
 
 long
 rb_RSTRUCT_LEN(VALUE st)
 {
     return RSTRUCT_LEN(st);
+    RB_GC_GUARD(st);
 }
 
 // There are RSTRUCT_SETs in ruby/internal/core/rstruct.h and internal/struct.h
@@ -1024,6 +1067,8 @@ void
 rb_RSTRUCT_SET(VALUE st, int k, VALUE v)
 {
     RSTRUCT_SET(st, k, v);
+    RB_GC_GUARD(st);
+    RB_GC_GUARD(v);
 }
 
 const struct rb_callinfo *
@@ -1042,6 +1087,7 @@ VALUE
 rb_RCLASS_ORIGIN(VALUE c)
 {
     return RCLASS_ORIGIN(c);
+    RB_GC_GUARD(c);
 }
 
 // Return the string encoding index
@@ -1049,6 +1095,7 @@ int
 rb_ENCODING_GET(VALUE obj)
 {
     return RB_ENCODING_GET(obj);
+    RB_GC_GUARD(obj);
 }
 
 bool
@@ -1062,12 +1109,14 @@ void
 rb_assert_iseq_handle(VALUE handle)
 {
     RUBY_ASSERT_ALWAYS(IMEMO_TYPE_P(handle, imemo_iseq));
+    RB_GC_GUARD(handle);
 }
 
 int
 rb_IMEMO_TYPE_P(VALUE imemo, enum imemo_type imemo_type)
 {
     return IMEMO_TYPE_P(imemo, imemo_type);
+    RB_GC_GUARD(imemo);
 }
 
 bool
@@ -1081,6 +1130,7 @@ rb_assert_cme_handle(VALUE handle)
 {
     RUBY_ASSERT_ALWAYS(!rb_objspace_garbage_object_p(handle));
     RUBY_ASSERT_ALWAYS(IMEMO_TYPE_P(handle, imemo_ment));
+    RB_GC_GUARD(handle);
 }
 
 // Used for passing a callback and other data over rb_objspace_each_objects
@@ -1107,6 +1157,7 @@ for_each_iseq_i(void *vstart, void *vend, size_t stride, void *data)
         asan_poison_object_if(ptr, v);
     }
     return 0;
+    RB_GC_GUARD(v);
 }
 
 // Iterate through the whole GC heap and invoke a callback for each iseq.
@@ -1124,6 +1175,8 @@ void
 rb_yjit_obj_written(VALUE old, VALUE young, const char *file, int line)
 {
     rb_obj_written(old, Qundef, young, file, line);
+    RB_GC_GUARD(old);
+    RB_GC_GUARD(young);
 }
 
 // Acquire the VM lock and then signal all other Ruby threads (ractors) to

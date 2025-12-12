@@ -133,6 +133,7 @@ etc_getlogin(VALUE obj)
     }
 
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 #if defined(HAVE_GETPWENT) || defined(HAVE_GETGRENT)
@@ -239,6 +240,8 @@ etc_getpwuid(int argc, VALUE *argv, VALUE obj)
     pwd = getpwuid(uid);
     if (pwd == 0) rb_raise(rb_eArgError, "can't find user for %d", (int)uid);
     return setup_passwd(pwd);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(id);
 #else
     return Qnil;
 #endif
@@ -269,6 +272,8 @@ etc_getpwnam(VALUE obj, VALUE nam)
     pwd = getpwnam(p);
     if (pwd == 0) rb_raise(rb_eArgError, "can't find user for %"PRIsVALUE, nam);
     return setup_passwd(pwd);
+    RB_GC_GUARD(nam);
+    RB_GC_GUARD(obj);
 #else
     return Qnil;
 #endif
@@ -284,6 +289,7 @@ passwd_ensure(VALUE _)
 	rb_raise(rb_eRuntimeError, "unexpected passwd_blocking");
     }
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 static VALUE
@@ -296,6 +302,7 @@ passwd_iterate(VALUE _)
 	rb_yield(setup_passwd(pw));
     }
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 static void
@@ -342,6 +349,7 @@ etc_passwd(VALUE obj)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq:
@@ -377,6 +385,7 @@ etc_each_passwd(VALUE obj)
     each_passwd();
 #endif
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq:
@@ -392,6 +401,7 @@ etc_setpwent(VALUE obj)
     setpwent();
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq:
@@ -407,6 +417,7 @@ etc_endpwent(VALUE obj)
     endpwent();
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq:
@@ -434,6 +445,7 @@ etc_getpwent(VALUE obj)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 #ifdef HAVE_GETGRENT
@@ -456,6 +468,7 @@ setup_group(struct group *grp)
 #endif
 			 GIDT2NUM(grp->gr_gid),
 			 mem);
+			 RB_GC_GUARD(mem);
 }
 #endif
 
@@ -492,6 +505,8 @@ etc_getgrgid(int argc, VALUE *argv, VALUE obj)
     grp = getgrgid(gid);
     if (grp == 0) rb_raise(rb_eArgError, "can't find group for %d", (int)gid);
     return setup_group(grp);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(id);
 #else
     return Qnil;
 #endif
@@ -523,6 +538,8 @@ etc_getgrnam(VALUE obj, VALUE nam)
     grp = getgrnam(p);
     if (grp == 0) rb_raise(rb_eArgError, "can't find group for %"PRIsVALUE, nam);
     return setup_group(grp);
+    RB_GC_GUARD(nam);
+    RB_GC_GUARD(obj);
 #else
     return Qnil;
 #endif
@@ -538,6 +555,7 @@ group_ensure(VALUE _)
 	rb_raise(rb_eRuntimeError, "unexpected group_blocking");
     }
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 static VALUE
@@ -550,6 +568,7 @@ group_iterate(VALUE _)
 	rb_yield(setup_group(pw));
     }
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 static void
@@ -596,6 +615,7 @@ etc_group(VALUE obj)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 #ifdef HAVE_GETGRENT
@@ -628,6 +648,7 @@ etc_each_group(VALUE obj)
     RETURN_ENUMERATOR(obj, 0, 0);
     each_group();
     return obj;
+    RB_GC_GUARD(obj);
 }
 #endif
 
@@ -644,6 +665,7 @@ etc_setgrent(VALUE obj)
     setgrent();
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq:
@@ -659,6 +681,7 @@ etc_endgrent(VALUE obj)
     endgrent();
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq:
@@ -685,6 +708,7 @@ etc_getgrent(VALUE obj)
     }
 #endif
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 #define numberof(array) (sizeof(array) / sizeof(*(array)))
@@ -726,6 +750,7 @@ etc_sysconfdir(VALUE obj)
     return rb_hash_aref(rbconfig(), rb_str_new_lit("sysconfdir"));
 #else
     return rb_filesystem_str_new_cstr(SYSCONFDIR);
+    RB_GC_GUARD(obj);
 #endif
 }
 
@@ -772,6 +797,8 @@ etc_systmpdir(VALUE _)
     FL_UNSET(tmpdir, FL_TAINT);
 #endif
     return tmpdir;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(tmpdir);
 }
 
 #ifdef HAVE_UNAME
@@ -887,6 +914,8 @@ etc_uname(VALUE obj)
 #endif
 
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(result);
 }
 #else
 #define etc_uname rb_f_notimplement
@@ -923,6 +952,8 @@ etc_sysconf(VALUE obj, VALUE arg)
         rb_sys_fail("sysconf");
     }
     return LONG2NUM(ret);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
 }
 #else
 #define etc_sysconf rb_f_notimplement
@@ -972,6 +1003,9 @@ etc_confstr(VALUE obj, VALUE arg)
         rb_sys_fail("confstr");
     }
     return rb_str_new_cstr(buf);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
 }
 #else
 #define etc_confstr rb_f_notimplement
@@ -1010,6 +1044,8 @@ io_pathconf(VALUE io, VALUE arg)
         rb_sys_fail("fpathconf");
     }
     return LONG2NUM(ret);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(io);
 }
 #else
 #define io_pathconf rb_f_notimplement
@@ -1126,6 +1162,7 @@ etc_nprocessors(VALUE obj)
     ret = (long)si.dwNumberOfProcessors;
 #endif
     return LONG2NUM(ret);
+    RB_GC_GUARD(obj);
 }
 #else
 #define etc_nprocessors rb_f_notimplement
@@ -1315,4 +1352,5 @@ Init_etc(void)
 #if defined(HAVE_GETPWENT) || defined(HAVE_GETGRENT)
     (void)safe_setup_str;
 #endif
+    RB_GC_GUARD(mEtc);
 }

@@ -4,6 +4,8 @@ static VALUE
 bug_funcall_callback(VALUE self, VALUE obj)
 {
     return rb_funcall(obj, rb_intern("callback"), 0);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -11,4 +13,5 @@ Init_bug_5832(void)
 {
     VALUE mBug = rb_define_module("Bug");
     rb_define_module_function(mBug, "funcall_callback", bug_funcall_callback, 1);
+    RB_GC_GUARD(mBug);
 }

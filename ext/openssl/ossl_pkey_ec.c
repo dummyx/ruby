@@ -92,6 +92,7 @@ ec_key_new_from_group(VALUE arg)
     }
 
     return ec;
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -123,6 +124,9 @@ ossl_ec_key_s_generate(VALUE klass, VALUE arg)
 	ossl_raise(eECError, "EC_KEY_generate_key");
 
     return obj;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -188,6 +192,9 @@ static VALUE ossl_ec_key_initialize(int argc, VALUE *argv, VALUE self)
     }
     RTYPEDDATA_DATA(self) = pkey;
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(arg);
 }
 
 #ifndef HAVE_EVP_PKEY_DUP
@@ -236,6 +243,7 @@ ossl_ec_key_get_group(VALUE self)
 	return Qnil;
 
     return ec_group_new(group);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -262,6 +270,8 @@ ossl_ec_key_set_group(VALUE self, VALUE group_v)
 
     return group_v;
 #endif
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(group_v);
 }
 
 /*
@@ -280,6 +290,7 @@ static VALUE ossl_ec_key_get_private_key(VALUE self)
         return Qnil;
 
     return ossl_bn_new(bn);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -313,6 +324,8 @@ static VALUE ossl_ec_key_set_private_key(VALUE self, VALUE private_key)
 
     return private_key;
 #endif
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(private_key);
 }
 
 /*
@@ -331,6 +344,7 @@ static VALUE ossl_ec_key_get_public_key(VALUE self)
         return Qnil;
 
     return ec_point_new(point, EC_KEY_get0_group(ec));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -364,6 +378,8 @@ static VALUE ossl_ec_key_set_public_key(VALUE self, VALUE public_key)
 
     return public_key;
 #endif
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(public_key);
 }
 
 /*
@@ -380,6 +396,7 @@ static VALUE ossl_ec_key_is_public(VALUE self)
     GetEC(self, ec);
 
     return EC_KEY_get0_public_key(ec) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -396,6 +413,7 @@ static VALUE ossl_ec_key_is_private(VALUE self)
     GetEC(self, ec);
 
     return EC_KEY_get0_private_key(ec) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -468,6 +486,7 @@ ossl_ec_key_export(int argc, VALUE *argv, VALUE self)
         return ossl_pkey_export_traditional(argc, argv, self, 0);
     else
         return ossl_pkey_export_spki(self, 0);
+        RB_GC_GUARD(self);
 }
 
 /*
@@ -496,6 +515,7 @@ ossl_ec_key_to_der(VALUE self)
         return ossl_pkey_export_traditional(0, NULL, self, 1);
     else
         return ossl_pkey_export_spki(self, 1);
+        RB_GC_GUARD(self);
 }
 /*
  *  call-seq:
@@ -524,6 +544,7 @@ static VALUE ossl_ec_key_generate_key(VALUE self)
 
     return self;
 #endif
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -570,6 +591,7 @@ static VALUE ossl_ec_key_check_key(VALUE self)
 #endif
 
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -593,6 +615,7 @@ static VALUE
 ossl_ec_group_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &ossl_ec_group_type, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -608,6 +631,7 @@ ec_group_new(const EC_GROUP *group)
     RTYPEDDATA_DATA(obj) = group_new;
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -701,6 +725,11 @@ static VALUE ossl_ec_group_initialize(int argc, VALUE *argv, VALUE self)
     RTYPEDDATA_DATA(self) = group;
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg4);
+    RB_GC_GUARD(arg3);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
 }
 
 static VALUE
@@ -719,6 +748,8 @@ ossl_ec_group_initialize_copy(VALUE self, VALUE other)
     RTYPEDDATA_DATA(self) = group_new;
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -741,6 +772,8 @@ static VALUE ossl_ec_group_eql(VALUE a, VALUE b)
     case 1: return Qfalse;
     default: ossl_raise(eEC_GROUP, "EC_GROUP_cmp");
     }
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(b);
 }
 
 /*
@@ -762,6 +795,7 @@ static VALUE ossl_ec_group_get_generator(VALUE self)
 	return Qnil;
 
     return ec_point_new(generator, group);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -788,6 +822,10 @@ static VALUE ossl_ec_group_set_generator(VALUE self, VALUE generator, VALUE orde
         ossl_raise(eEC_GROUP, "EC_GROUP_set_generator");
 
     return self;
+    RB_GC_GUARD(cofactor);
+    RB_GC_GUARD(order);
+    RB_GC_GUARD(generator);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -813,6 +851,8 @@ static VALUE ossl_ec_group_get_order(VALUE self)
         ossl_raise(eEC_GROUP, "EC_GROUP_get_order");
 
     return bn_obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(bn_obj);
 }
 
 /*
@@ -838,6 +878,8 @@ static VALUE ossl_ec_group_get_cofactor(VALUE self)
         ossl_raise(eEC_GROUP, "EC_GROUP_get_cofactor");
 
     return bn_obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(bn_obj);
 }
 
 /*
@@ -861,6 +903,7 @@ static VALUE ossl_ec_group_get_curve_name(VALUE self)
 
 /* BUG: an nid or asn1 object should be returned, maybe. */
     return rb_str_new2(OBJ_nid2sn(nid));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -898,6 +941,9 @@ static VALUE ossl_s_builtin_curves(VALUE self)
     }
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -917,6 +963,7 @@ static VALUE ossl_ec_group_get_asn1_flag(VALUE self)
     flag = EC_GROUP_get_asn1_flag(group);
 
     return INT2NUM(flag);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -941,6 +988,8 @@ static VALUE ossl_ec_group_set_asn1_flag(VALUE self, VALUE flag_v)
     EC_GROUP_set_asn1_flag(group, NUM2INT(flag_v));
 
     return flag_v;
+    RB_GC_GUARD(flag_v);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -968,6 +1017,8 @@ static VALUE ossl_ec_group_get_point_conversion_form(VALUE self)
     }
 
    return ID2SYM(ret);
+   RB_GC_GUARD(self);
+   RB_GC_GUARD(ret);
 }
 
 static point_conversion_form_t
@@ -984,6 +1035,7 @@ parse_point_conversion_form_symbol(VALUE sym)
     else
 	ossl_raise(rb_eArgError, "unsupported point conversion form %+"PRIsVALUE
 		   " (expected :compressed, :uncompressed, or :hybrid)", sym);
+		   RB_GC_GUARD(sym);
 }
 
 /*
@@ -1017,6 +1069,8 @@ ossl_ec_group_set_point_conversion_form(VALUE self, VALUE form_v)
     EC_GROUP_set_point_conversion_form(group, form);
 
     return form_v;
+    RB_GC_GUARD(form_v);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1037,6 +1091,7 @@ static VALUE ossl_ec_group_get_seed(VALUE self)
         return Qnil;
 
     return rb_str_new((const char *)EC_GROUP_get0_seed(group), seed_len);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1056,6 +1111,8 @@ static VALUE ossl_ec_group_set_seed(VALUE self, VALUE seed)
         ossl_raise(eEC_GROUP, "EC_GROUP_set_seed");
 
     return seed;
+    RB_GC_GUARD(seed);
+    RB_GC_GUARD(self);
 }
 
 /* get/set curve GFp, GF2m */
@@ -1073,6 +1130,7 @@ static VALUE ossl_ec_group_get_degree(VALUE self)
     GetECGroup(self, group);
 
     return INT2NUM(EC_GROUP_get_degree(group));
+    RB_GC_GUARD(self);
 }
 
 static VALUE ossl_ec_group_to_string(VALUE self, int format)
@@ -1107,6 +1165,8 @@ static VALUE ossl_ec_group_to_string(VALUE self, int format)
     str = ossl_membio2str(out);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1118,6 +1178,7 @@ static VALUE ossl_ec_group_to_string(VALUE self, int format)
 static VALUE ossl_ec_group_to_pem(VALUE self)
 {
     return ossl_ec_group_to_string(self, EXPORT_PEM);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1129,6 +1190,7 @@ static VALUE ossl_ec_group_to_pem(VALUE self)
 static VALUE ossl_ec_group_to_der(VALUE self)
 {
     return ossl_ec_group_to_string(self, EXPORT_DER);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1154,6 +1216,8 @@ static VALUE ossl_ec_group_to_text(VALUE self)
     str = ossl_membio2str(out);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 
@@ -1178,6 +1242,7 @@ static VALUE
 ossl_ec_point_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &ossl_ec_point_type, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -1194,6 +1259,7 @@ ec_point_new(const EC_POINT *point, const EC_GROUP *group)
     rb_ivar_set(obj, id_i_group, ec_group_new(group));
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE ossl_ec_point_initialize_copy(VALUE, VALUE);
@@ -1256,6 +1322,9 @@ static VALUE ossl_ec_point_initialize(int argc, VALUE *argv, VALUE self)
     rb_ivar_set(self, id_i_group, group_v);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(group_v);
 }
 
 static VALUE
@@ -1280,6 +1349,9 @@ ossl_ec_point_initialize_copy(VALUE self, VALUE other)
     rb_ivar_set(self, id_i_group, group_v);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(group_v);
 }
 
 /*
@@ -1308,6 +1380,10 @@ static VALUE ossl_ec_point_eql(VALUE a, VALUE b)
     }
 
     UNREACHABLE;
+    RB_GC_GUARD(group_v1);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(group_v2);
 }
 
 /*
@@ -1329,6 +1405,7 @@ static VALUE ossl_ec_point_is_at_infinity(VALUE self)
     }
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1350,6 +1427,7 @@ static VALUE ossl_ec_point_is_on_curve(VALUE self)
     }
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1373,6 +1451,7 @@ static VALUE ossl_ec_point_make_affine(VALUE self)
 #endif
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1391,6 +1470,7 @@ static VALUE ossl_ec_point_invert(VALUE self)
         ossl_raise(eEC_POINT, "EC_POINT_invert");
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1409,6 +1489,7 @@ static VALUE ossl_ec_point_set_to_infinity(VALUE self)
         ossl_raise(eEC_POINT, "EC_POINT_set_to_infinity");
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1445,6 +1526,9 @@ ossl_ec_point_to_octet_string(VALUE self, VALUE conversion_form)
 			    ossl_bn_ctx))
 	ossl_raise(eEC_POINT, "EC_POINT_point2oct");
     return str;
+    RB_GC_GUARD(conversion_form);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1473,6 +1557,10 @@ static VALUE ossl_ec_point_add(VALUE self, VALUE other)
     }
 
     return result;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(group_v);
 }
 
 /*
@@ -1566,6 +1654,12 @@ static VALUE ossl_ec_point_mul(int argc, VALUE *argv, VALUE self)
     }
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(arg3);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(group_v);
 }
 
 void Init_ossl_ec(void)

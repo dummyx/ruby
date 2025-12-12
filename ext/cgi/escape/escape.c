@@ -30,6 +30,8 @@ static inline void
 preserve_original_state(VALUE orig, VALUE dest)
 {
     rb_enc_associate(dest, rb_enc_get(orig));
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(dest);
 }
 
 static inline long
@@ -40,6 +42,7 @@ escaped_length(VALUE str)
         ruby_malloc_size_overflow(len, HTML_ESCAPE_MAX_LEN);
     }
     return len * HTML_ESCAPE_MAX_LEN;
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -73,6 +76,9 @@ optimized_escape_html(VALUE str)
     }
     ALLOCV_END(vbuf);
     return escaped;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(escaped);
+    RB_GC_GUARD(vbuf);
 }
 
 static VALUE
@@ -196,6 +202,8 @@ optimized_unescape_html(VALUE str)
     }
     else {
         return rb_str_dup(str);
+        RB_GC_GUARD(dest);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -257,6 +265,8 @@ optimized_escape(VALUE str, int plus_escape)
     }
     else {
         return rb_str_dup(str);
+        RB_GC_GUARD(dest);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -321,6 +331,9 @@ optimized_unescape(VALUE str, VALUE encoding, int unescape_plus)
         }
     }
     return dest;
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(dest);
 }
 
 /*
@@ -340,6 +353,8 @@ cgiesc_escape_html(VALUE self, VALUE str)
     }
     else {
         return rb_call_super(1, &str);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -360,6 +375,8 @@ cgiesc_unescape_html(VALUE self, VALUE str)
     }
     else {
         return rb_call_super(1, &str);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -380,6 +397,8 @@ cgiesc_escape(VALUE self, VALUE str)
     }
     else {
         return rb_call_super(1, &str);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -389,6 +408,7 @@ accept_charset(int argc, VALUE *argv, VALUE self)
     if (argc > 0)
         return argv[0];
     return rb_cvar_get(CLASS_OF(self), id_accept_charset);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -408,9 +428,12 @@ cgiesc_unescape(int argc, VALUE *argv, VALUE self)
     if (rb_enc_str_asciicompat_p(str)) {
         VALUE enc = accept_charset(argc-1, argv+1, self);
         return optimized_unescape(str, enc, 1);
+    RB_GC_GUARD(enc);
     }
     else {
         return rb_call_super(argc, argv);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -431,6 +454,8 @@ cgiesc_escape_uri_component(VALUE self, VALUE str)
     }
     else {
         return rb_call_super(1, &str);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(str);
     }
 }
 
@@ -451,9 +476,12 @@ cgiesc_unescape_uri_component(int argc, VALUE *argv, VALUE self)
     if (rb_enc_str_asciicompat_p(str)) {
         VALUE enc = accept_charset(argc-1, argv+1, self);
         return optimized_unescape(str, enc, 0);
+    RB_GC_GUARD(enc);
     }
     else {
         return rb_call_super(argc, argv);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(self);
     }
 }
 

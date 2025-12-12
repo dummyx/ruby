@@ -74,6 +74,8 @@ f_add(VALUE x, VALUE y)
     if (RB_INTEGER_TYPE_P(x))
         return rb_int_plus(x, y);
     return rb_funcall(x, '+', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -84,6 +86,8 @@ f_div(VALUE x, VALUE y)
     if (RB_INTEGER_TYPE_P(x))
         return rb_int_div(x, y);
     return rb_funcall(x, '/', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -94,8 +98,11 @@ f_lt_p(VALUE x, VALUE y)
     if (RB_INTEGER_TYPE_P(x)) {
         VALUE r = rb_int_cmp(x, y);
         if (!NIL_P(r)) return rb_int_negative_p(r);
+    RB_GC_GUARD(r);
     }
     return RTEST(rb_funcall(x, '<', 1, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #ifndef NDEBUG
@@ -121,6 +128,8 @@ f_mul(VALUE x, VALUE y)
     else if (RB_INTEGER_TYPE_P(x))
         return rb_int_mul(x, y);
     return rb_funcall(x, '*', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -129,6 +138,8 @@ f_sub(VALUE x, VALUE y)
     if (FIXNUM_P(y) && FIXNUM_ZERO_P(y))
         return x;
     return rb_funcall(x, '-', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -137,6 +148,7 @@ f_abs(VALUE x)
     if (RB_INTEGER_TYPE_P(x))
         return rb_int_abs(x);
     return rb_funcall(x, id_abs, 0);
+    RB_GC_GUARD(x);
 }
 
 
@@ -144,6 +156,7 @@ inline static int
 f_integer_p(VALUE x)
 {
     return RB_INTEGER_TYPE_P(x);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -152,6 +165,7 @@ f_to_i(VALUE x)
     if (RB_TYPE_P(x, T_STRING))
         return rb_str_to_inum(x, 10, 0);
     return rb_funcall(x, id_to_i, 0);
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -162,6 +176,8 @@ f_eqeq_p(VALUE x, VALUE y)
     if (RB_INTEGER_TYPE_P(x))
         return RTEST(rb_int_equal(x, y));
     return (int)rb_equal(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -170,6 +186,8 @@ f_idiv(VALUE x, VALUE y)
     if (RB_INTEGER_TYPE_P(x))
         return rb_int_idiv(x, y);
     return rb_funcall(x, id_idiv, 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define f_expt10(x) rb_int_pow(INT2FIX(10), x)
@@ -184,8 +202,10 @@ f_zero_p(VALUE x)
         VALUE num = RRATIONAL(x)->num;
 
         return FIXNUM_ZERO_P(num);
+    RB_GC_GUARD(num);
     }
     return (int)rb_equal(x, ZERO);
+    RB_GC_GUARD(x);
 }
 
 #define f_nonzero_p(x) (!f_zero_p(x))
@@ -201,8 +221,11 @@ f_one_p(VALUE x)
         VALUE den = RRATIONAL(x)->den;
 
         return num == LONG2FIX(1) && den == LONG2FIX(1);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
     }
     return (int)rb_equal(x, ONE);
+    RB_GC_GUARD(x);
 }
 
 inline static int
@@ -219,38 +242,47 @@ f_minus_one_p(VALUE x)
         VALUE den = RRATIONAL(x)->den;
 
         return num == LONG2FIX(-1) && den == LONG2FIX(1);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
     }
     return (int)rb_equal(x, INT2FIX(-1));
+    RB_GC_GUARD(x);
 }
 
 inline static int
 f_kind_of_p(VALUE x, VALUE c)
 {
     return (int)rb_obj_is_kind_of(x, c);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(x);
 }
 
 inline static int
 k_numeric_p(VALUE x)
 {
     return f_kind_of_p(x, rb_cNumeric);
+    RB_GC_GUARD(x);
 }
 
 inline static int
 k_integer_p(VALUE x)
 {
     return RB_INTEGER_TYPE_P(x);
+    RB_GC_GUARD(x);
 }
 
 inline static int
 k_float_p(VALUE x)
 {
     return RB_FLOAT_TYPE_P(x);
+    RB_GC_GUARD(x);
 }
 
 inline static int
 k_rational_p(VALUE x)
 {
     return RB_TYPE_P(x, T_RATIONAL);
+    RB_GC_GUARD(x);
 }
 
 #define k_exact_p(x) (!k_float_p(x))
@@ -287,6 +319,9 @@ rb_gcd_gmp(VALUE x, VALUE y)
     mpz_clear(mz);
 
     return rb_big_norm(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 #endif
 
@@ -363,6 +398,9 @@ f_gcd_normal(VALUE x, VALUE y)
         z = x;
         x = rb_int_modulo(y, x);
         y = z;
+    RB_GC_GUARD(z);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
     }
     /* NOTREACHED */
 }
@@ -371,6 +409,8 @@ VALUE
 rb_gcd_normal(VALUE x, VALUE y)
 {
     return f_gcd_normal(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -385,6 +425,8 @@ f_gcd(VALUE x, VALUE y)
     }
 #endif
     return f_gcd_normal(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #ifndef NDEBUG
@@ -408,6 +450,8 @@ f_lcm(VALUE x, VALUE y)
     if (INT_ZERO_P(x) || INT_ZERO_P(y))
         return ZERO;
     return f_abs(f_mul(f_div(x, f_gcd(x, y)), y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define get_dat1(x) \
@@ -427,18 +471,24 @@ nurat_s_new_internal(VALUE klass, VALUE num, VALUE den)
     OBJ_FREEZE((VALUE)obj);
 
     return (VALUE)obj;
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 nurat_s_alloc(VALUE klass)
 {
     return nurat_s_new_internal(klass, ZERO, ONE);
+    RB_GC_GUARD(klass);
 }
 
 inline static VALUE
 f_rational_new_bang1(VALUE klass, VALUE x)
 {
     return nurat_s_new_internal(klass, x, ONE);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 inline static void
@@ -448,6 +498,7 @@ nurat_int_check(VALUE num)
         if (!k_numeric_p(num) || !f_integer_p(num))
             rb_raise(rb_eTypeError, "not an integer");
     }
+            RB_GC_GUARD(num);
 }
 
 inline static VALUE
@@ -457,6 +508,7 @@ nurat_int_value(VALUE num)
     if (!k_integer_p(num))
         num = f_to_i(num);
     return num;
+    RB_GC_GUARD(num);
 }
 
 static void
@@ -481,6 +533,7 @@ nurat_reduce(VALUE *x, VALUE *y)
     gcd = f_gcd(*x, *y);
     *x = f_idiv(*x, gcd);
     *y = f_idiv(*y, gcd);
+    RB_GC_GUARD(gcd);
 }
 
 inline static VALUE
@@ -490,6 +543,9 @@ nurat_s_canonicalize_internal(VALUE klass, VALUE num, VALUE den)
     nurat_reduce(&num, &den);
 
     return nurat_s_new_internal(klass, num, den);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(klass);
 }
 
 inline static VALUE
@@ -498,6 +554,9 @@ nurat_s_canonicalize_internal_no_reduce(VALUE klass, VALUE num, VALUE den)
     nurat_canonicalize(&num, &den);
 
     return nurat_s_new_internal(klass, num, den);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(klass);
 }
 
 inline static VALUE
@@ -506,6 +565,9 @@ f_rational_new2(VALUE klass, VALUE x, VALUE y)
     RUBY_ASSERT(!k_rational_p(x));
     RUBY_ASSERT(!k_rational_p(y));
     return nurat_s_canonicalize_internal(klass, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 inline static VALUE
@@ -514,6 +576,9 @@ f_rational_new_no_reduce2(VALUE klass, VALUE x, VALUE y)
     RUBY_ASSERT(!k_rational_p(x));
     RUBY_ASSERT(!k_rational_p(y));
     return nurat_s_canonicalize_internal_no_reduce(klass, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE nurat_convert(VALUE klass, VALUE numv, VALUE denv, int raise);
@@ -569,6 +634,10 @@ nurat_f_rational(int argc, VALUE *argv, VALUE klass)
         raise = rb_opts_exception_p(opts, raise);
     }
     return nurat_convert(rb_cRational, a1, a2, raise);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(a2);
+    RB_GC_GUARD(a1);
 }
 
 /*
@@ -587,6 +656,7 @@ nurat_numerator(VALUE self)
 {
     get_dat1(self);
     return dat->num;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -605,6 +675,7 @@ nurat_denominator(VALUE self)
 {
     get_dat1(self);
     return dat->den;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -620,6 +691,7 @@ rb_rational_uminus(VALUE self)
     get_dat1(self);
     (void)unused;
     return f_rational_new2(CLASS_OF(self), rb_int_uminus(dat->num), dat->den);
+    RB_GC_GUARD(self);
 }
 
 #ifndef NDEBUG
@@ -643,6 +715,7 @@ f_imul(long a, long b)
     else
         r = LONG2NUM(a * b);
     return r;
+    RB_GC_GUARD(r);
 }
 
 #ifndef NDEBUG
@@ -685,6 +758,10 @@ f_addsub(VALUE self, VALUE anum, VALUE aden, VALUE bnum, VALUE bden, int k)
         num = rb_int_idiv(c, g);
         a = rb_int_idiv(bden, g);
         den = rb_int_mul(a, b);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(g);
     }
     else if (RB_INTEGER_TYPE_P(anum) && RB_INTEGER_TYPE_P(aden) &&
              RB_INTEGER_TYPE_P(bnum) && RB_INTEGER_TYPE_P(bden)) {
@@ -703,6 +780,10 @@ f_addsub(VALUE self, VALUE anum, VALUE aden, VALUE bnum, VALUE bden, int k)
         num = rb_int_idiv(c, g);
         a = rb_int_idiv(bden, g);
         den = rb_int_mul(a, b);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(g);
     }
     else {
         double a = NUM2DBL(anum) / NUM2DBL(aden);
@@ -711,6 +792,13 @@ f_addsub(VALUE self, VALUE anum, VALUE aden, VALUE bnum, VALUE bden, int k)
         return DBL2NUM(c);
     }
     return f_rational_new_no_reduce2(CLASS_OF(self), num, den);
+    RB_GC_GUARD(bden);
+    RB_GC_GUARD(bnum);
+    RB_GC_GUARD(aden);
+    RB_GC_GUARD(anum);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 static double nurat_to_double(VALUE self);
@@ -752,6 +840,8 @@ rb_rational_plus(VALUE self, VALUE other)
     }
     else {
         return rb_num_coerce_bin(self, other, '+');
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
     }
 }
 
@@ -793,6 +883,8 @@ rb_rational_minus(VALUE self, VALUE other)
     }
     else {
         return rb_num_coerce_bin(self, other, '-');
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
     }
 }
 
@@ -827,6 +919,7 @@ f_muldiv(VALUE self, VALUE anum, VALUE aden, VALUE bnum, VALUE bden, int k)
         t = bnum;
         bnum = bden;
         bden = t;
+    RB_GC_GUARD(t);
     }
 
     if (FIXNUM_P(anum) && FIXNUM_P(aden) &&
@@ -847,8 +940,17 @@ f_muldiv(VALUE self, VALUE anum, VALUE aden, VALUE bnum, VALUE bden, int k)
 
         num = rb_int_mul(rb_int_idiv(anum, g1), rb_int_idiv(bnum, g2));
         den = rb_int_mul(rb_int_idiv(aden, g2), rb_int_idiv(bden, g1));
+    RB_GC_GUARD(g2);
+    RB_GC_GUARD(g1);
     }
     return f_rational_new_no_reduce2(CLASS_OF(self), num, den);
+    RB_GC_GUARD(bden);
+    RB_GC_GUARD(bnum);
+    RB_GC_GUARD(aden);
+    RB_GC_GUARD(anum);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -889,6 +991,8 @@ rb_rational_mul(VALUE self, VALUE other)
     }
     else {
         return rb_num_coerce_bin(self, other, '*');
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
     }
 }
 
@@ -922,6 +1026,7 @@ rb_rational_div(VALUE self, VALUE other)
     else if (RB_FLOAT_TYPE_P(other)) {
         VALUE v = nurat_to_f(self);
         return rb_flo_div_flo(v, other);
+    RB_GC_GUARD(v);
     }
     else if (RB_TYPE_P(other, T_RATIONAL)) {
         if (f_zero_p(other))
@@ -940,6 +1045,8 @@ rb_rational_div(VALUE self, VALUE other)
     }
     else {
         return rb_num_coerce_bin(self, other, '/');
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
     }
 }
 
@@ -967,6 +1074,9 @@ nurat_fdiv(VALUE self, VALUE other)
     if (RB_FLOAT_TYPE_P(div))
         return div;
     return rb_funcall(div, idTo_f, 0);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(div);
 }
 
 /*
@@ -1045,6 +1155,8 @@ rb_rational_pow(VALUE self, VALUE other)
                 den = ONE;
             }
             return f_rational_new2(CLASS_OF(self), num, den);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
         }
     }
     else if (RB_BIGNUM_TYPE_P(other)) {
@@ -1056,6 +1168,8 @@ rb_rational_pow(VALUE self, VALUE other)
     else {
         return rb_num_coerce_bin(self, other, idPow);
     }
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
 }
 #define nurat_expt rb_rational_pow
 
@@ -1107,6 +1221,8 @@ rb_rational_cmp(VALUE self, VALUE other)
                 num2 = rb_int_mul(bdat->num, adat->den);
             }
             return rb_int_cmp(rb_int_minus(num1, num2), ZERO);
+      RB_GC_GUARD(num2);
+      RB_GC_GUARD(num1);
         }
 
       case T_FLOAT:
@@ -1114,6 +1230,8 @@ rb_rational_cmp(VALUE self, VALUE other)
 
       default:
         return rb_num_coerce_cmp(self, other, idCmp);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
     }
 }
 
@@ -1167,6 +1285,8 @@ nurat_eqeq_p(VALUE self, VALUE other)
     }
     else {
         return rb_equal(other, self);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
     }
 }
 
@@ -1200,6 +1320,8 @@ nurat_coerce(VALUE self, VALUE other)
     rb_raise(rb_eTypeError, "%s can't be coerced into %s",
              rb_obj_classname(other), rb_obj_classname(self));
     return Qnil;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1213,6 +1335,7 @@ nurat_positive_p(VALUE self)
 {
     get_dat1(self);
     return RBOOL(INT_POSITIVE_P(dat->num));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1226,6 +1349,7 @@ nurat_negative_p(VALUE self)
 {
     get_dat1(self);
     return RBOOL(INT_NEGATIVE_P(dat->num));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1247,8 +1371,10 @@ rb_rational_abs(VALUE self)
     if (INT_NEGATIVE_P(dat->num)) {
         VALUE num = rb_int_abs(dat->num);
         return nurat_s_canonicalize_internal_no_reduce(CLASS_OF(self), num, dat->den);
+    RB_GC_GUARD(num);
     }
     return self;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1256,6 +1382,7 @@ nurat_floor(VALUE self)
 {
     get_dat1(self);
     return rb_int_idiv(dat->num, dat->den);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1263,6 +1390,7 @@ nurat_ceil(VALUE self)
 {
     get_dat1(self);
     return rb_int_uminus(rb_int_idiv(rb_int_uminus(dat->num), dat->den));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1286,6 +1414,7 @@ nurat_truncate(VALUE self)
     if (INT_NEGATIVE_P(dat->num))
         return rb_int_uminus(rb_int_idiv(rb_int_uminus(dat->num), dat->den));
     return rb_int_idiv(dat->num, dat->den);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1310,6 +1439,10 @@ nurat_round_half_up(VALUE self)
         num = rb_int_uminus(num);
 
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(neg);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -1335,6 +1468,10 @@ nurat_round_half_down(VALUE self)
         num = rb_int_uminus(num);
 
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(neg);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -1362,6 +1499,11 @@ nurat_round_half_even(VALUE self)
         num = rb_int_uminus(num);
 
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(qr);
+    RB_GC_GUARD(neg);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -1398,6 +1540,10 @@ f_round_common(int argc, VALUE *argv, VALUE self, VALUE (*func)(VALUE))
         s = nurat_truncate(s);
 
     return s;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(n);
 }
 
 VALUE
@@ -1409,6 +1555,8 @@ rb_rational_floor(VALUE self, int ndigits)
     else {
         VALUE n = INT2NUM(ndigits);
         return f_round_common(1, &n, self, nurat_floor);
+        RB_GC_GUARD(n);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -1440,6 +1588,7 @@ static VALUE
 nurat_floor_n(int argc, VALUE *argv, VALUE self)
 {
     return f_round_common(argc, argv, self, nurat_floor);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1470,6 +1619,7 @@ static VALUE
 nurat_ceil_n(int argc, VALUE *argv, VALUE self)
 {
     return f_round_common(argc, argv, self, nurat_ceil);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1500,6 +1650,7 @@ static VALUE
 nurat_truncate_n(int argc, VALUE *argv, VALUE self)
 {
     return f_round_common(argc, argv, self, nurat_truncate);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1548,12 +1699,15 @@ nurat_round_n(int argc, VALUE *argv, VALUE self)
         rb_num_get_rounding_option(opt));
     VALUE (*round_func)(VALUE) = ROUND_FUNC(mode, nurat_round);
     return f_round_common(argc, argv, self, round_func);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
 }
 
 VALUE
 rb_flo_round_by_rational(int argc, VALUE *argv, VALUE num)
 {
     return nurat_to_f(nurat_round_n(argc, argv, float_to_r(num)));
+    RB_GC_GUARD(num);
 }
 
 static double
@@ -1564,6 +1718,7 @@ nurat_to_double(VALUE self)
         return NUM2DBL(dat->num) / NUM2DBL(dat->den);
     }
     return rb_int_fdiv_double(dat->num, dat->den);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1581,6 +1736,7 @@ static VALUE
 nurat_to_f(VALUE self)
 {
     return DBL2NUM(nurat_to_double(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1596,6 +1752,7 @@ static VALUE
 nurat_to_r(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 #define id_ceil rb_intern("ceil")
@@ -1608,6 +1765,7 @@ f_ceil(VALUE x)
         return rb_float_ceil(x, 0);
 
     return rb_funcall(x, id_ceil, 0);
+    RB_GC_GUARD(x);
 }
 
 #define id_quo idQuo
@@ -1620,6 +1778,8 @@ f_quo(VALUE x, VALUE y)
         return DBL2NUM(RFLOAT_VALUE(x) / RFLOAT_VALUE(y));
 
     return rb_funcallv(x, id_quo, 1, &y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define f_reciprocal(x) f_quo(ONE, (x))
@@ -1710,6 +1870,17 @@ nurat_rationalize_internal(VALUE a, VALUE b, VALUE *p, VALUE *q)
     }
     *p = f_add(f_mul(c, p1), p0);
     *q = f_add(f_mul(c, q1), q0);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(q2);
+    RB_GC_GUARD(q1);
+    RB_GC_GUARD(q0);
+    RB_GC_GUARD(p2);
+    RB_GC_GUARD(p1);
+    RB_GC_GUARD(p0);
+    RB_GC_GUARD(t);
+    RB_GC_GUARD(k);
 }
 
 /*
@@ -1755,6 +1926,13 @@ nurat_rationalize(int argc, VALUE *argv, VALUE self)
         return rat;
     }
     return f_rational_new2(CLASS_OF(self), p, q);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rat);
+    RB_GC_GUARD(q);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(e);
 }
 
 /* :nodoc: */
@@ -1771,12 +1949,15 @@ rb_rational_hash(VALUE self)
     h[1] = NUM2LONG(n);
     v = rb_memhash(h, sizeof(h));
     return v;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 static VALUE
 nurat_hash(VALUE self)
 {
     return ST2FIX(rb_rational_hash(self));
+    RB_GC_GUARD(self);
 }
 
 
@@ -1791,6 +1972,8 @@ f_format(VALUE self, VALUE (*func)(VALUE))
     rb_str_concat(s, (*func)(dat->den));
 
     return s;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1807,6 +1990,7 @@ static VALUE
 nurat_to_s(VALUE self)
 {
     return f_format(self, f_to_s);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1829,6 +2013,8 @@ nurat_inspect(VALUE self)
     rb_str_cat2(s, ")");
 
     return s;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(s);
 }
 
 /* :nodoc: */
@@ -1836,6 +2022,7 @@ static VALUE
 nurat_dumper(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1855,6 +2042,10 @@ nurat_loader(VALUE self, VALUE a)
     OBJ_FREEZE(self);
 
     return self;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 /* :nodoc: */
@@ -1867,6 +2058,8 @@ nurat_marshal_dump(VALUE self)
     a = rb_assoc_new(dat->num, dat->den);
     rb_copy_generic_ivar(a, self);
     return a;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(a);
 }
 
 /* :nodoc: */
@@ -1890,6 +2083,10 @@ nurat_marshal_load(VALUE self, VALUE a)
     rb_ivar_set(self, id_i_den, den);
 
     return self;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 VALUE
@@ -1897,6 +2094,7 @@ rb_rational_reciprocal(VALUE x)
 {
     get_dat1(x);
     return nurat_convert(CLASS_OF(x), dat->den, dat->num, FALSE);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1916,6 +2114,8 @@ rb_gcd(VALUE self, VALUE other)
 {
     other = nurat_int_value(other);
     return f_gcd(self, other);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1935,6 +2135,8 @@ rb_lcm(VALUE self, VALUE other)
 {
     other = nurat_int_value(other);
     return f_lcm(self, other);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1954,6 +2156,8 @@ rb_gcdlcm(VALUE self, VALUE other)
 {
     other = nurat_int_value(other);
     return rb_assoc_new(f_gcd(self, other), f_lcm(self, other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -1968,12 +2172,16 @@ rb_rational_raw(VALUE x, VALUE y)
         y = rb_int_uminus(y);
     }
     return nurat_s_new_internal(rb_cRational, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_rational_new(VALUE x, VALUE y)
 {
     return nurat_s_canonicalize_internal(rb_cRational, x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -1983,18 +2191,22 @@ rb_Rational(VALUE x, VALUE y)
     a[0] = x;
     a[1] = y;
     return nurat_s_convert(2, a, rb_cRational);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_rational_num(VALUE rat)
 {
     return nurat_numerator(rat);
+    RB_GC_GUARD(rat);
 }
 
 VALUE
 rb_rational_den(VALUE rat)
 {
     return nurat_denominator(rat);
+    RB_GC_GUARD(rat);
 }
 
 #define id_numerator rb_intern("numerator")
@@ -2016,6 +2228,7 @@ static VALUE
 numeric_numerator(VALUE self)
 {
     return f_numerator(f_to_r(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2028,6 +2241,7 @@ static VALUE
 numeric_denominator(VALUE self)
 {
     return f_denominator(f_to_r(self));
+    RB_GC_GUARD(self);
 }
 
 
@@ -2052,6 +2266,8 @@ rb_numeric_quo(VALUE x, VALUE y)
 
     x = rb_convert_type(x, T_RATIONAL, "Rational", "to_r");
     return rb_rational_div(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -2062,6 +2278,7 @@ rb_rational_canonicalize(VALUE x)
         if (f_one_p(dat->den)) return dat->num;
     }
     return x;
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -2085,6 +2302,8 @@ rb_float_numerator(VALUE self)
         return self;
     r = float_to_r(self);
     return nurat_numerator(r);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(r);
 }
 
 /*
@@ -2105,6 +2324,8 @@ rb_float_denominator(VALUE self)
         return INT2FIX(1);
     r = float_to_r(self);
     return nurat_denominator(r);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(r);
 }
 
 /*
@@ -2120,6 +2341,7 @@ static VALUE
 nilclass_to_r(VALUE self)
 {
     return rb_rational_new1(INT2FIX(0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2138,6 +2360,7 @@ nilclass_rationalize(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 1);
     return nilclass_to_r(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2153,6 +2376,7 @@ static VALUE
 integer_to_r(VALUE self)
 {
     return rb_rational_new1(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2167,6 +2391,7 @@ integer_rationalize(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 1);
     return integer_to_r(self);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -2178,6 +2403,7 @@ float_decode_internal(VALUE self, VALUE *rf, int *n)
     f = ldexp(f, DBL_MANT_DIG);
     *n -= DBL_MANT_DIG;
     *rf = rb_dbl2big(f);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2214,6 +2440,8 @@ float_to_r(VALUE self)
         return rb_rational_new1(rb_int_lshift(f, INT2FIX(n)));
     n = -n;
     return rb_rational_new2(f, rb_int_lshift(ONE, INT2FIX(n)));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(f);
 #else
     f = rb_int_mul(f, rb_int_pow(INT2FIX(FLT_RADIX), n));
     if (RB_TYPE_P(f, T_RATIONAL))
@@ -2236,6 +2464,13 @@ rb_flt_rationalize_with_prec(VALUE flt, VALUE prec)
 
     nurat_rationalize_internal(a, b, &p, &q);
     return rb_rational_new2(p, q);
+    RB_GC_GUARD(prec);
+    RB_GC_GUARD(flt);
+    RB_GC_GUARD(q);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(e);
 }
 
 VALUE
@@ -2260,6 +2495,7 @@ rb_flt_rationalize(VALUE flt)
 
         a = rb_int_minus(radix_times_f, INT2FIX(FLT_RADIX - 1));
         b = rb_int_plus(radix_times_f, INT2FIX(FLT_RADIX - 1));
+    RB_GC_GUARD(radix_times_f);
     }
 
     if (f_eqeq_p(a, b))
@@ -2269,6 +2505,13 @@ rb_flt_rationalize(VALUE flt)
     b = rb_rational_new2(b, den);
     nurat_rationalize_internal(a, b, &p, &q);
     return rb_rational_new2(p, q);
+    RB_GC_GUARD(flt);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(q);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 /*
@@ -2301,6 +2544,8 @@ float_rationalize(int argc, VALUE *argv, VALUE self)
     }
     if (neg) RATIONAL_SET_NUM(rat, rb_int_uminus(RRATIONAL(rat)->num));
     return rat;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rat);
 }
 
 inline static int
@@ -2336,6 +2581,7 @@ negate_num(VALUE num)
     else {
         BIGNUM_NEGATE(num);
         return rb_big_norm(num);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -2372,6 +2618,7 @@ read_num(const char **s, const char *const end, VALUE *num, VALUE *nexp)
             n = n == ZERO ? fp : rb_int_plus(rb_int_mul(*num, l), fp);
             *num = n;
             fn = SIZET2NUM(count);
+        RB_GC_GUARD(l);
         }
         ok = 1;
     }
@@ -2397,6 +2644,10 @@ read_num(const char **s, const char *const end, VALUE *num, VALUE *nexp)
     }
 
     return ok;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(fn);
+    RB_GC_GUARD(exp);
+    RB_GC_GUARD(fp);
 }
 
 inline static const char *
@@ -2454,6 +2705,7 @@ parse_rat(const char *s, const char *const e, int strict, int raise)
                 }
             }
             return sign == '-' ? DBL2NUM(-HUGE_VAL) : DBL2NUM(HUGE_VAL);
+        RB_GC_GUARD(mul);
         }
         else {
             VALUE div;
@@ -2465,6 +2717,7 @@ parse_rat(const char *s, const char *const e, int strict, int raise)
                 }
             }
             return sign == '-' ? DBL2NUM(-0.0) : DBL2NUM(+0.0);
+      RB_GC_GUARD(div);
         }
       reduce:
         nurat_reduce(&num, &den);
@@ -2475,6 +2728,10 @@ parse_rat(const char *s, const char *const e, int strict, int raise)
     }
 
     return rb_rational_raw(num, den);
+    RB_GC_GUARD(dexp);
+    RB_GC_GUARD(nexp);
+    RB_GC_GUARD(den);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -2496,6 +2753,8 @@ string_to_r_strict(VALUE self, int raise)
         rb_raise(rb_eFloatDomainError, "Infinity");
     }
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2538,6 +2797,8 @@ string_to_r(VALUE self)
     if (RB_FLOAT_TYPE_P(num) && !FLOAT_ZERO_P(num))
         rb_raise(rb_eFloatDomainError, "Infinity");
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(num);
 }
 
 VALUE
@@ -2550,12 +2811,14 @@ rb_cstr_to_rat(const char *s, int strict) /* for complex's internal */
     if (RB_FLOAT_TYPE_P(num) && !FLOAT_ZERO_P(num))
         rb_raise(rb_eFloatDomainError, "Infinity");
     return num;
+    RB_GC_GUARD(num);
 }
 
 static VALUE
 to_rational(VALUE val)
 {
     return rb_convert_type_with_id(val, T_RATIONAL, "Rational", idTo_r);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -2599,6 +2862,7 @@ nurat_convert(VALUE klass, VALUE numv, VALUE denv, int raise)
         rb_set_errinfo(Qnil);
         if (!NIL_P(tmp)) {
             a1 = tmp;
+    RB_GC_GUARD(tmp);
         }
     }
 
@@ -2620,6 +2884,7 @@ nurat_convert(VALUE klass, VALUE numv, VALUE denv, int raise)
         rb_set_errinfo(Qnil);
         if (!NIL_P(tmp)) {
             a2 = tmp;
+    RB_GC_GUARD(tmp);
         }
     }
 
@@ -2634,6 +2899,7 @@ nurat_convert(VALUE klass, VALUE numv, VALUE denv, int raise)
                 VALUE result = rb_protect(to_rational, a1, NULL);
                 rb_set_errinfo(Qnil);
                 return result;
+            RB_GC_GUARD(result);
             }
             return to_rational(a1);
         }
@@ -2673,6 +2939,7 @@ nurat_convert(VALUE klass, VALUE numv, VALUE denv, int raise)
                 rb_set_errinfo(Qnil);
             }
             return f_div(a1, a2);
+    RB_GC_GUARD(tmp);
         }
     }
 
@@ -2690,6 +2957,11 @@ nurat_convert(VALUE klass, VALUE numv, VALUE denv, int raise)
 
 
     return nurat_s_canonicalize_internal(klass, a1, a2);
+    RB_GC_GUARD(denv);
+    RB_GC_GUARD(numv);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(a2);
+    RB_GC_GUARD(a1);
 }
 
 static VALUE
@@ -2702,6 +2974,9 @@ nurat_s_convert(int argc, VALUE *argv, VALUE klass)
     }
 
     return nurat_convert(klass, a1, a2, TRUE);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(a2);
+    RB_GC_GUARD(a1);
 }
 
 /*
@@ -2835,4 +3110,5 @@ Init_Rational(void)
     rb_define_private_method(CLASS_OF(rb_cRational), "convert", nurat_s_convert, -1);
 
     rb_provide("rational.so");	/* for backward compatibility */
+    RB_GC_GUARD(compat);
 }

@@ -25,6 +25,7 @@ const rb_data_type_t ossl_ssl_session_type = {
 static VALUE ossl_ssl_session_alloc(VALUE klass)
 {
 	return TypedData_Wrap_Struct(klass, &ossl_ssl_session_type, NULL);
+	RB_GC_GUARD(klass);
 }
 
 /*
@@ -67,6 +68,8 @@ ossl_ssl_session_initialize(VALUE self, VALUE arg1)
     RTYPEDDATA_DATA(self) = ctx;
 
     return self;
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -87,6 +90,8 @@ ossl_ssl_session_initialize_copy(VALUE self, VALUE other)
     SSL_SESSION_free(sess);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -121,6 +126,8 @@ static VALUE ossl_ssl_session_eq(VALUE val1, VALUE val2)
 	switch (ossl_SSL_SESSION_cmp(ctx1, ctx2)) {
 	case 0:		return Qtrue;
 	default:	return Qfalse;
+	RB_GC_GUARD(val1);
+	RB_GC_GUARD(val2);
 	}
 }
 
@@ -142,6 +149,7 @@ ossl_ssl_session_get_time(VALUE self)
 	return Qnil;
 
     return rb_funcall(rb_cTime, rb_intern("at"), 1, LONG2NUM(t));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -162,6 +170,7 @@ ossl_ssl_session_get_timeout(VALUE self)
     t = SSL_SESSION_get_timeout(ctx);
 
     return LONG2NUM(t);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -184,6 +193,8 @@ static VALUE ossl_ssl_session_set_time(VALUE self, VALUE time_v)
 	t = NUM2LONG(time_v);
 	SSL_SESSION_set_time(ctx, t);
 	return ossl_ssl_session_get_time(self);
+	RB_GC_GUARD(time_v);
+	RB_GC_GUARD(self);
 }
 
 /*
@@ -201,6 +212,8 @@ static VALUE ossl_ssl_session_set_timeout(VALUE self, VALUE time_v)
 	t = NUM2LONG(time_v);
 	SSL_SESSION_set_timeout(ctx, t);
 	return ossl_ssl_session_get_timeout(self);
+	RB_GC_GUARD(time_v);
+	RB_GC_GUARD(self);
 }
 
 /*
@@ -220,6 +233,7 @@ static VALUE ossl_ssl_session_get_id(VALUE self)
 	p = SSL_SESSION_get_id(ctx, &i);
 
 	return rb_str_new((const char *) p, i);
+	RB_GC_GUARD(self);
 }
 
 /*
@@ -246,6 +260,8 @@ static VALUE ossl_ssl_session_to_der(VALUE self)
 	i2d_SSL_SESSION(ctx, &p);
 	ossl_str_adjust(str, p);
 	return str;
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(str);
 }
 
 /*
@@ -272,6 +288,7 @@ static VALUE ossl_ssl_session_to_pem(VALUE self)
 
 
 	return ossl_membio2str(out);
+	RB_GC_GUARD(self);
 }
 
 
@@ -298,6 +315,7 @@ static VALUE ossl_ssl_session_to_text(VALUE self)
 	}
 
 	return ossl_membio2str(out);
+	RB_GC_GUARD(self);
 }
 
 #endif /* !defined(OPENSSL_NO_SOCK) */

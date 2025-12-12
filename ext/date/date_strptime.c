@@ -103,6 +103,7 @@ read_digits(const char *s, size_t slen, VALUE *n, size_t width)
 	*n = rb_cstr_to_inum(s2, 10, 0);
 	ALLOCV_END(vbuf);
 	return l;
+	RB_GC_GUARD(vbuf);
     }
 }
 
@@ -137,6 +138,7 @@ valid_range_p(VALUE v, int a, int b)
 	return !(vi < a || vi > b);
     }
     return !(f_lt_p(v, INT2NUM(a)) || f_gt_p(v, INT2NUM(b)));
+    RB_GC_GUARD(v);
 }
 
 #define recur(fmt) \
@@ -253,6 +255,7 @@ date__strptime_internal(const char *str, size_t slen,
 			READ_DIGITS_MAX(n);
 		    set_hash("_cent", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'c':
@@ -278,6 +281,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("mday", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'F':
@@ -294,6 +298,7 @@ date__strptime_internal(const char *str, size_t slen,
 			READ_DIGITS_MAX(n);
 		    set_hash("cwyear", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'g':
@@ -308,6 +313,7 @@ date__strptime_internal(const char *str, size_t slen,
 			set_hash("_cent",
 				 INT2FIX(f_ge_p(n, INT2FIX(69)) ? 19 : 20));
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'H':
@@ -325,6 +331,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("hour", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'I':
@@ -342,6 +349,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("hour", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'j':
@@ -353,6 +361,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("yday", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'L':
@@ -379,6 +388,7 @@ date__strptime_internal(const char *str, size_t slen,
 					      f_expt(INT2FIX(10),
 						     ULONG2NUM(si - osi))));
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'M':
@@ -390,6 +400,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("min", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'm':
@@ -401,6 +412,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("mon", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'n':
@@ -440,6 +452,7 @@ date__strptime_internal(const char *str, size_t slen,
 		    set_hash("seconds",
 			     rb_rational_new2(n, INT2FIX(1000)));
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'R':
@@ -459,6 +472,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("sec", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 's':
@@ -475,6 +489,7 @@ date__strptime_internal(const char *str, size_t slen,
 			n = f_negate(n);
 		    set_hash("seconds", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'T':
@@ -491,6 +506,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash(c == 'U' ? "wnum0" : "wnum1", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'u':
@@ -502,6 +518,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("cwday", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'V':
@@ -513,6 +530,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("cweek", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'v':
@@ -528,6 +546,7 @@ date__strptime_internal(const char *str, size_t slen,
 			fail();
 		    set_hash("wday", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'X':
@@ -556,6 +575,7 @@ date__strptime_internal(const char *str, size_t slen,
 			n = f_negate(n);
 		    set_hash("year", n);
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'y':
@@ -573,6 +593,7 @@ date__strptime_internal(const char *str, size_t slen,
 			set_hash("_cent",
 				 INT2FIX(f_ge_p(n, INT2FIX(69)) ? 19 : 20));
 		    goto matched;
+	      RB_GC_GUARD(n);
 		}
 
 	      case 'Z':
@@ -609,9 +630,15 @@ date__strptime_internal(const char *str, size_t slen,
 			set_hash("offset", o);
 			rb_backref_set(b);
 			goto matched;
+		    RB_GC_GUARD(o);
+		    RB_GC_GUARD(l);
+		    RB_GC_GUARD(s);
 		    }
 		    rb_backref_set(b);
 		    fail();
+	      RB_GC_GUARD(b);
+	      RB_GC_GUARD(m);
+	      RB_GC_GUARD(pat);
 		}
 
 	      case '%':
@@ -649,6 +676,7 @@ date__strptime_internal(const char *str, size_t slen,
     }
 
     return si;
+    RB_GC_GUARD(hash);
 }
 
 VALUE
@@ -665,6 +693,7 @@ date__strptime(const char *str, size_t slen,
 
 	s = rb_usascii_str_new(&str[si], slen - si);
 	set_hash("leftover", s);
+    RB_GC_GUARD(s);
     }
 
     if (fail_p())
@@ -680,6 +709,7 @@ date__strptime(const char *str, size_t slen,
 	year = ref_hash("year");
 	if (!NIL_P(year))
 	    set_hash("year", f_add(year, f_mul(cent, INT2FIX(100))));
+    RB_GC_GUARD(year);
     }
 
     merid = del_hash("_merid");
@@ -690,10 +720,14 @@ date__strptime(const char *str, size_t slen,
 	if (!NIL_P(hour)) {
 	    hour = f_mod(hour, INT2FIX(12));
 	    set_hash("hour", f_add(hour, merid));
+    RB_GC_GUARD(hour);
 	}
     }
 
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(merid);
+    RB_GC_GUARD(cent);
 }
 
 /*

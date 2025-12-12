@@ -81,12 +81,16 @@ get_strpath(VALUE obj)
     if (!RB_TYPE_P(strpath, T_STRING))
         rb_raise(rb_eTypeError, "unexpected @path");
     return strpath;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(strpath);
 }
 
 static void
 set_strpath(VALUE obj, VALUE val)
 {
     rb_ivar_set(obj, id_at_path, val);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -112,6 +116,9 @@ path_initialize(VALUE self, VALUE arg)
 
     set_strpath(self, str);
     return self;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -128,6 +135,7 @@ path_freeze(VALUE self)
     rb_call_super(0, 0);
     rb_str_freeze(get_strpath(self));
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -141,6 +149,8 @@ path_eq(VALUE self, VALUE other)
     if (!rb_obj_is_kind_of(other, rb_cPathname))
         return Qfalse;
     return rb_str_equal(get_strpath(self), get_strpath(other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -189,6 +199,10 @@ path_cmp(VALUE self, VALUE other)
     if (p2 < e2)
         return INT2FIX(-1);
     return INT2FIX(0);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s1);
 }
 
 #ifndef ST2FIX
@@ -200,6 +214,7 @@ static VALUE
 path_hash(VALUE self)
 {
     return ST2FIX(rb_str_hash(get_strpath(self)));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -215,6 +230,7 @@ static VALUE
 path_to_s(VALUE self)
 {
     return rb_obj_dup(get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -224,6 +240,8 @@ path_inspect(VALUE self)
     const char *c = rb_obj_classname(self);
     VALUE str = get_strpath(self);
     return rb_sprintf("#<%s:%"PRIsVALUE">", c, str);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -245,6 +263,8 @@ path_sub(int argc, VALUE *argv, VALUE self)
         str = rb_funcallv(str, id_sub, argc, argv);
     }
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -277,6 +297,10 @@ path_sub_ext(VALUE self, VALUE repl)
     str2 = rb_str_subseq(str, 0, ext-p);
     rb_str_append(str2, repl);
     return rb_class_new_instance(1, &str2, rb_obj_class(self));
+    RB_GC_GUARD(repl);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 /* Facade for File */
@@ -298,6 +322,9 @@ path_realpath(int argc, VALUE *argv, VALUE self)
     rb_scan_args(argc, argv, "01", &basedir);
     str = rb_funcall(rb_cFile, id_realpath, 2, get_strpath(self), basedir);
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(basedir);
 }
 
 /*
@@ -314,6 +341,9 @@ path_realdirpath(int argc, VALUE *argv, VALUE self)
     rb_scan_args(argc, argv, "01", &basedir);
     str = rb_funcall(rb_cFile, id_realdirpath, 2, get_strpath(self), basedir);
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(basedir);
 }
 
 /*
@@ -339,6 +369,7 @@ path_each_line(int argc, VALUE *argv, VALUE self)
     }
     else {
         return rb_funcallv_kw(rb_cFile, id_foreach, 1+n, args, RB_PASS_CALLED_KEYWORDS);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -361,6 +392,7 @@ path_read(int argc, VALUE *argv, VALUE self)
     args[0] = get_strpath(self);
     n = rb_scan_args(argc, argv, "03", &args[1], &args[2], &args[3]);
     return rb_funcallv_kw(rb_cFile, id_read, 1+n, args, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -381,6 +413,7 @@ path_binread(int argc, VALUE *argv, VALUE self)
     args[0] = get_strpath(self);
     n = rb_scan_args(argc, argv, "02", &args[1], &args[2]);
     return rb_funcallv(rb_cFile, id_binread, 1+n, args);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -402,6 +435,7 @@ path_write(int argc, VALUE *argv, VALUE self)
     args[0] = get_strpath(self);
     n = rb_scan_args(argc, argv, "03", &args[1], &args[2], &args[3]);
     return rb_funcallv_kw(rb_cFile, id_write, 1+n, args, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -423,6 +457,7 @@ path_binwrite(int argc, VALUE *argv, VALUE self)
     args[0] = get_strpath(self);
     n = rb_scan_args(argc, argv, "03", &args[1], &args[2], &args[3]);
     return rb_funcallv_kw(rb_cFile, id_binwrite, 1+n, args, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -445,6 +480,7 @@ path_readlines(int argc, VALUE *argv, VALUE self)
     args[0] = get_strpath(self);
     n = rb_scan_args(argc, argv, "03", &args[1], &args[2], &args[3]);
     return rb_funcallv_kw(rb_cFile, id_readlines, 1+n, args, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -463,6 +499,7 @@ path_sysopen(int argc, VALUE *argv, VALUE self)
     args[0] = get_strpath(self);
     n = rb_scan_args(argc, argv, "02", &args[1], &args[2]);
     return rb_funcallv(rb_cIO, id_sysopen, 1+n, args);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -477,6 +514,7 @@ static VALUE
 path_atime(VALUE self)
 {
     return rb_funcall(rb_cFile, id_atime, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -492,6 +530,7 @@ static VALUE
 path_birthtime(VALUE self)
 {
     return rb_funcall(rb_cFile, id_birthtime, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -506,6 +545,7 @@ static VALUE
 path_ctime(VALUE self)
 {
     return rb_funcall(rb_cFile, id_ctime, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -520,6 +560,7 @@ static VALUE
 path_mtime(VALUE self)
 {
     return rb_funcall(rb_cFile, id_mtime, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -534,6 +575,8 @@ static VALUE
 path_chmod(VALUE self, VALUE mode)
 {
     return rb_funcall(rb_cFile, id_chmod, 2, mode, get_strpath(self));
+    RB_GC_GUARD(mode);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -548,6 +591,8 @@ static VALUE
 path_lchmod(VALUE self, VALUE mode)
 {
     return rb_funcall(rb_cFile, id_lchmod, 2, mode, get_strpath(self));
+    RB_GC_GUARD(mode);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -562,6 +607,9 @@ static VALUE
 path_chown(VALUE self, VALUE owner, VALUE group)
 {
     return rb_funcall(rb_cFile, id_chown, 3, owner, group, get_strpath(self));
+    RB_GC_GUARD(group);
+    RB_GC_GUARD(owner);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -576,6 +624,9 @@ static VALUE
 path_lchown(VALUE self, VALUE owner, VALUE group)
 {
     return rb_funcall(rb_cFile, id_lchown, 3, owner, group, get_strpath(self));
+    RB_GC_GUARD(group);
+    RB_GC_GUARD(owner);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -596,6 +647,10 @@ path_fnmatch(int argc, VALUE *argv, VALUE self)
         return rb_funcall(rb_cFile, id_fnmatch, 2, pattern, str);
     else
         return rb_funcall(rb_cFile, id_fnmatch, 3, pattern, str, flags);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(flags);
+        RB_GC_GUARD(pattern);
+        RB_GC_GUARD(str);
 }
 
 /*
@@ -610,6 +665,7 @@ static VALUE
 path_ftype(VALUE self)
 {
     return rb_funcall(rb_cFile, id_ftype, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -624,6 +680,8 @@ static VALUE
 path_make_link(VALUE self, VALUE old)
 {
     return rb_funcall(rb_cFile, id_link, 2, old, get_strpath(self));
+    RB_GC_GUARD(old);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -651,6 +709,7 @@ path_open(int argc, VALUE *argv, VALUE self)
     }
     else {
         return rb_funcallv_kw(rb_cFile, id_open, 1+n, args, RB_PASS_CALLED_KEYWORDS);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -665,6 +724,8 @@ path_readlink(VALUE self)
     VALUE str;
     str = rb_funcall(rb_cFile, id_readlink, 1, get_strpath(self));
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -676,6 +737,8 @@ static VALUE
 path_rename(VALUE self, VALUE to)
 {
     return rb_funcall(rb_cFile, id_rename, 2, get_strpath(self), to);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -687,6 +750,7 @@ static VALUE
 path_stat(VALUE self)
 {
     return rb_funcall(rb_cFile, id_stat, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -696,6 +760,7 @@ static VALUE
 path_lstat(VALUE self)
 {
     return rb_funcall(rb_cFile, id_lstat, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -710,6 +775,8 @@ static VALUE
 path_make_symlink(VALUE self, VALUE old)
 {
     return rb_funcall(rb_cFile, id_symlink, 2, old, get_strpath(self));
+    RB_GC_GUARD(old);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -721,6 +788,8 @@ static VALUE
 path_truncate(VALUE self, VALUE length)
 {
     return rb_funcall(rb_cFile, id_truncate, 2, get_strpath(self), length);
+    RB_GC_GUARD(length);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -732,6 +801,9 @@ static VALUE
 path_utime(VALUE self, VALUE atime, VALUE mtime)
 {
     return rb_funcall(rb_cFile, id_utime, 3, atime, mtime, get_strpath(self));
+    RB_GC_GUARD(mtime);
+    RB_GC_GUARD(atime);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -745,6 +817,9 @@ static VALUE
 path_lutime(VALUE self, VALUE atime, VALUE mtime)
 {
     return rb_funcall(rb_cFile, id_lutime, 3, atime, mtime, get_strpath(self));
+    RB_GC_GUARD(mtime);
+    RB_GC_GUARD(atime);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -762,6 +837,9 @@ path_basename(int argc, VALUE *argv, VALUE self)
     else
         str = rb_funcall(rb_cFile, id_basename, 2, str, fext);
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(fext);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -775,6 +853,8 @@ path_dirname(VALUE self)
     VALUE str = get_strpath(self);
     str = rb_funcall(rb_cFile, id_dirname, 1, str);
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -787,6 +867,8 @@ path_extname(VALUE self)
 {
     VALUE str = get_strpath(self);
     return rb_funcall(rb_cFile, id_extname, 1, str);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -804,6 +886,9 @@ path_expand_path(int argc, VALUE *argv, VALUE self)
     else
         str = rb_funcall(rb_cFile, id_expand_path, 2, str, dname);
     return rb_class_new_instance(1, &str, rb_obj_class(self));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(dname);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -823,6 +908,11 @@ path_split(VALUE self)
     dirname = rb_class_new_instance(1, &dirname, rb_obj_class(self));
     basename = rb_class_new_instance(1, &basename, rb_obj_class(self));
     return rb_ary_new3(2, dirname, basename);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(basename);
+    RB_GC_GUARD(dirname);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -832,6 +922,7 @@ static VALUE
 path_blockdev_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_blockdev_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -841,6 +932,7 @@ static VALUE
 path_chardev_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_chardev_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -850,6 +942,7 @@ static VALUE
 path_executable_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_executable_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -859,6 +952,7 @@ static VALUE
 path_executable_real_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_executable_real_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -868,6 +962,7 @@ static VALUE
 path_exist_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_exist_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -877,6 +972,7 @@ static VALUE
 path_grpowned_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_grpowned_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -886,6 +982,7 @@ static VALUE
 path_directory_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_directory_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -895,6 +992,7 @@ static VALUE
 path_file_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_file_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -904,6 +1002,7 @@ static VALUE
 path_pipe_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_pipe_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -913,6 +1012,7 @@ static VALUE
 path_socket_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_socket_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -922,6 +1022,7 @@ static VALUE
 path_owned_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_owned_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -931,6 +1032,7 @@ static VALUE
 path_readable_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_readable_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -940,6 +1042,7 @@ static VALUE
 path_world_readable_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_world_readable_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -949,6 +1052,7 @@ static VALUE
 path_readable_real_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_readable_real_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -958,6 +1062,7 @@ static VALUE
 path_setuid_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_setuid_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -967,6 +1072,7 @@ static VALUE
 path_setgid_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_setgid_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -976,6 +1082,7 @@ static VALUE
 path_size(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_size, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -985,6 +1092,7 @@ static VALUE
 path_size_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_size_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -994,6 +1102,7 @@ static VALUE
 path_sticky_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_sticky_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1003,6 +1112,7 @@ static VALUE
 path_symlink_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_symlink_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1012,6 +1122,7 @@ static VALUE
 path_writable_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_writable_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1021,6 +1132,7 @@ static VALUE
 path_world_writable_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_world_writable_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1030,6 +1142,7 @@ static VALUE
 path_writable_real_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_writable_real_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1039,6 +1152,7 @@ static VALUE
 path_zero_p(VALUE self)
 {
     return rb_funcall(rb_mFileTest, id_zero_p, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1055,12 +1169,17 @@ path_empty_p(VALUE self)
         return rb_funcall(rb_cDir, id_empty_p, 1, path);
     else
         return rb_funcall(rb_mFileTest, id_empty_p, 1, path);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(path);
 }
 
 static VALUE
 s_glob_i(RB_BLOCK_CALL_FUNC_ARGLIST(elt, klass))
 {
     return rb_yield(rb_class_new_instance(1, &elt, klass));
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(elt);
 }
 
 /*
@@ -1090,8 +1209,11 @@ path_s_glob(int argc, VALUE *argv, VALUE klass)
             VALUE elt = RARRAY_AREF(ary, i);
             elt = rb_class_new_instance(1, &elt, klass);
             rb_ary_store(ary, i, elt);
+        RB_GC_GUARD(elt);
         }
         return ary;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -1100,6 +1222,9 @@ glob_i(RB_BLOCK_CALL_FUNC_ARGLIST(elt, self))
 {
     elt = rb_funcall(self, '+', 1, elt);
     return rb_yield(elt);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(elt);
 }
 
 /*
@@ -1138,8 +1263,11 @@ path_glob(int argc, VALUE *argv, VALUE self)
             VALUE elt = RARRAY_AREF(ary, i);
             elt = rb_funcall(self, '+', 1, elt);
             rb_ary_store(ary, i, elt);
+        RB_GC_GUARD(elt);
         }
         return ary;
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -1157,6 +1285,8 @@ path_s_getwd(VALUE klass)
     VALUE str;
     str = rb_funcall(rb_cDir, id_getwd, 0);
     return rb_class_new_instance(1, &str, klass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1198,8 +1328,13 @@ path_entries(VALUE self)
         VALUE elt = RARRAY_AREF(ary, i);
         elt = rb_class_new_instance(1, &elt, klass);
         rb_ary_store(ary, i, elt);
+    RB_GC_GUARD(elt);
     }
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1216,6 +1351,9 @@ path_mkdir(int argc, VALUE *argv, VALUE self)
         return rb_funcall(rb_cDir, id_mkdir, 1, str);
     else
         return rb_funcall(rb_cDir, id_mkdir, 2, str, vmode);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(vmode);
+        RB_GC_GUARD(str);
 }
 
 /*
@@ -1227,6 +1365,7 @@ static VALUE
 path_rmdir(VALUE self)
 {
     return rb_funcall(rb_cDir, id_rmdir, 1, get_strpath(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1241,12 +1380,16 @@ path_opendir(VALUE self)
 
     args[0] = get_strpath(self);
     return rb_block_call(rb_cDir, id_open, 1, args, 0, 0);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 each_entry_i(RB_BLOCK_CALL_FUNC_ARGLIST(elt, klass))
 {
     return rb_yield(rb_class_new_instance(1, &elt, klass));
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(elt);
 }
 
 /*
@@ -1261,18 +1404,22 @@ path_each_entry(VALUE self)
 
     args[0] = get_strpath(self);
     return rb_block_call(rb_cDir, id_foreach, 1, args, each_entry_i, rb_obj_class(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 unlink_body(VALUE str)
 {
     return rb_funcall(rb_cDir, id_unlink, 1, str);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
 unlink_rescue(VALUE str, VALUE errinfo)
 {
     return rb_funcall(rb_cFile, id_unlink, 1, str);
+    RB_GC_GUARD(errinfo);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1285,6 +1432,9 @@ path_unlink(VALUE self)
     VALUE eENOTDIR = rb_const_get_at(rb_mErrno, id_ENOTDIR);
     VALUE str = get_strpath(self);
     return rb_rescue2(unlink_body, str, unlink_rescue, str, eENOTDIR, (VALUE)0);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(eENOTDIR);
 }
 
 /*
@@ -1309,6 +1459,8 @@ path_f_pathname(VALUE self, VALUE str)
     if (CLASS_OF(str) == rb_cPathname)
         return str;
     return rb_class_new_instance(1, &str, rb_cPathname);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*

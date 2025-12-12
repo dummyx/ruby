@@ -55,6 +55,7 @@ check_string(VALUE value) {
 
     // Otherwise, return the value as a C string.
     return RSTRING_PTR(value);
+    RB_GC_GUARD(value);
 }
 
 /**
@@ -68,6 +69,7 @@ input_load_string(pm_string_t *input, VALUE string) {
     }
 
     pm_string_constant_init(input, RSTRING_PTR(string), RSTRING_LEN(string));
+    RB_GC_GUARD(string);
 }
 
 /******************************************************************************/
@@ -121,8 +123,11 @@ build_options_scopes(pm_options_t *options, VALUE scopes) {
             pm_string_t *scope_local = &options_scope->locals[local_index];
             const char *name = rb_id2name(SYM2ID(local));
             pm_string_constant_init(scope_local, name, strlen(name));
+            RB_GC_GUARD(local);
+            RB_GC_GUARD(scope);
         }
     }
+            RB_GC_GUARD(scopes);
 }
 
 /**
@@ -185,6 +190,9 @@ build_options_i(VALUE key, VALUE value, VALUE argument) {
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(argument);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /**
@@ -206,6 +214,7 @@ build_options(VALUE argument) {
     struct build_options_data *data = (struct build_options_data *) argument;
     rb_hash_foreach(data->keywords, build_options_i, (VALUE) data->options);
     return Qnil;
+    RB_GC_GUARD(argument);
 }
 
 /**
@@ -236,6 +245,8 @@ extract_options(pm_options_t *options, VALUE filepath, VALUE keywords) {
 
         pm_options_filepath_set(options, RSTRING_PTR(filepath));
     }
+        RB_GC_GUARD(filepath);
+        RB_GC_GUARD(keywords);
 }
 
 /**
@@ -249,6 +260,8 @@ string_options(int argc, VALUE *argv, pm_string_t *input, pm_options_t *options)
 
     extract_options(options, Qnil, keywords);
     input_load_string(input, string);
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(keywords);
 }
 
 /**
@@ -291,6 +304,8 @@ file_options(int argc, VALUE *argv, pm_string_t *input, pm_options_t *options, V
             rb_raise(rb_eRuntimeError, "Unknown error (%d) initializing file: %s", result, source);
             break;
     }
+            RB_GC_GUARD(filepath);
+            RB_GC_GUARD(keywords);
 }
 
 #ifndef PRISM_EXCLUDE_SERIALIZATION
@@ -321,6 +336,7 @@ dump_input(pm_string_t *input, const pm_options_t *options) {
     pm_parser_free(&parser);
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 /**
@@ -353,6 +369,8 @@ dump(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
 }
 
 /**
@@ -375,6 +393,9 @@ dump_file(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 #endif
@@ -400,9 +421,12 @@ parser_comments(pm_parser_t *parser, VALUE source) {
         VALUE type = (comment->type == PM_COMMENT_EMBDOC) ? rb_cPrismEmbDocComment : rb_cPrismInlineComment;
         VALUE comment_argv[] = { rb_class_new_instance(3, location_argv, rb_cPrismLocation) };
         rb_ary_push(comments, rb_class_new_instance(1, comment_argv, type));
+    RB_GC_GUARD(type);
     }
 
     return comments;
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(comments);
 }
 
 /**
@@ -434,6 +458,8 @@ parser_magic_comments(pm_parser_t *parser, VALUE source) {
     }
 
     return magic_comments;
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(magic_comments);
 }
 
 /**
@@ -452,6 +478,7 @@ parser_data_loc(const pm_parser_t *parser, VALUE source) {
         };
 
         return rb_class_new_instance(3, argv, rb_cPrismLocation);
+        RB_GC_GUARD(source);
     }
 }
 
@@ -493,9 +520,12 @@ parser_errors(pm_parser_t *parser, rb_encoding *encoding, VALUE source) {
         };
 
         rb_ary_push(errors, rb_class_new_instance(4, error_argv, rb_cPrismParseError));
+    RB_GC_GUARD(level);
     }
 
     return errors;
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(errors);
 }
 
 /**
@@ -533,9 +563,12 @@ parser_warnings(pm_parser_t *parser, rb_encoding *encoding, VALUE source) {
         };
 
         rb_ary_push(warnings, rb_class_new_instance(4, warning_argv, rb_cPrismParseWarning));
+    RB_GC_GUARD(level);
     }
 
     return warnings;
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(warnings);
 }
 
 /**
@@ -554,6 +587,9 @@ parse_result_create(VALUE class, pm_parser_t *parser, VALUE value, rb_encoding *
     };
 
     return rb_class_new_instance(7, result_argv, class);
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(class);
 }
 
 /******************************************************************************/
@@ -586,6 +622,7 @@ parse_lex_token(void *data, pm_parser_t *parser, pm_token_t *token) {
     );
 
     rb_ary_push(parse_lex_data->tokens, yields);
+    RB_GC_GUARD(yields);
 }
 
 /**
@@ -610,7 +647,11 @@ parse_lex_encoding_changed_callback(pm_parser_t *parser) {
         VALUE value = rb_ivar_get(token, rb_intern("@value"));
         rb_enc_associate(value, parse_lex_data->encoding);
         ENC_CODERANGE_CLEAR(value);
+        RB_GC_GUARD(value);
+        RB_GC_GUARD(token);
+        RB_GC_GUARD(yields);
     }
+        RB_GC_GUARD(tokens);
 }
 
 /**
@@ -659,6 +700,7 @@ parse_lex_input(pm_string_t *input, const pm_options_t *options, bool return_nod
         rb_ary_push(value, pm_ast_new(&parser, node, parse_lex_data.encoding, source));
         rb_ary_push(value, parse_lex_data.tokens);
         result = parse_result_create(rb_cPrismParseLexResult, &parser, value, parse_lex_data.encoding, source);
+        RB_GC_GUARD(value);
     } else {
         result = parse_result_create(rb_cPrismLexResult, &parser, parse_lex_data.tokens, parse_lex_data.encoding, source);
     }
@@ -667,6 +709,10 @@ parse_lex_input(pm_string_t *input, const pm_options_t *options, bool return_nod
     pm_parser_free(&parser);
 
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(offsets);
+    RB_GC_GUARD(source_string);
 }
 
 /**
@@ -687,6 +733,8 @@ lex(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /**
@@ -709,6 +757,9 @@ lex_file(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 /******************************************************************************/
@@ -734,6 +785,9 @@ parse_input(pm_string_t *input, const pm_options_t *options) {
     pm_parser_free(&parser);
 
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(source);
 }
 
 /**
@@ -798,6 +852,8 @@ parse(int argc, VALUE *argv, VALUE self) {
     pm_string_free(&input);
     pm_options_free(&options);
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
 }
 
 /**
@@ -820,6 +876,9 @@ parse_file(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 /**
@@ -854,6 +913,7 @@ profile(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /**
@@ -877,6 +937,8 @@ profile_file(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 /**
@@ -898,6 +960,7 @@ parse_stream_fgets(char *string, int size, void *stream) {
     string[length] = '\0';
 
     return string;
+    RB_GC_GUARD(line);
 }
 
 /**
@@ -931,6 +994,12 @@ parse_stream(int argc, VALUE *argv, VALUE self) {
     pm_parser_free(&parser);
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(keywords);
+    RB_GC_GUARD(stream);
 }
 
 /**
@@ -951,6 +1020,8 @@ parse_input_comments(pm_string_t *input, const pm_options_t *options) {
     pm_parser_free(&parser);
 
     return comments;
+    RB_GC_GUARD(comments);
+    RB_GC_GUARD(source);
 }
 
 /**
@@ -971,6 +1042,8 @@ parse_comments(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /**
@@ -993,6 +1066,9 @@ parse_file_comments(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 /**
@@ -1020,6 +1096,8 @@ parse_lex(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
 }
 
 /**
@@ -1049,6 +1127,9 @@ parse_lex_file(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return value;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 /**
@@ -1066,6 +1147,7 @@ parse_input_success_p(pm_string_t *input, const pm_options_t *options) {
     pm_parser_free(&parser);
 
     return result;
+    RB_GC_GUARD(result);
 }
 
 /**
@@ -1086,6 +1168,8 @@ parse_success_p(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /**
@@ -1098,6 +1182,7 @@ parse_success_p(int argc, VALUE *argv, VALUE self) {
 static VALUE
 parse_failure_p(int argc, VALUE *argv, VALUE self) {
     return RTEST(parse_success_p(argc, argv, self)) ? Qfalse : Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /**
@@ -1120,6 +1205,9 @@ parse_file_success_p(int argc, VALUE *argv, VALUE self) {
     pm_options_free(&options);
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(encoded_filepath);
 }
 
 /**
@@ -1132,6 +1220,7 @@ parse_file_success_p(int argc, VALUE *argv, VALUE self) {
 static VALUE
 parse_file_failure_p(int argc, VALUE *argv, VALUE self) {
     return RTEST(parse_file_success_p(argc, argv, self)) ? Qfalse : Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /******************************************************************************/
@@ -1168,6 +1257,8 @@ static VALUE
 string_query_local_p(VALUE self, VALUE string) {
     const uint8_t *source = (const uint8_t *) check_string(string);
     return string_query(pm_string_query_local(source, RSTRING_LEN(string), rb_enc_get(string)->name));
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(self);
 }
 
 /**
@@ -1182,6 +1273,8 @@ static VALUE
 string_query_constant_p(VALUE self, VALUE string) {
     const uint8_t *source = (const uint8_t *) check_string(string);
     return string_query(pm_string_query_constant(source, RSTRING_LEN(string), rb_enc_get(string)->name));
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(self);
 }
 
 /**
@@ -1194,6 +1287,8 @@ static VALUE
 string_query_method_name_p(VALUE self, VALUE string) {
     const uint8_t *source = (const uint8_t *) check_string(string);
     return string_query(pm_string_query_method_name(source, RSTRING_LEN(string), rb_enc_get(string)->name));
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(self);
 }
 
 /******************************************************************************/

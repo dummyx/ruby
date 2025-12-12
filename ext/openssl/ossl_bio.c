@@ -23,6 +23,7 @@ ossl_obj2bio(volatile VALUE *pobj)
 	ossl_raise(eOSSLError, "BIO_new_mem_buf");
     *pobj = obj;
     return bio;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -39,4 +40,5 @@ ossl_membio2str(BIO *bio)
 	rb_jump_tag(state);
 
     return ret;
+    RB_GC_GUARD(ret);
 }

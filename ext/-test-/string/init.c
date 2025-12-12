@@ -8,4 +8,6 @@ Init_string(void)
     VALUE mBug = rb_define_module("Bug");
     VALUE klass = rb_define_class_under(mBug, "String", rb_cString);
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(klass);
 }

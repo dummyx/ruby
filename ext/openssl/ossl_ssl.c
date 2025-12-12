@@ -116,6 +116,8 @@ ossl_sslctx_s_alloc(VALUE klass)
 #endif
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -148,6 +150,7 @@ parse_proto_version(VALUE str)
 	if (!strncmp(map[i].name, RSTRING_PTR(str), RSTRING_LEN(str)))
 	    return map[i].version;
     rb_raise(rb_eArgError, "unrecognized version %+"PRIsVALUE, str);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -203,6 +206,9 @@ ossl_sslctx_set_minmax_proto_version(VALUE self, VALUE min_v, VALUE max_v)
 #endif
 
     return Qnil;
+    RB_GC_GUARD(max_v);
+    RB_GC_GUARD(min_v);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -221,6 +227,12 @@ ossl_call_client_cert_cb(VALUE obj)
     GetPrivPKeyPtr(key = rb_ary_entry(ary, 1));
 
     return rb_ary_new3(2, cert, key);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(ctx_obj);
 }
 
 static int
@@ -237,6 +249,8 @@ ossl_client_cert_cb(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
     *pkey = DupPKeyPtr(RARRAY_AREF(ret, 1));
 
     return 1;
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(obj);
 }
 
 #if !defined(OPENSSL_NO_DH)
@@ -265,6 +279,9 @@ ossl_call_tmp_dh_callback(VALUE arg)
 	return (VALUE)NULL;
 
     return (VALUE)pkey;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(dh);
+    RB_GC_GUARD(cb);
 }
 #endif
 
@@ -294,6 +311,7 @@ ossl_tmp_dh_callback(SSL *ssl, int is_export, int keylength)
 	return NULL;
 
     return (DH *)EVP_PKEY_get0_DH(pkey);
+    RB_GC_GUARD(rb_ssl);
 }
 #endif /* OPENSSL_NO_DH */
 
@@ -316,6 +334,10 @@ call_verify_certificate_identity(VALUE ctx_v)
     cert_obj = ossl_x509_new(X509_STORE_CTX_get_current_cert(ctx));
     return rb_funcall(mSSL, rb_intern("verify_certificate_identity"), 2,
 		      cert_obj, hostname);
+		      RB_GC_GUARD(ctx_v);
+		      RB_GC_GUARD(cert_obj);
+		      RB_GC_GUARD(hostname);
+		      RB_GC_GUARD(ssl_obj);
 }
 
 static int
@@ -349,6 +371,11 @@ ossl_ssl_verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
     }
 
     return ossl_verify_cb_call(cb, preverify_ok, ctx);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(verify_hostname);
+    RB_GC_GUARD(sslctx_obj);
+    RB_GC_GUARD(ssl_obj);
+    RB_GC_GUARD(cb);
 }
 
 static VALUE
@@ -363,6 +390,9 @@ ossl_call_session_get_cb(VALUE ary)
     if (NIL_P(cb)) return Qnil;
 
     return rb_funcallv(cb, id_call, 1, &ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(ssl_obj);
 }
 
 static SSL_SESSION *
@@ -394,6 +424,9 @@ ossl_sslctx_session_get_cb(SSL *ssl, unsigned char *buf, int len, int *copy)
     *copy = 1;
 
     return sess;
+    RB_GC_GUARD(ret_obj);
+    RB_GC_GUARD(ssl_obj);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -408,6 +441,9 @@ ossl_call_session_new_cb(VALUE ary)
     if (NIL_P(cb)) return Qnil;
 
     return rb_funcallv(cb, id_call, 1, &ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(ssl_obj);
 }
 
 /* return 1 normal.  return 0 removes the session */
@@ -441,6 +477,9 @@ ossl_sslctx_session_new_cb(SSL *ssl, SSL_SESSION *sess)
      * internally.
      */
     return 0;
+    RB_GC_GUARD(sess_obj);
+    RB_GC_GUARD(ssl_obj);
+    RB_GC_GUARD(ary);
 }
 
 #if OPENSSL_VERSION_NUMBER >= 0x10101000 && !defined(LIBRESSL_VERSION_NUMBER)
@@ -469,6 +508,10 @@ ossl_call_keylog_cb(VALUE args_v)
     line_v = rb_str_new_cstr(args->line);
 
     return rb_funcall(cb, id_call, 2, args->ssl_obj, line_v);
+    RB_GC_GUARD(args_v);
+    RB_GC_GUARD(line_v);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(sslctx_obj);
 }
 
 static void
@@ -488,6 +531,7 @@ ossl_sslctx_keylog_cb(const SSL *ssl, const char *line)
     if (state) {
         rb_ivar_set(ssl_obj, ID_callback_state, INT2NUM(state));
     }
+        RB_GC_GUARD(ssl_obj);
 }
 #endif
 
@@ -503,6 +547,9 @@ ossl_call_session_remove_cb(VALUE ary)
     if (NIL_P(cb)) return Qnil;
 
     return rb_funcallv(cb, id_call, 1, &ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(sslctx_obj);
 }
 
 static void
@@ -537,6 +584,9 @@ ossl_sslctx_session_remove_cb(SSL_CTX *ctx, SSL_SESSION *sess)
         rb_ivar_set(sslctx_obj, ID_callback_state, INT2NUM(state));
 */
     }
+        RB_GC_GUARD(ary);
+        RB_GC_GUARD(sess_obj);
+        RB_GC_GUARD(sslctx_obj);
 }
 
 static VALUE
@@ -552,6 +602,9 @@ ossl_sslctx_add_extra_chain_cert_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, arg))
     }
 
     return i;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(i);
 }
 
 static VALUE ossl_sslctx_setup(VALUE self);
@@ -583,6 +636,12 @@ ossl_call_servername_cb(VALUE arg)
     }
 
     return Qnil;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(ret_obj);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(sslctx_obj);
+    RB_GC_GUARD(ssl_obj);
 }
 
 static int
@@ -595,6 +654,7 @@ ssl_servername_cb(SSL *ssl, int *ad, void *arg)
         VALUE ssl_obj = (VALUE)SSL_get_ex_data(ssl, ossl_ssl_ex_ptr_idx);
         rb_ivar_set(ssl_obj, ID_callback_state, INT2NUM(state));
         return SSL_TLSEXT_ERR_ALERT_FATAL;
+    RB_GC_GUARD(ssl_obj);
     }
 
     return SSL_TLSEXT_ERR_OK;
@@ -611,6 +671,9 @@ ssl_renegotiation_cb(const SSL *ssl)
     if (NIL_P(cb)) return;
 
     rb_funcallv(cb, id_call, 1, &ssl_obj);
+    RB_GC_GUARD(ssl_obj);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(sslctx_obj);
 }
 
 static VALUE
@@ -625,6 +688,9 @@ ssl_npn_encode_protocol_i(RB_BLOCK_CALL_FUNC_ARGLIST(cur, encoded))
     rb_str_buf_cat(encoded, &len_byte, 1);
     rb_str_buf_cat(encoded, RSTRING_PTR(cur), len);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(encoded);
+    RB_GC_GUARD(cur);
 }
 
 static VALUE
@@ -633,6 +699,8 @@ ssl_encode_npn_protocols(VALUE protocols)
     VALUE encoded = rb_str_new(NULL, 0);
     rb_block_call(protocols, id_each, 0, 0, ssl_npn_encode_protocol_i, encoded);
     return encoded;
+    RB_GC_GUARD(protocols);
+    RB_GC_GUARD(encoded);
 }
 
 struct npn_select_cb_common_args {
@@ -666,6 +734,9 @@ npn_select_cb_common_i(VALUE tmp)
     }
 
     return selected;
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(protocols);
+    RB_GC_GUARD(selected);
 }
 
 static int
@@ -687,12 +758,15 @@ ssl_npn_select_cb_common(SSL *ssl, VALUE cb, const unsigned char **out,
 
 	rb_ivar_set(ssl_obj, ID_callback_state, INT2NUM(status));
 	return SSL_TLSEXT_ERR_ALERT_FATAL;
+    RB_GC_GUARD(ssl_obj);
     }
 
     *out = (unsigned char *)RSTRING_PTR(selected);
     *outlen = (unsigned char)RSTRING_LEN(selected);
 
     return SSL_TLSEXT_ERR_OK;
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(selected);
 }
 
 #ifdef OSSL_USE_NEXTPROTONEG
@@ -706,6 +780,7 @@ ssl_npn_advertise_cb(SSL *ssl, const unsigned char **out, unsigned int *outlen,
     *outlen = RSTRING_LENINT(protocols);
 
     return SSL_TLSEXT_ERR_OK;
+    RB_GC_GUARD(protocols);
 }
 
 static int
@@ -719,6 +794,8 @@ ssl_npn_select_cb(SSL *ssl, unsigned char **out, unsigned char *outlen,
 
     return ssl_npn_select_cb_common(ssl, cb, (const unsigned char **)out,
 				    outlen, in, inlen);
+				    RB_GC_GUARD(cb);
+				    RB_GC_GUARD(sslctx_obj);
 }
 #endif
 
@@ -732,6 +809,8 @@ ssl_alpn_select_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen,
     cb = rb_attr_get(sslctx_obj, id_i_alpn_select_cb);
 
     return ssl_npn_select_cb_common(ssl, cb, out, outlen, in, inlen);
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(sslctx_obj);
 }
 
 /* This function may serve as the entry point to support further callbacks. */
@@ -761,6 +840,7 @@ ossl_sslctx_get_options(VALUE self)
      * OpenSSL before 1.1.0.
      */
     return ULONG2NUM((unsigned long)SSL_CTX_get_options(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -793,6 +873,8 @@ ossl_sslctx_set_options(VALUE self, VALUE options)
     }
 
     return self;
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -912,6 +994,7 @@ ossl_sslctx_setup(VALUE self)
 	rb_ivar_set(self, id_npn_protocols_encoded, encoded);
 	SSL_CTX_set_next_protos_advertised_cb(ctx, ssl_npn_advertise_cb, (void *)self);
 	OSSL_Debug("SSL NPN advertise callback added");
+    RB_GC_GUARD(encoded);
     }
     if (RTEST(rb_attr_get(self, id_i_npn_select_cb))) {
 	SSL_CTX_set_next_proto_select_cb(ctx, ssl_npn_select_cb, (void *) self);
@@ -928,6 +1011,7 @@ ossl_sslctx_setup(VALUE self)
 				    RSTRING_LENINT(rprotos)))
 	    ossl_raise(eSSLError, "SSL_CTX_set_alpn_protos");
 	OSSL_Debug("SSL ALPN values added");
+    RB_GC_GUARD(rprotos);
     }
     if (RTEST(rb_attr_get(self, id_i_alpn_select_cb))) {
 	SSL_CTX_set_alpn_select_cb(ctx, ssl_alpn_select_cb, (void *) self);
@@ -977,6 +1061,8 @@ ossl_sslctx_setup(VALUE self)
 #endif
 
     return Qtrue;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -993,6 +1079,7 @@ ossl_ssl_cipher_to_ary(const SSL_CIPHER *cipher)
     rb_ary_push(ary, INT2NUM(alg_bits));
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1022,6 +1109,8 @@ ossl_sslctx_get_ciphers(VALUE self)
         rb_ary_push(ary, ossl_ssl_cipher_to_ary(cipher));
     }
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -1045,6 +1134,9 @@ build_cipher_string(VALUE v)
     }
 
     return str;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(elem);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1074,6 +1166,9 @@ ossl_sslctx_set_ciphers(VALUE self, VALUE v)
         ossl_raise(eSSLError, "SSL_CTX_set_cipher_list");
 
     return v;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 #ifdef HAVE_SSL_CTX_SET_CIPHERSUITES
@@ -1102,6 +1197,9 @@ ossl_sslctx_set_ciphersuites(VALUE self, VALUE v)
         ossl_raise(eSSLError, "SSL_CTX_set_ciphersuites");
 
     return v;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 #endif
 
@@ -1148,6 +1246,8 @@ ossl_sslctx_set_tmp_dh(VALUE self, VALUE arg)
 #endif
 
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -1188,6 +1288,8 @@ ossl_sslctx_set_ecdh_curves(VALUE self, VALUE arg)
     if (!SSL_CTX_set1_curves_list(ctx, RSTRING_PTR(arg)))
 	ossl_raise(eSSLError, NULL);
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 #else
 #define ossl_sslctx_set_ecdh_curves rb_f_notimplement
@@ -1210,6 +1312,7 @@ ossl_sslctx_get_security_level(VALUE self)
 
 #if defined(HAVE_SSL_CTX_GET_SECURITY_LEVEL)
     return INT2NUM(SSL_CTX_get_security_level(ctx));
+    RB_GC_GUARD(self);
 #else
     (void)ctx;
     return INT2FIX(0);
@@ -1253,6 +1356,8 @@ ossl_sslctx_set_security_level(VALUE self, VALUE value)
 #endif
 
     return value;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(self);
 }
 
 #ifdef SSL_MODE_SEND_FALLBACK_SCSV
@@ -1272,6 +1377,7 @@ ossl_sslctx_enable_fallback_scsv(VALUE self)
     SSL_CTX_set_mode(ctx, SSL_MODE_SEND_FALLBACK_SCSV);
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -1352,6 +1458,10 @@ ossl_sslctx_add_certificate(int argc, VALUE *argv, VALUE self)
         ossl_raise(eSSLError, "SSL_CTX_set0_chain");
     }
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(extra_chain_ary);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(cert);
 }
 
 /*
@@ -1370,6 +1480,8 @@ ossl_sslctx_session_add(VALUE self, VALUE arg)
     GetSSLSession(arg, sess);
 
     return SSL_CTX_add_session(ctx, sess) == 1 ? Qtrue : Qfalse;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1388,6 +1500,8 @@ ossl_sslctx_session_remove(VALUE self, VALUE arg)
     GetSSLSession(arg, sess);
 
     return SSL_CTX_remove_session(ctx, sess) == 1 ? Qtrue : Qfalse;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1404,6 +1518,7 @@ ossl_sslctx_get_session_cache_mode(VALUE self)
     GetSSLCTX(self, ctx);
 
     return LONG2NUM(SSL_CTX_get_session_cache_mode(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1424,6 +1539,8 @@ ossl_sslctx_set_session_cache_mode(VALUE self, VALUE arg)
     SSL_CTX_set_session_cache_mode(ctx, NUM2LONG(arg));
 
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1441,6 +1558,7 @@ ossl_sslctx_get_session_cache_size(VALUE self)
     GetSSLCTX(self, ctx);
 
     return LONG2NUM(SSL_CTX_sess_get_cache_size(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1460,6 +1578,8 @@ ossl_sslctx_set_session_cache_size(VALUE self, VALUE arg)
     SSL_CTX_sess_set_cache_size(ctx, NUM2LONG(arg));
 
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1507,6 +1627,8 @@ ossl_sslctx_get_session_cache_stats(VALUE self)
     rb_hash_aset(hash, ID2SYM(rb_intern("timeouts")), LONG2NUM(SSL_CTX_sess_timeouts(ctx)));
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 
@@ -1538,6 +1660,8 @@ ossl_sslctx_flush_sessions(int argc, VALUE *argv, VALUE self)
     SSL_CTX_flush_sessions(ctx, (long)tm);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg1);
 }
 
 /*
@@ -1575,6 +1699,7 @@ static VALUE
 ossl_ssl_s_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &ossl_ssl_type, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -1583,12 +1708,16 @@ peer_ip_address(VALUE self)
     VALUE remote_address = rb_funcall(rb_attr_get(self, id_i_io), rb_intern("remote_address"), 0);
 
     return rb_funcall(remote_address, rb_intern("inspect_sockaddr"), 0);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(remote_address);
 }
 
 static VALUE
 fallback_peer_ip_address(VALUE self, VALUE args)
 {
     return rb_str_new_cstr("(null)");
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1598,6 +1727,9 @@ peeraddr_ip_str(VALUE self)
     VALUE rb_eSystemCallError = rb_const_get(rb_mErrno, rb_intern("SystemCallError"));
 
     return rb_rescue2(peer_ip_address, self, fallback_peer_ip_address, (VALUE)0, rb_eSystemCallError, NULL);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rb_eSystemCallError);
+    RB_GC_GUARD(rb_mErrno);
 }
 
 /*
@@ -1650,6 +1782,9 @@ ossl_ssl_initialize(int argc, VALUE *argv, VALUE self)
     rb_call_super(0, NULL);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v_ctx);
+    RB_GC_GUARD(io);
 }
 
 #ifndef HAVE_RB_IO_DESCRIPTOR
@@ -1682,6 +1817,8 @@ ossl_ssl_setup(VALUE self)
         ossl_raise(eSSLError, "SSL_set_fd");
 
     return Qtrue;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
 }
 
 #ifdef _WIN32
@@ -1711,6 +1848,7 @@ no_exception_p(VALUE opts)
           rb_hash_lookup2(opts, sym_exception, Qundef) == Qfalse)
 	return 1;
     return 0;
+    RB_GC_GUARD(opts);
 }
 
 // Provided by Ruby 3.2.0 and later in order to support the default IO#timeout.
@@ -1737,6 +1875,7 @@ io_wait_writable(VALUE io)
     GetOpenFile(io, fptr);
     rb_io_wait_writable(fptr->fd);
 #endif
+    RB_GC_GUARD(io);
 }
 
 static void
@@ -1751,6 +1890,7 @@ io_wait_readable(VALUE io)
     GetOpenFile(io, fptr);
     rb_io_wait_readable(fptr->fd);
 #endif
+    RB_GC_GUARD(io);
 }
 
 static VALUE
@@ -1823,11 +1963,16 @@ ossl_start_ssl(VALUE self, int (*func)(SSL *), const char *funcname, VALUE opts)
                          peeraddr_ip_str(self),
                          SSL_state_string_long(ssl),
                          error_append);
+    RB_GC_GUARD(error_append);
           }
         }
     }
 
     return self;
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(cb_state);
 }
 
 /*
@@ -1842,6 +1987,7 @@ ossl_ssl_connect(VALUE self)
     ossl_ssl_setup(self);
 
     return ossl_start_ssl(self, SSL_connect, "SSL_connect", Qfalse);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1875,6 +2021,8 @@ ossl_ssl_connect_nonblock(int argc, VALUE *argv, VALUE self)
     ossl_ssl_setup(self);
 
     return ossl_start_ssl(self, SSL_connect, "SSL_connect", opts);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opts);
 }
 
 /*
@@ -1889,6 +2037,7 @@ ossl_ssl_accept(VALUE self)
     ossl_ssl_setup(self);
 
     return ossl_start_ssl(self, SSL_accept, "SSL_accept", Qfalse);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1922,6 +2071,8 @@ ossl_ssl_accept_nonblock(int argc, VALUE *argv, VALUE self)
     ossl_ssl_setup(self);
 
     return ossl_start_ssl(self, SSL_accept, "SSL_accept", opts);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opts);
 }
 
 static VALUE
@@ -2017,6 +2168,12 @@ ossl_ssl_read_internal(int argc, VALUE *argv, VALUE self, int nonblock)
             rb_str_unlocktmp(str);
             ossl_raise(eSSLError, "SSL_read");
         }
+            RB_GC_GUARD(len);
+            RB_GC_GUARD(self);
+            RB_GC_GUARD(io);
+            RB_GC_GUARD(opts);
+            RB_GC_GUARD(cb_state);
+            RB_GC_GUARD(str);
     }
 }
 
@@ -2032,6 +2189,7 @@ static VALUE
 ossl_ssl_read(int argc, VALUE *argv, VALUE self)
 {
     return ossl_ssl_read_internal(argc, argv, self, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2051,6 +2209,7 @@ static VALUE
 ossl_ssl_read_nonblock(int argc, VALUE *argv, VALUE self)
 {
     return ossl_ssl_read_internal(argc, argv, self, 1);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -2113,6 +2272,12 @@ ossl_ssl_write_internal(VALUE self, VALUE str, VALUE opts)
           default:
             ossl_raise(eSSLError, "SSL_write");
         }
+            RB_GC_GUARD(tmp);
+            RB_GC_GUARD(opts);
+            RB_GC_GUARD(str);
+            RB_GC_GUARD(self);
+            RB_GC_GUARD(io);
+            RB_GC_GUARD(cb_state);
     }
 }
 
@@ -2126,6 +2291,8 @@ static VALUE
 ossl_ssl_write(VALUE self, VALUE str)
 {
     return ossl_ssl_write_internal(self, str, Qfalse);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2143,6 +2310,9 @@ ossl_ssl_write_nonblock(int argc, VALUE *argv, VALUE self)
     rb_scan_args(argc, argv, "1:", &str, &opts);
 
     return ossl_ssl_write_internal(self, str, opts);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2175,6 +2345,7 @@ ossl_ssl_stop(VALUE self)
      */
     ossl_clear_error();
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2201,6 +2372,7 @@ ossl_ssl_get_cert(VALUE self)
         return Qnil;
     }
     return ossl_x509_new(cert);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2227,6 +2399,8 @@ ossl_ssl_get_peer_cert(VALUE self)
     X509_free(cert);
 
     return obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2256,6 +2430,8 @@ ossl_ssl_get_peer_cert_chain(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -2273,6 +2449,7 @@ ossl_ssl_get_version(VALUE self)
     GetSSL(self, ssl);
 
     return rb_str_new2(SSL_get_version(ssl));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2291,6 +2468,7 @@ ossl_ssl_get_cipher(VALUE self)
     GetSSL(self, ssl);
     cipher = SSL_get_current_cipher(ssl);
     return cipher ? ossl_ssl_cipher_to_ary(cipher) : Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2314,6 +2492,8 @@ ossl_ssl_get_state(VALUE self)
         rb_str_cat2(ret, SSL_state_string_long(ssl));
     }
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -2330,6 +2510,7 @@ ossl_ssl_pending(VALUE self)
     GetSSL(self, ssl);
 
     return INT2NUM(SSL_pending(ssl));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2346,6 +2527,7 @@ ossl_ssl_session_reused(VALUE self)
     GetSSL(self, ssl);
 
     return SSL_session_reused(ssl) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2367,6 +2549,8 @@ ossl_ssl_set_session(VALUE self, VALUE arg1)
         ossl_raise(eSSLError, "SSL_set_session");
 
     return arg1;
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2394,6 +2578,8 @@ ossl_ssl_set_hostname(VALUE self, VALUE arg)
     rb_ivar_set(self, id_i_hostname, arg);
 
     return arg;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2413,6 +2599,7 @@ ossl_ssl_get_verify_result(VALUE self)
     GetSSL(self, ssl);
 
     return LONG2NUM(SSL_get_verify_result(ssl));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2438,6 +2625,7 @@ ossl_ssl_get_finished(VALUE self)
     buf = ALLOCA_N(char, len);
     SSL_get_finished(ssl, buf, len);
     return rb_str_new(buf, len);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2463,6 +2651,7 @@ ossl_ssl_get_peer_finished(VALUE self)
     buf = ALLOCA_N(char, len);
     SSL_get_peer_finished(ssl, buf, len);
     return rb_str_new(buf, len);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2486,6 +2675,7 @@ ossl_ssl_get_client_ca_list(VALUE self)
 
     ca = SSL_get_client_CA_list(ssl);
     return ossl_x509name_sk2ary(ca);
+    RB_GC_GUARD(self);
 }
 
 # ifdef OSSL_USE_NEXTPROTONEG
@@ -2510,6 +2700,7 @@ ossl_ssl_npn_protocol(VALUE self)
 	return Qnil;
     else
 	return rb_str_new((const char *) out, outlen);
+	RB_GC_GUARD(self);
 }
 # endif
 
@@ -2534,6 +2725,7 @@ ossl_ssl_alpn_protocol(VALUE self)
 	return Qnil;
     else
 	return rb_str_new((const char *) out, outlen);
+	RB_GC_GUARD(self);
 }
 
 /*
@@ -2577,6 +2769,11 @@ ossl_ssl_export_keying_material(int argc, VALUE *argv, VALUE self)
 	ossl_raise(eSSLError, "SSL_export_keying_material");
     }
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(context);
+    RB_GC_GUARD(length);
+    RB_GC_GUARD(label);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2595,6 +2792,7 @@ ossl_ssl_tmp_key(VALUE self)
     if (!SSL_get_server_tmp_key(ssl, &key))
 	return Qnil;
     return ossl_pkey_new(key);
+    RB_GC_GUARD(self);
 }
 #endif /* !defined(OPENSSL_NO_SOCK) */
 

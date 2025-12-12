@@ -25,6 +25,8 @@ ossl_rand_seed(VALUE self, VALUE str)
     RAND_seed(RSTRING_PTR(str), RSTRING_LENINT(str));
 
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -56,6 +58,9 @@ ossl_rand_add(VALUE self, VALUE str, VALUE entropy)
     RAND_add(RSTRING_PTR(str), RSTRING_LENINT(str), NUM2DBL(entropy));
 
     return self;
+    RB_GC_GUARD(entropy);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -71,6 +76,8 @@ ossl_rand_load_file(VALUE self, VALUE filename)
 	ossl_raise(eRandomError, NULL);
     }
     return Qtrue;
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -88,6 +95,8 @@ ossl_rand_write_file(VALUE self, VALUE filename)
 	ossl_raise(eRandomError, NULL);
     }
     return Qtrue;
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -118,6 +127,9 @@ ossl_rand_bytes(VALUE self, VALUE len)
     }
 
     return str;
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 #ifdef HAVE_RAND_EGD
@@ -167,6 +179,7 @@ static VALUE
 ossl_rand_status(VALUE self)
 {
     return RAND_status() ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*

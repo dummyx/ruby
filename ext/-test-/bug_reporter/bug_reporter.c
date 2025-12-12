@@ -15,6 +15,8 @@ register_sample_bug_reporter(VALUE self, VALUE obj)
 {
     rb_bug_reporter_add(sample_bug_reporter, (void *)(uintptr_t)NUM2INT(obj));
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 void

@@ -8,12 +8,14 @@ invoke_proc_ensure(VALUE _)
 {
     invoking = 0;
     return Qnil;
+    RB_GC_GUARD(_);
 }
 
 static VALUE
 invoke_proc_begin(VALUE proc)
 {
     return rb_proc_call(proc, rb_ary_new());
+    RB_GC_GUARD(proc);
 }
 
 static void
@@ -22,6 +24,7 @@ invoke_proc(void *data)
     VALUE proc = (VALUE)data;
     invoking += 1;
     rb_ensure(invoke_proc_begin, proc, invoke_proc_ensure, 0);
+    RB_GC_GUARD(proc);
 }
 
 static void
@@ -37,6 +40,7 @@ gc_start_end_i(VALUE tpval, void *data)
         rb_postponed_job_handle_t h = rb_postponed_job_preregister(0, invoke_proc, data);
         rb_postponed_job_trigger(h);
     }
+        RB_GC_GUARD(tpval);
 }
 
 static VALUE
@@ -63,6 +67,9 @@ set_gc_hook(VALUE module, VALUE proc, rb_event_flag_t event, const char *tp_str,
     }
 
     return proc;
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(tpval);
 }
 
 static VALUE
@@ -70,6 +77,8 @@ set_after_gc_start(VALUE module, VALUE proc)
 {
     return set_gc_hook(module, proc, RUBY_INTERNAL_EVENT_GC_START,
                        "__set_after_gc_start_tpval__", "__set_after_gc_start_proc__");
+                       RB_GC_GUARD(proc);
+                       RB_GC_GUARD(module);
 }
 
 static VALUE
@@ -77,6 +86,8 @@ start_after_gc_exit(VALUE module, VALUE proc)
 {
     return set_gc_hook(module, proc, RUBY_INTERNAL_EVENT_GC_EXIT,
                        "__set_after_gc_exit_tpval__", "__set_after_gc_exit_proc__");
+                       RB_GC_GUARD(proc);
+                       RB_GC_GUARD(module);
 }
 
 void
@@ -84,4 +95,5 @@ Init_gc_hook(VALUE module)
 {
     rb_define_module_function(module, "after_gc_start_hook=", set_after_gc_start, 1);
     rb_define_module_function(module, "after_gc_exit_hook=", start_after_gc_exit, 1);
+    RB_GC_GUARD(module);
 }

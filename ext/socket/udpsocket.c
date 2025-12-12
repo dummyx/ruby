@@ -41,6 +41,8 @@ udp_init(int argc, VALUE *argv, VALUE sock)
     }
 
     return rsock_init_sock(sock, fd);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(arg);
 }
 
 struct udp_arg
@@ -61,6 +63,7 @@ udp_connect_internal(VALUE v)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -92,6 +95,9 @@ udp_connect(VALUE self, VALUE host, VALUE port)
     }
 
     return INT2FIX(0);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -110,6 +116,7 @@ udp_bind_internal(VALUE v)
         return Qtrue;
     }
     return Qfalse;
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -137,6 +144,10 @@ udp_bind(VALUE self, VALUE host, VALUE port)
     }
 
     return INT2FIX(0);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 struct udp_send_arg {
@@ -172,6 +183,7 @@ udp_send_internal(VALUE v)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -217,6 +229,11 @@ udp_send(int argc, VALUE *argv, VALUE sock)
                     rsock_freeaddrinfo, (VALUE)arg.res);
     if (!ret) rsock_sys_fail_host_port("sendto(2)", host, port);
     return ret;
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(flags);
 }
 
 /* :nodoc: */
@@ -224,6 +241,11 @@ static VALUE
 udp_recvfrom_nonblock(VALUE sock, VALUE len, VALUE flg, VALUE str, VALUE ex)
 {
     return rsock_s_recvfrom_nonblock(sock, len, flg, str, ex, RECV_IP);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(flg);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(sock);
 }
 
 void

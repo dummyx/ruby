@@ -245,6 +245,7 @@ obj2uid0(VALUE id)
     uid = OBJ2UID1(id);
     FINISH_GETPWNAM;
     return uid;
+    RB_GC_GUARD(id);
 }
 # else
 #   define PREPARE_GETPWNAM	/* do nothing */
@@ -287,6 +288,7 @@ obj2gid0(VALUE id)
     gid = OBJ2GID1(id);
     FINISH_GETGRNAM;
     return gid;
+    RB_GC_GUARD(id);
 }
 static rb_gid_t obj2gid(VALUE id, VALUE *getgr_buf);
 # else
@@ -530,6 +532,7 @@ static VALUE
 proc_get_pid(VALUE _)
 {
     return get_pid();
+    RB_GC_GUARD(_);
 }
 
 static VALUE
@@ -559,6 +562,7 @@ static VALUE
 proc_get_ppid(VALUE _)
 {
     return get_ppid();
+    RB_GC_GUARD(_);
 }
 
 
@@ -605,6 +609,7 @@ rb_process_status_allocate(VALUE klass)
 {
     struct rb_process_status *data;
     return TypedData_Make_Struct(klass, struct rb_process_status, &rb_process_status_type, data);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -639,6 +644,7 @@ static VALUE
 proc_s_last_status(VALUE mod)
 {
     return rb_last_status_get();
+    RB_GC_GUARD(mod);
 }
 
 VALUE
@@ -652,6 +658,7 @@ rb_process_status_new(rb_pid_t pid, int status, int error)
 
     rb_obj_freeze(last_status);
     return last_status;
+    RB_GC_GUARD(last_status);
 }
 
 static VALUE
@@ -665,6 +672,8 @@ process_status_dump(VALUE status)
         rb_ivar_set(dump, id_pid, PIDT2NUM(data->pid));
     }
     return dump;
+    RB_GC_GUARD(status);
+    RB_GC_GUARD(dump);
 }
 
 static VALUE
@@ -676,6 +685,10 @@ process_status_load(VALUE real_obj, VALUE load_obj)
     data->pid = NIL_P(pid) ? 0 : NUM2PIDT(pid);
     data->status = NIL_P(status) ? 0 : NUM2INT(status);
     return real_obj;
+    RB_GC_GUARD(load_obj);
+    RB_GC_GUARD(real_obj);
+    RB_GC_GUARD(pid);
+    RB_GC_GUARD(status);
 }
 
 void
@@ -702,6 +715,7 @@ pst_pid(VALUE status)
     struct rb_process_status *data;
     TypedData_Get_Struct(status, struct rb_process_status, &rb_process_status_type, data);
     return data->pid;
+    RB_GC_GUARD(status);
 }
 
 static int
@@ -710,6 +724,7 @@ pst_status(VALUE status)
     struct rb_process_status *data;
     TypedData_Get_Struct(status, struct rb_process_status, &rb_process_status_type, data);
     return data->status;
+    RB_GC_GUARD(status);
 }
 
 /*
@@ -727,6 +742,7 @@ pst_to_i(VALUE self)
 {
     int status = pst_status(self);
     return RB_INT2NUM(status);
+    RB_GC_GUARD(self);
 }
 
 #define PST2INT(st) pst_status(st)
@@ -747,6 +763,7 @@ pst_pid_m(VALUE self)
 {
     rb_pid_t pid = pst_pid(self);
     return PIDT2NUM(pid);
+    RB_GC_GUARD(self);
 }
 
 static VALUE pst_message_status(VALUE str, int status);
@@ -756,6 +773,7 @@ pst_message(VALUE str, rb_pid_t pid, int status)
 {
     rb_str_catf(str, "pid %ld", (long)pid);
     pst_message_status(str, status);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -790,6 +808,7 @@ pst_message_status(VALUE str, int status)
     }
 #endif
     return str;
+    RB_GC_GUARD(str);
 }
 
 
@@ -818,6 +837,8 @@ pst_to_s(VALUE st)
     str = rb_str_buf_new(0);
     pst_message(str, pid, status);
     return str;
+    RB_GC_GUARD(st);
+    RB_GC_GUARD(str);
 }
 
 
@@ -849,6 +870,8 @@ pst_inspect(VALUE st)
     pst_message(str, pid, status);
     rb_str_cat2(str, ">");
     return str;
+    RB_GC_GUARD(st);
+    RB_GC_GUARD(str);
 }
 
 
@@ -870,6 +893,8 @@ pst_equal(VALUE st1, VALUE st2)
 {
     if (st1 == st2) return Qtrue;
     return rb_equal(pst_to_i(st1), st2);
+    RB_GC_GUARD(st2);
+    RB_GC_GUARD(st1);
 }
 
 
@@ -924,6 +949,8 @@ pst_bitand(VALUE st1, VALUE st2)
     status &= mask;
 
     return INT2NUM(status);
+    RB_GC_GUARD(st2);
+    RB_GC_GUARD(st1);
 }
 
 
@@ -973,6 +1000,8 @@ pst_rshift(VALUE st1, VALUE st2)
     status >>= places;
 
     return INT2NUM(status);
+    RB_GC_GUARD(st2);
+    RB_GC_GUARD(st1);
 }
 
 
@@ -991,6 +1020,7 @@ pst_wifstopped(VALUE st)
     int status = PST2INT(st);
 
     return RBOOL(WIFSTOPPED(status));
+    RB_GC_GUARD(st);
 }
 
 
@@ -1010,6 +1040,7 @@ pst_wstopsig(VALUE st)
     if (WIFSTOPPED(status))
         return INT2NUM(WSTOPSIG(status));
     return Qnil;
+    RB_GC_GUARD(st);
 }
 
 
@@ -1027,6 +1058,7 @@ pst_wifsignaled(VALUE st)
     int status = PST2INT(st);
 
     return RBOOL(WIFSIGNALED(status));
+    RB_GC_GUARD(st);
 }
 
 
@@ -1046,6 +1078,7 @@ pst_wtermsig(VALUE st)
     if (WIFSIGNALED(status))
         return INT2NUM(WTERMSIG(status));
     return Qnil;
+    RB_GC_GUARD(st);
 }
 
 
@@ -1064,6 +1097,7 @@ pst_wifexited(VALUE st)
     int status = PST2INT(st);
 
     return RBOOL(WIFEXITED(status));
+    RB_GC_GUARD(st);
 }
 
 
@@ -1088,6 +1122,7 @@ pst_wexitstatus(VALUE st)
     if (WIFEXITED(status))
         return INT2NUM(WEXITSTATUS(status));
     return Qnil;
+    RB_GC_GUARD(st);
 }
 
 
@@ -1111,6 +1146,7 @@ pst_success_p(VALUE st)
     if (!WIFEXITED(status))
         return Qnil;
     return RBOOL(WEXITSTATUS(status) == EXIT_SUCCESS);
+    RB_GC_GUARD(st);
 }
 
 
@@ -1131,6 +1167,7 @@ pst_wcoredump(VALUE st)
     int status = PST2INT(st);
 
     return RBOOL(WCOREDUMP(status));
+    RB_GC_GUARD(st);
 #else
     return Qfalse;
 #endif
@@ -1203,6 +1240,8 @@ rb_process_status_wait(rb_pid_t pid, int flags)
         if (scheduler != Qnil) {
             VALUE result = rb_fiber_scheduler_process_wait(scheduler, pid, flags);
             if (!UNDEF_P(result)) return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(scheduler);
         }
     }
 
@@ -1265,6 +1304,7 @@ rb_process_status_waitv(int argc, VALUE *argv, VALUE _)
     }
 
     return rb_process_status_wait(pid, flags);
+    RB_GC_GUARD(_);
 }
 
 rb_pid_t
@@ -1286,6 +1326,7 @@ rb_waitpid(rb_pid_t pid, int *st, int flags)
     }
 
     return pid;
+    RB_GC_GUARD(status);
 }
 
 static VALUE
@@ -1303,6 +1344,7 @@ proc_wait(int argc, VALUE *argv)
         pid = NUM2PIDT(argv[0]);
         if (argc == 2 && !NIL_P(vflags = argv[1])) {
             flags = NUM2UINT(vflags);
+    RB_GC_GUARD(vflags);
         }
     }
 
@@ -1468,6 +1510,7 @@ static VALUE
 proc_m_wait(int c, VALUE *v, VALUE _)
 {
     return proc_wait(c, v);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -1490,6 +1533,8 @@ proc_wait2(int argc, VALUE *argv, VALUE _)
     VALUE pid = proc_wait(argc, argv);
     if (NIL_P(pid)) return Qnil;
     return rb_assoc_new(pid, rb_last_status_get());
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(pid);
 }
 
 
@@ -1529,6 +1574,8 @@ proc_waitall(VALUE _)
         rb_ary_push(result, rb_assoc_new(PIDT2NUM(pid), rb_last_status_get()));
     }
     return result;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(result);
 }
 
 static VALUE rb_cWaiter;
@@ -1537,6 +1584,7 @@ static VALUE
 detach_process_pid(VALUE thread)
 {
     return rb_thread_local_aref(thread, id_pid);
+    RB_GC_GUARD(thread);
 }
 
 static VALUE
@@ -1558,6 +1606,7 @@ rb_detach_process(rb_pid_t pid)
     rb_thread_local_aset(watcher, id_pid, PIDT2NUM(pid));
     RBASIC_SET_CLASS(watcher, rb_cWaiter);
     return watcher;
+    RB_GC_GUARD(watcher);
 }
 
 
@@ -1604,6 +1653,8 @@ static VALUE
 proc_detach(VALUE obj, VALUE pid)
 {
     return rb_detach_process(NUM2PIDT(pid));
+    RB_GC_GUARD(pid);
+    RB_GC_GUARD(obj);
 }
 
 /* This function should be async-signal-safe.  Actually it is. */
@@ -1757,6 +1808,8 @@ proc_exec_cmd(const char *prog, VALUE argv_str, VALUE envp_str)
     err = errno;
     try_with_sh(err, prog, argv, envp); /* try_with_sh() is async-signal-safe. */
     return err;
+    RB_GC_GUARD(envp_str);
+    RB_GC_GUARD(argv_str);
 #endif
 }
 
@@ -1795,6 +1848,7 @@ proc_exec_sh(const char *str, VALUE envp_str)
         execl("/bin/sh", "sh", "-c", str, (char *)NULL); /* async-signal-safe (since SUSv4) */
 #endif	/* _WIN32 */
     return errno;
+    RB_GC_GUARD(envp_str);
 }
 
 int
@@ -1944,6 +1998,7 @@ hide_obj(VALUE obj)
 {
     RBASIC_CLEAR_CLASS(obj);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1988,6 +2043,8 @@ check_exec_redirect_fd(VALUE v, int iskey)
   wrong:
     rb_raise(rb_eArgError, "wrong exec redirect");
     UNREACHABLE_RETURN(Qundef);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1999,6 +2056,7 @@ check_exec_redirect1(VALUE ary, VALUE key, VALUE param)
     if (!RB_TYPE_P(key, T_ARRAY)) {
         VALUE fd = check_exec_redirect_fd(key, !NIL_P(param));
         rb_ary_push(ary, hide_obj(rb_assoc_new(fd, param)));
+    RB_GC_GUARD(fd);
     }
     else {
         int i;
@@ -2006,9 +2064,14 @@ check_exec_redirect1(VALUE ary, VALUE key, VALUE param)
             VALUE v = RARRAY_AREF(key, i);
             VALUE fd = check_exec_redirect_fd(v, !NIL_P(param));
             rb_ary_push(ary, hide_obj(rb_assoc_new(fd, param)));
+    RB_GC_GUARD(fd);
+    RB_GC_GUARD(v);
         }
     }
     return ary;
+    RB_GC_GUARD(param);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -2090,6 +2153,8 @@ check_exec_redirect(VALUE key, VALUE val, struct rb_execarg *eargp)
                 VALUE v = RARRAY_AREF(key, i);
                 VALUE fd = check_exec_redirect_fd(v, 1);
                 if (FIX2INT(fd) != 1 && FIX2INT(fd) != 2) break;
+            RB_GC_GUARD(fd);
+            RB_GC_GUARD(v);
             }
             if (i == RARRAY_LEN(key))
                 flags = INT2NUM(O_WRONLY|O_CREAT|O_TRUNC);
@@ -2111,6 +2176,13 @@ check_exec_redirect(VALUE key, VALUE val, struct rb_execarg *eargp)
         rb_raise(rb_eArgError, "wrong exec redirect action");
     }
 
+        RB_GC_GUARD(param);
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(tmp);
+        RB_GC_GUARD(perm);
+        RB_GC_GUARD(flags);
+        RB_GC_GUARD(path);
 }
 
 #if defined(HAVE_SETRLIMIT) && defined(NUM2RLIM)
@@ -2142,6 +2214,11 @@ rb_execarg_addopt_rlimit(struct rb_execarg *eargp, int rtype, VALUE val)
     }
     tmp = hide_obj(rb_ary_new3(3, INT2NUM(rtype), softlim, hardlim));
     rb_ary_push(ary, tmp);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(hardlim);
+    RB_GC_GUARD(softlim);
+    RB_GC_GUARD(tmp);
 }
 #endif
 
@@ -2295,6 +2372,9 @@ redirect:
 
     RB_GC_GUARD(execarg_obj);
     return ST_CONTINUE;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(execarg_obj);
 }
 
 static int
@@ -2310,6 +2390,9 @@ check_exec_options_i(st_data_t st_key, st_data_t st_val, st_data_t arg)
         rb_raise(rb_eArgError, "wrong exec option");
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static int
@@ -2323,8 +2406,12 @@ check_exec_options_i_extract(st_data_t st_key, st_data_t st_val, st_data_t arg)
         VALUE nonopts = args[1];
         if (NIL_P(nonopts)) args[1] = nonopts = rb_hash_new();
         rb_hash_aset(nonopts, key, val);
+    RB_GC_GUARD(nonopts);
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static int
@@ -2351,10 +2438,13 @@ check_exec_fds_1(struct rb_execarg *eargp, VALUE h, int maxhint, VALUE ary)
                 fd = FIX2INT(RARRAY_AREF(elt, 1));
                 if (maxhint < fd)
                     maxhint = fd;
+    RB_GC_GUARD(elt);
             }
         }
     }
     return maxhint;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(h);
 }
 
 static VALUE
@@ -2395,13 +2485,18 @@ check_exec_fds(struct rb_execarg *eargp)
                 while (FIXNUM_P(val2 = rb_hash_lookup(h, val))) {
                     rb_hash_aset(h, val, INT2FIX(lastfd));
                     val = val2;
+    RB_GC_GUARD(val2);
                 }
+    RB_GC_GUARD(elt);
+    RB_GC_GUARD(val);
             }
         }
     }
 
     eargp->close_others_maxhint = maxhint;
     return h;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(h);
 }
 
 static void
@@ -2410,6 +2505,8 @@ rb_check_exec_options(VALUE opthash, VALUE execarg_obj)
     if (RHASH_EMPTY_P(opthash))
         return;
     rb_hash_stlike_foreach(opthash, check_exec_options_i, (st_data_t)execarg_obj);
+    RB_GC_GUARD(opthash);
+    RB_GC_GUARD(execarg_obj);
 }
 
 VALUE
@@ -2422,6 +2519,8 @@ rb_execarg_extract_options(VALUE execarg_obj, VALUE opthash)
     args[1] = Qnil;
     rb_hash_stlike_foreach(opthash, check_exec_options_i_extract, (st_data_t)args);
     return args[1];
+    RB_GC_GUARD(opthash);
+    RB_GC_GUARD(execarg_obj);
 }
 
 #ifdef ENV_IGNORECASE
@@ -2455,6 +2554,9 @@ check_exec_env_i(st_data_t st_key, st_data_t st_val, st_data_t arg)
     rb_ary_push(env, hide_obj(rb_assoc_new(key, val)));
 
     return ST_CONTINUE;
+    RB_GC_GUARD(env);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -2468,6 +2570,7 @@ rb_check_exec_env(VALUE hash, VALUE *path)
     *path = env[1];
 
     return env[0];
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -2496,6 +2599,8 @@ rb_check_argv(int argc, VALUE *argv)
         StringValueCStr(argv[i]);
     }
     return prog;
+    RB_GC_GUARD(prog);
+    RB_GC_GUARD(tmp);
 }
 
 static VALUE
@@ -2510,6 +2615,7 @@ check_hash(VALUE obj)
         break;
     }
     return rb_check_hash_type(obj);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -2542,6 +2648,8 @@ rb_exec_getargs(int *argc_p, VALUE **argv_p, int accept_shell, VALUE *env_ret, V
         }
     }
     return prog;
+    RB_GC_GUARD(prog);
+    RB_GC_GUARD(hash);
 }
 
 #ifndef _WIN32
@@ -2692,6 +2800,7 @@ rb_exec_fillarg(VALUE prog, int argc, VALUE *argv, VALUE env, VALUE opthash, VAL
             eargp->invoke.cmd.command_name =
                 hide_obj(rb_str_subseq(argv_buf, 0, strlen(RSTRING_PTR(argv_buf))));
             rb_enc_copy(eargp->invoke.cmd.command_name, prog);
+            RB_GC_GUARD(argv_buf);
         }
     }
 #endif
@@ -2721,8 +2830,10 @@ rb_exec_fillarg(VALUE prog, int argc, VALUE *argv, VALUE env, VALUE opthash, VAL
             s = RSTRING_PTR(arg);
 #endif
             rb_str_buf_cat(argv_buf, s, RSTRING_LEN(arg) + 1); /* include '\0' */
+        RB_GC_GUARD(arg);
         }
         eargp->invoke.cmd.argv_buf = argv_buf;
+    RB_GC_GUARD(argv_buf);
     }
 
     if (!eargp->use_shell) {
@@ -2739,8 +2850,13 @@ rb_exec_fillarg(VALUE prog, int argc, VALUE *argv, VALUE env, VALUE opthash, VAL
         rb_str_buf_cat(argv_str, (char *)&null, sizeof(null)); /* terminator for execve.  */
         eargp->invoke.cmd.argv_str =
             rb_imemo_tmpbuf_auto_free_pointer_new_from_an_RString(argv_str);
+    RB_GC_GUARD(argv_str);
     }
     RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(prog);
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(opthash);
+    RB_GC_GUARD(env);
 }
 
 struct rb_execarg *
@@ -2749,6 +2865,7 @@ rb_execarg_get(VALUE execarg_obj)
     struct rb_execarg *eargp;
     TypedData_Get_Struct(execarg_obj, struct rb_execarg, &exec_arg_data_type, eargp);
     return eargp;
+    RB_GC_GUARD(execarg_obj);
 }
 
 static VALUE
@@ -2766,6 +2883,12 @@ rb_execarg_init(int argc, const VALUE *orig_argv, int accept_shell, VALUE execar
     ret = eargp->use_shell ? eargp->invoke.sh.shell_script : eargp->invoke.cmd.command_name;
     RB_GC_GUARD(execarg_obj);
     return ret;
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(argv_buf);
+    RB_GC_GUARD(opthash);
+    RB_GC_GUARD(env);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(prog);
 }
 
 VALUE
@@ -2779,6 +2902,7 @@ rb_execarg_new(int argc, const VALUE *argv, int accept_shell, int allow_exc_opt)
         rb_raise(rb_eArgError, "exception option is not allowed");
     }
     return execarg_obj;
+    RB_GC_GUARD(execarg_obj);
 }
 
 void
@@ -2788,6 +2912,7 @@ rb_execarg_setenv(VALUE execarg_obj, VALUE env)
     env = !NIL_P(env) ? rb_check_exec_env(env, &eargp->path_env) : Qfalse;
     eargp->env_modification = env;
     RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(env);
 }
 
 static int
@@ -2803,6 +2928,9 @@ fill_envp_buf_i(st_data_t st_key, st_data_t st_val, st_data_t arg)
     rb_str_buf_cat(envp_buf, "", 1); /* append '\0' */
 
     return ST_CONTINUE;
+    RB_GC_GUARD(envp_buf);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 
@@ -2832,6 +2960,7 @@ rb_execarg_allocate_dup2_tmpbuf(struct rb_execarg *eargp, long len)
     VALUE tmpbuf = rb_imemo_tmpbuf_auto_free_pointer();
     rb_imemo_tmpbuf_set_ptr(tmpbuf, ruby_xmalloc(run_exec_dup2_tmpbuf_size(len)));
     eargp->dup2_tmpbuf = tmpbuf;
+    RB_GC_GUARD(tmpbuf);
 }
 
 static VALUE
@@ -2879,6 +3008,10 @@ rb_execarg_parent_start1(VALUE execarg_obj)
                 fd2 = NUM2INT(fd2v);
             }
             rb_execarg_addopt(execarg_obj, INT2FIX(fd), INT2FIX(fd2));
+    RB_GC_GUARD(fd2v);
+    RB_GC_GUARD(vpath);
+    RB_GC_GUARD(param);
+    RB_GC_GUARD(elt);
         }
     }
 
@@ -2916,6 +3049,9 @@ rb_execarg_parent_start1(VALUE execarg_obj)
                     st_insert(stenv, (st_data_t)key, (st_data_t)val);
                     RB_OBJ_WRITTEN(envtbl, Qundef, key);
                     RB_OBJ_WRITTEN(envtbl, Qundef, val);
+        RB_GC_GUARD(pair);
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(key);
                 }
             }
         }
@@ -2935,6 +3071,9 @@ rb_execarg_parent_start1(VALUE execarg_obj)
         eargp->envp_str =
             rb_imemo_tmpbuf_auto_free_pointer_new_from_an_RString(envp_str);
         eargp->envp_buf = envp_buf;
+        RB_GC_GUARD(envp_buf);
+        RB_GC_GUARD(envp_str);
+        RB_GC_GUARD(envtbl);
 
         /*
         char **tmp_envp = (char **)RSTRING_PTR(envp_str);
@@ -2947,6 +3086,9 @@ rb_execarg_parent_start1(VALUE execarg_obj)
 
     RB_GC_GUARD(execarg_obj);
     return Qnil;
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(envopts);
 }
 
 void
@@ -2958,6 +3100,7 @@ rb_execarg_parent_start(VALUE execarg_obj)
         rb_execarg_parent_end(execarg_obj);
         rb_jump_tag(state);
     }
+        RB_GC_GUARD(execarg_obj);
 }
 
 static VALUE
@@ -2980,6 +3123,9 @@ execarg_parent_end(VALUE execarg_obj)
                 fd2 = FIX2INT(fd2v);
                 parent_redirect_close(fd2);
                 RARRAY_ASET(param, 3, Qnil);
+    RB_GC_GUARD(elt);
+    RB_GC_GUARD(fd2v);
+    RB_GC_GUARD(param);
             }
         }
     }
@@ -2987,6 +3133,8 @@ execarg_parent_end(VALUE execarg_obj)
     errno = err;
     RB_GC_GUARD(execarg_obj);
     return execarg_obj;
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -3045,6 +3193,8 @@ rb_f_exec(int argc, const VALUE *argv)
     RB_GC_GUARD(execarg_obj);
     rb_syserr_fail_str(err, fail_str);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(execarg_obj);
+    RB_GC_GUARD(fail_str);
 }
 
 NORETURN(static VALUE f_exec(int c, const VALUE *a, VALUE _));
@@ -3143,6 +3293,7 @@ f_exec(int c, const VALUE *a, VALUE _)
 {
     rb_f_exec(c, a);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(_);
 }
 
 #define ERRMSG(str) \
@@ -3186,6 +3337,8 @@ save_redirect_fd(int fd, struct rb_execarg *sargp, char *errmsg, size_t errmsg_b
             sargp->fd_close = newary;
         }
         rb_ary_push(newary, hide_obj(rb_assoc_new(INT2FIX(save_fd), Qnil)));
+    RB_GC_GUARD(redirection);
+    RB_GC_GUARD(newary);
     }
 
     return 0;
@@ -3298,6 +3451,7 @@ run_exec_dup2(VALUE ary, VALUE tmpbuf, struct rb_execarg *sargp, char *errmsg, s
         pairs[i].newfd = FIX2INT(RARRAY_AREF(elt, 0)); /* unique */
         pairs[i].cloexec = RARRAY_LEN(elt) > 2 && RTEST(RARRAY_AREF(elt, 2));
         pairs[i].older_index = -1;
+    RB_GC_GUARD(elt);
     }
 
     /* sort the table by oldfd: O(n log n) */
@@ -3408,6 +3562,8 @@ run_exec_dup2(VALUE ary, VALUE tmpbuf, struct rb_execarg *sargp, char *errmsg, s
 
   fail:
     return -1;
+    RB_GC_GUARD(tmpbuf);
+    RB_GC_GUARD(ary);
 }
 
 /* This function should be async-signal-safe.  Actually it is. */
@@ -3424,9 +3580,11 @@ run_exec_close(VALUE ary, char *errmsg, size_t errmsg_buflen)
         if (ret == -1) {
             ERRMSG("close");
             return -1;
+    RB_GC_GUARD(elt);
         }
     }
     return 0;
+    RB_GC_GUARD(ary);
 }
 
 /* This function should be async-signal-safe when sargp is NULL.  Actually it is. */
@@ -3449,8 +3607,10 @@ run_exec_dup2_child(VALUE ary, struct rb_execarg *sargp, char *errmsg, size_t er
             return -1;
         }
         rb_update_max_fd(newfd);
+    RB_GC_GUARD(elt);
     }
     return 0;
+    RB_GC_GUARD(ary);
 }
 
 #ifdef HAVE_SETPGID
@@ -3511,15 +3671,19 @@ run_exec_rlimit(VALUE ary, struct rb_execarg *sargp, char *errmsg, size_t errmsg
             else
                 newary = sargp->rlimit_limits;
             rb_ary_push(newary, tmp);
+        RB_GC_GUARD(newary);
+        RB_GC_GUARD(tmp);
         }
         rlim.rlim_cur = NUM2RLIM(RARRAY_AREF(elt, 1));
         rlim.rlim_max = NUM2RLIM(RARRAY_AREF(elt, 2));
         if (setrlimit(rtype, &rlim) == -1) { /* hopefully async-signal-safe */
             ERRMSG("setrlimit");
             return -1;
+    RB_GC_GUARD(elt);
         }
     }
     return 0;
+    RB_GC_GUARD(ary);
 }
 #endif
 
@@ -3673,6 +3837,7 @@ rb_execarg_run_options(const struct rb_execarg *eargp, struct rb_execarg *sargp,
         VALUE ary = sargp->fd_dup2;
         if (ary != Qfalse) {
             rb_execarg_allocate_dup2_tmpbuf(sargp, RARRAY_LEN(ary));
+    RB_GC_GUARD(ary);
         }
     }
     {
@@ -3682,6 +3847,7 @@ rb_execarg_run_options(const struct rb_execarg *eargp, struct rb_execarg *sargp,
     }
 
     return 0;
+    RB_GC_GUARD(obj);
 }
 
 /* This function should be async-signal-safe.  Hopefully it is. */
@@ -3735,6 +3901,7 @@ proc_syswait(VALUE pid)
 {
     rb_syswait((rb_pid_t)pid);
     return Qnil;
+    RB_GC_GUARD(pid);
 }
 
 static int
@@ -3758,6 +3925,7 @@ move_fds_to_avoid_crash(int *fdp, int n, VALUE fds)
         }
     }
     return 0;
+    RB_GC_GUARD(fds);
 }
 
 static int
@@ -3777,6 +3945,7 @@ pipe_nocrash(int filedes[2], VALUE fds)
         errno = save;
     }
     return ret;
+    RB_GC_GUARD(fds);
 }
 
 #ifndef O_BINARY
@@ -3788,6 +3957,7 @@ rb_thread_sleep_that_takes_VALUE_as_sole_argument(VALUE n)
 {
     rb_thread_sleep(NUM2INT(n));
     return Qundef;
+    RB_GC_GUARD(n);
 }
 
 static int
@@ -4196,6 +4366,7 @@ fork_check_err(struct rb_process_status *status, int (*chfunc)(void*, char *, si
     }
 
     return pid;
+    RB_GC_GUARD(fds);
 }
 
 /*
@@ -4219,6 +4390,7 @@ rb_fork_async_signal_safe(int *status,
     }
 
     return result;
+    RB_GC_GUARD(fds);
 }
 
 rb_pid_t
@@ -4283,6 +4455,7 @@ rb_call_proc__fork(void)
     else {
         VALUE pid = rb_funcall(rb_mProcess, id__fork, 0);
         return NUM2PIDT(pid);
+        RB_GC_GUARD(pid);
     }
 }
 #endif
@@ -4312,6 +4485,7 @@ rb_proc__fork(VALUE _obj)
 {
     rb_pid_t pid = proc_fork_pid();
     return PIDT2NUM(pid);
+    RB_GC_GUARD(_obj);
 }
 
 /*
@@ -4391,6 +4565,7 @@ rb_f_fork(VALUE obj)
     }
 
     return PIDT2NUM(pid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define rb_proc__fork rb_f_notimplement
@@ -4418,6 +4593,7 @@ exit_status_code(VALUE status)
         break;
     }
     return istatus;
+    RB_GC_GUARD(status);
 }
 
 NORETURN(static VALUE rb_f_exit_bang(int argc, VALUE *argv, VALUE obj));
@@ -4451,6 +4627,7 @@ rb_f_exit_bang(int argc, VALUE *argv, VALUE obj)
     _exit(istatus);
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4533,6 +4710,7 @@ f_exit(int c, const VALUE *a, VALUE _)
 {
     rb_f_exit(c, a);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(_);
 }
 
 VALUE
@@ -4546,6 +4724,7 @@ rb_f_abort(int argc, const VALUE *argv)
             rb_ec_error_print(ec, errinfo);
         }
         rb_exit(EXIT_FAILURE);
+    RB_GC_GUARD(errinfo);
     }
     else {
         VALUE args[2];
@@ -4581,6 +4760,7 @@ f_abort(int c, const VALUE *a, VALUE _)
 {
     rb_f_abort(c, a);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(_);
 }
 
 void
@@ -4684,6 +4864,7 @@ do_spawn_process(VALUE arg)
 
     return (VALUE)rb_spawn_process(rb_execarg_get(argp->execarg),
                                    argp->errmsg.ptr, argp->errmsg.buflen);
+                                   RB_GC_GUARD(arg);
 }
 
 NOINLINE(static rb_pid_t
@@ -4701,6 +4882,7 @@ rb_execarg_spawn(VALUE execarg_obj, char *errmsg, size_t errmsg_buflen)
     rb_pid_t r = (rb_pid_t)rb_ensure(do_spawn_process, (VALUE)&args,
                                      execarg_parent_end, execarg_obj);
     return r;
+    RB_GC_GUARD(execarg_obj);
 }
 
 static rb_pid_t
@@ -4710,6 +4892,7 @@ rb_spawn_internal(int argc, const VALUE *argv, char *errmsg, size_t errmsg_bufle
 
     execarg_obj = rb_execarg_new(argc, argv, TRUE, FALSE);
     return rb_execarg_spawn(execarg_obj, errmsg, errmsg_buflen);
+    RB_GC_GUARD(execarg_obj);
 }
 
 rb_pid_t
@@ -4874,6 +5057,7 @@ rb_f_system(int argc, VALUE *argv, VALUE _)
                 VALUE command = eargp->invoke.sh.shell_script;
                 RB_GC_GUARD(execarg_obj);
                 rb_syserr_fail_str(data->error, command);
+            RB_GC_GUARD(command);
             }
             else {
                 return Qnil;
@@ -4886,6 +5070,8 @@ rb_f_system(int argc, VALUE *argv, VALUE _)
             rb_str_append(str, command);
             RB_GC_GUARD(execarg_obj);
             rb_exc_raise(rb_exc_new_str(rb_eRuntimeError, str));
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(command);
         }
         else {
             return Qfalse;
@@ -4898,10 +5084,13 @@ rb_f_system(int argc, VALUE *argv, VALUE _)
         VALUE command = eargp->invoke.sh.shell_script;
         RB_GC_GUARD(execarg_obj);
         rb_syserr_fail_str(errno, command);
+    RB_GC_GUARD(command);
     }
     else {
         return Qnil;
     }
+        RB_GC_GUARD(execarg_obj);
+        RB_GC_GUARD(_);
 }
 
 /*
@@ -5029,6 +5218,9 @@ rb_f_spawn(int argc, VALUE *argv, VALUE _)
     }
 #if defined(HAVE_WORKING_FORK) || defined(HAVE_SPAWNV)
     return PIDT2NUM(pid);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(fail_str);
+    RB_GC_GUARD(execarg_obj);
 #else
     return Qnil;
 #endif
@@ -5072,6 +5264,8 @@ rb_f_sleep(int argc, VALUE *argv, VALUE _)
     time_t end = time(0) - beg;
 
     return TIMET2NUM(end);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(scheduler);
 }
 
 
@@ -5100,6 +5294,7 @@ proc_getpgrp(VALUE _)
     pgrp = getpgid(0);
     if (pgrp < 0) rb_sys_fail(0);
     return PIDT2NUM(pgrp);
+    RB_GC_GUARD(_);
 #endif
 }
 #else
@@ -5130,6 +5325,7 @@ proc_setpgrp(VALUE _)
     if (setpgrp() < 0) rb_sys_fail(0);
 #endif
     return INT2FIX(0);
+    RB_GC_GUARD(_);
 }
 #else
 #define proc_setpgrp rb_f_notimplement
@@ -5156,6 +5352,8 @@ proc_getpgid(VALUE obj, VALUE pid)
     i = getpgid(NUM2PIDT(pid));
     if (i < 0) rb_sys_fail(0);
     return PIDT2NUM(i);
+    RB_GC_GUARD(pid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_getpgid rb_f_notimplement
@@ -5183,6 +5381,9 @@ proc_setpgid(VALUE obj, VALUE pid, VALUE pgrp)
 
     if (setpgid(ipid, ipgrp) < 0) rb_sys_fail(0);
     return INT2FIX(0);
+    RB_GC_GUARD(pgrp);
+    RB_GC_GUARD(pid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_setpgid rb_f_notimplement
@@ -5215,6 +5416,7 @@ proc_getsid(int argc, VALUE *argv, VALUE _)
     sid = getsid(pid);
     if (sid < 0) rb_sys_fail(0);
     return PIDT2NUM(sid);
+    RB_GC_GUARD(_);
 }
 #else
 #define proc_getsid rb_f_notimplement
@@ -5247,6 +5449,7 @@ proc_setsid(VALUE _)
     pid = setsid();
     if (pid < 0) rb_sys_fail(0);
     return PIDT2NUM(pid);
+    RB_GC_GUARD(_);
 }
 
 #if !defined(HAVE_SETSID)
@@ -5318,6 +5521,9 @@ proc_getpriority(VALUE obj, VALUE which, VALUE who)
     prio = getpriority(iwhich, iwho);
     if (errno) rb_sys_fail(0);
     return INT2FIX(prio);
+    RB_GC_GUARD(who);
+    RB_GC_GUARD(which);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_getpriority rb_f_notimplement
@@ -5353,6 +5559,10 @@ proc_setpriority(VALUE obj, VALUE which, VALUE who, VALUE prio)
     if (setpriority(iwhich, iwho, iprio) < 0)
         rb_sys_fail(0);
     return INT2FIX(0);
+    RB_GC_GUARD(prio);
+    RB_GC_GUARD(who);
+    RB_GC_GUARD(which);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_setpriority rb_f_notimplement
@@ -5499,6 +5709,8 @@ rlimit_type_by_sym(VALUE key)
 
     RB_GC_GUARD(key);
     return rtype;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(name);
 }
 
 static int
@@ -5539,6 +5751,8 @@ rlimit_resource_type(VALUE rtype)
     rb_raise(rb_eArgError, "invalid resource name: % "PRIsVALUE, rtype);
 
     UNREACHABLE_RETURN(-1);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(rtype);
 }
 
 static rlim_t
@@ -5580,6 +5794,8 @@ rlimit_resource_value(VALUE rval)
     rb_raise(rb_eArgError, "invalid resource value: %"PRIsVALUE, rval);
 
     UNREACHABLE_RETURN((rlim_t)-1);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(rval);
 }
 #endif
 
@@ -5615,6 +5831,8 @@ proc_getrlimit(VALUE obj, VALUE resource)
         rb_sys_fail("getrlimit");
     }
     return rb_assoc_new(RLIM2NUM(rlim.rlim_cur), RLIM2NUM(rlim.rlim_max));
+    RB_GC_GUARD(resource);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_getrlimit rb_f_notimplement
@@ -5692,6 +5910,10 @@ proc_setrlimit(int argc, VALUE *argv, VALUE obj)
         rb_sys_fail("setrlimit");
     }
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(rlim_max);
+    RB_GC_GUARD(rlim_cur);
+    RB_GC_GUARD(resource);
 }
 #else
 #define proc_setrlimit rb_f_notimplement
@@ -5779,6 +6001,7 @@ rb_getlogin(void)
 
     rb_str_set_len(maybe_result, strlen(login));
     return maybe_result;
+    RB_GC_GUARD(maybe_result);
 
 # elif defined(USE_GETLOGIN)
 
@@ -5891,6 +6114,9 @@ rb_getpwdirnam_for_login(VALUE login_name)
     VALUE result = rb_str_new_cstr(args.result->pw_dir);
     rb_str_resize(getpwnm_tmp, 0);
     return result;
+    RB_GC_GUARD(login_name);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(getpwnm_tmp);
 
 # elif defined(USE_GETPWNAM)
 
@@ -5987,6 +6213,8 @@ rb_getpwdiruid(void)
     VALUE result = rb_str_new_cstr(args.result->pw_dir);
     rb_str_resize(getpwid_tmp, 0);
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(getpwid_tmp);
 
 # elif defined(USE_GETPWUID)
 
@@ -6078,6 +6306,8 @@ obj2uid(VALUE id
 #endif
     }
     return uid;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(tmp);
 }
 
 # ifdef p_uid_from_name
@@ -6096,6 +6326,8 @@ static VALUE
 p_uid_from_name(VALUE self, VALUE id)
 {
     return UIDT2NUM(OBJ2UID(id));
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(self);
 }
 # endif
 #endif
@@ -6179,6 +6411,8 @@ obj2gid(VALUE id
 #endif
     }
     return gid;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(tmp);
 }
 
 # ifdef p_gid_from_name
@@ -6197,6 +6431,8 @@ static VALUE
 p_gid_from_name(VALUE self, VALUE id)
 {
     return GIDT2NUM(OBJ2GID(id));
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(self);
 }
 # endif
 #endif
@@ -6217,6 +6453,8 @@ p_sys_setuid(VALUE obj, VALUE id)
     check_uid_switch();
     if (setuid(OBJ2UID(id)) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setuid rb_f_notimplement
@@ -6261,6 +6499,8 @@ p_sys_seteuid(VALUE obj, VALUE id)
     check_uid_switch();
     if (seteuid(OBJ2UID(id)) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_seteuid rb_f_notimplement
@@ -6290,6 +6530,9 @@ p_sys_setreuid(VALUE obj, VALUE rid, VALUE eid)
     FINISH_GETPWNAM;
     if (setreuid(ruid, euid) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(eid);
+    RB_GC_GUARD(rid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setreuid rb_f_notimplement
@@ -6320,6 +6563,10 @@ p_sys_setresuid(VALUE obj, VALUE rid, VALUE eid, VALUE sid)
     FINISH_GETPWNAM;
     if (setresuid(ruid, euid, suid) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(sid);
+    RB_GC_GUARD(eid);
+    RB_GC_GUARD(rid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setresuid rb_f_notimplement
@@ -6343,6 +6590,7 @@ proc_getuid(VALUE obj)
 {
     rb_uid_t uid = getuid();
     return UIDT2NUM(uid);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -6383,6 +6631,8 @@ proc_setuid(VALUE obj, VALUE id)
     }
 #endif
     return id;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_setuid rb_f_notimplement
@@ -6581,6 +6831,8 @@ p_uid_change_privilege(VALUE obj, VALUE id)
 #endif
     }
     return id;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -6601,6 +6853,8 @@ p_sys_setgid(VALUE obj, VALUE id)
     check_gid_switch();
     if (setgid(OBJ2GID(id)) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setgid rb_f_notimplement
@@ -6645,6 +6899,8 @@ p_sys_setegid(VALUE obj, VALUE id)
     check_gid_switch();
     if (setegid(OBJ2GID(id)) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setegid rb_f_notimplement
@@ -6672,6 +6928,9 @@ p_sys_setregid(VALUE obj, VALUE rid, VALUE eid)
     egid = OBJ2GID(eid);
     if (setregid(rgid, egid) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(eid);
+    RB_GC_GUARD(rid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setregid rb_f_notimplement
@@ -6699,6 +6958,10 @@ p_sys_setresgid(VALUE obj, VALUE rid, VALUE eid, VALUE sid)
     sgid = OBJ2GID(sid);
     if (setresgid(rgid, egid, sgid) != 0) rb_sys_fail(0);
     return Qnil;
+    RB_GC_GUARD(sid);
+    RB_GC_GUARD(eid);
+    RB_GC_GUARD(rid);
+    RB_GC_GUARD(obj);
 }
 #else
 #define p_sys_setresgid rb_f_notimplement
@@ -6745,6 +7008,7 @@ proc_getgid(VALUE obj)
 {
     rb_gid_t gid = getgid();
     return GIDT2NUM(gid);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -6784,6 +7048,8 @@ proc_setgid(VALUE obj, VALUE id)
     }
 #endif
     return GIDT2NUM(gid);
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_setgid rb_f_notimplement
@@ -6884,6 +7150,9 @@ proc_getgroups(VALUE obj)
     ALLOCV_END(tmp);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(ary);
 }
 #else
 #define proc_getgroups rb_f_notimplement
@@ -6924,6 +7193,7 @@ proc_setgroups(VALUE obj, VALUE ary)
         VALUE g = RARRAY_AREF(ary, i);
 
         groups[i] = OBJ2GID1(g);
+    RB_GC_GUARD(g);
     }
     FINISH_GETGRNAM;
 
@@ -6933,6 +7203,9 @@ proc_setgroups(VALUE obj, VALUE ary)
     ALLOCV_END(tmp);
 
     return proc_getgroups(obj);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
 }
 #else
 #define proc_setgroups rb_f_notimplement
@@ -6966,6 +7239,9 @@ proc_initgroups(VALUE obj, VALUE uname, VALUE base_grp)
         rb_sys_fail(0);
     }
     return proc_getgroups(obj);
+    RB_GC_GUARD(base_grp);
+    RB_GC_GUARD(uname);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_initgroups rb_f_notimplement
@@ -6987,6 +7263,7 @@ static VALUE
 proc_getmaxgroups(VALUE obj)
 {
     return INT2FIX(maxgroups());
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_getmaxgroups rb_f_notimplement
@@ -7019,6 +7296,8 @@ proc_setmaxgroups(VALUE obj, VALUE val)
     _maxgroups = ngroups;
 
     return INT2FIX(_maxgroups);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(obj);
 }
 #else
 #define proc_setmaxgroups rb_f_notimplement
@@ -7061,6 +7340,7 @@ proc_daemon(int argc, VALUE *argv, VALUE _)
     n = rb_daemon(nochdir, noclose);
     if (n < 0) rb_sys_fail("daemon");
     return INT2FIX(n);
+    RB_GC_GUARD(_);
 }
 
 extern const char ruby_null_device[];
@@ -7296,6 +7576,8 @@ p_gid_change_privilege(VALUE obj, VALUE id)
 #endif
     }
     return id;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -7316,6 +7598,7 @@ proc_geteuid(VALUE obj)
 {
     rb_uid_t euid = geteuid();
     return UIDT2NUM(euid);
+    RB_GC_GUARD(obj);
 }
 
 #if defined(HAVE_SETRESUID) || defined(HAVE_SETREUID) || defined(HAVE_SETEUID) || defined(HAVE_SETUID) || defined(_POSIX_SAVED_IDS)
@@ -7357,6 +7640,8 @@ proc_seteuid_m(VALUE mod, VALUE euid)
     check_uid_switch();
     proc_seteuid(OBJ2UID(euid));
     return euid;
+    RB_GC_GUARD(euid);
+    RB_GC_GUARD(mod);
 }
 #else
 #define proc_seteuid_m rb_f_notimplement
@@ -7421,6 +7706,8 @@ p_uid_grant_privilege(VALUE obj, VALUE id)
 {
     rb_seteuid_core(OBJ2UID(id));
     return id;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -7443,6 +7730,7 @@ proc_getegid(VALUE obj)
     rb_gid_t egid = getegid();
 
     return GIDT2NUM(egid);
+    RB_GC_GUARD(obj);
 }
 
 #if defined(HAVE_SETRESGID) || defined(HAVE_SETREGID) || defined(HAVE_SETEGID) || defined(HAVE_SETGID) || defined(_POSIX_SAVED_IDS)
@@ -7485,6 +7773,8 @@ proc_setegid(VALUE obj, VALUE egid)
     rb_notimplement();
 #endif
     return egid;
+    RB_GC_GUARD(egid);
+    RB_GC_GUARD(obj);
 }
 #endif
 
@@ -7553,6 +7843,8 @@ p_gid_grant_privilege(VALUE obj, VALUE id)
 {
     rb_setegid_core(OBJ2GID(id));
     return id;
+    RB_GC_GUARD(id);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -7570,6 +7862,7 @@ p_uid_exchangeable(VALUE _)
 {
 #if defined(HAVE_SETRESUID)
     return Qtrue;
+    RB_GC_GUARD(_);
 #elif defined(HAVE_SETREUID) && !defined(OBSOLETE_SETREUID)
     return Qtrue;
 #else
@@ -7615,6 +7908,7 @@ p_uid_exchange(VALUE obj)
     rb_notimplement();
 #endif
     return UIDT2NUM(uid);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -7632,6 +7926,7 @@ p_gid_exchangeable(VALUE _)
 {
 #if defined(HAVE_SETRESGID)
     return Qtrue;
+    RB_GC_GUARD(_);
 #elif defined(HAVE_SETREGID) && !defined(OBSOLETE_SETREGID)
     return Qtrue;
 #else
@@ -7677,6 +7972,7 @@ p_gid_exchange(VALUE obj)
     rb_notimplement();
 #endif
     return GIDT2NUM(gid);
+    RB_GC_GUARD(obj);
 }
 
 /* [MG] :FIXME: Is this correct? I'm not sure how to phrase this. */
@@ -7695,6 +7991,7 @@ p_uid_have_saved_id(VALUE _)
 {
 #if defined(HAVE_SETRESUID) || defined(HAVE_SETEUID) || defined(_POSIX_SAVED_IDS)
     return Qtrue;
+    RB_GC_GUARD(_);
 #else
     return Qfalse;
 #endif
@@ -7709,6 +8006,7 @@ p_uid_sw_ensure(VALUE i)
     under_uid_switch = 0;
     id = rb_seteuid_core(id);
     return UIDT2NUM(id);
+    RB_GC_GUARD(i);
 }
 
 
@@ -7760,6 +8058,7 @@ p_uid_switch(VALUE obj)
     }
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(obj);
 }
 #else
 static VALUE
@@ -7810,6 +8109,7 @@ p_gid_have_saved_id(VALUE _)
 {
 #if defined(HAVE_SETRESGID) || defined(HAVE_SETEGID) || defined(_POSIX_SAVED_IDS)
     return Qtrue;
+    RB_GC_GUARD(_);
 #else
     return Qfalse;
 #endif
@@ -7823,6 +8123,7 @@ p_gid_sw_ensure(VALUE i)
     under_gid_switch = 0;
     id = rb_setegid_core(id);
     return GIDT2NUM(id);
+    RB_GC_GUARD(i);
 }
 
 
@@ -7874,6 +8175,7 @@ p_gid_switch(VALUE obj)
     }
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(obj);
 }
 #else
 static VALUE
@@ -7965,6 +8267,12 @@ rb_proc_times(VALUE obj)
     RB_GC_GUARD(cutime);
     RB_GC_GUARD(cstime);
     return ret;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(cstime);
+    RB_GC_GUARD(cutime);
+    RB_GC_GUARD(stime);
+    RB_GC_GUARD(utime);
 }
 #else
 #define rb_proc_times rb_f_notimplement
@@ -8121,6 +8429,7 @@ timetick2integer(struct timetick *ttp,
         v = rb_funcall(v, '/', 1, TIMETICK_INT2NUM(denominators[i])); /* Ruby's '/' is div. */
     }
     return v;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -8157,6 +8466,7 @@ make_clock_result(struct timetick *ttp,
     }
     else
         rb_raise(rb_eArgError, "unexpected unit: %"PRIsVALUE, unit);
+        RB_GC_GUARD(unit);
 }
 
 #ifdef __APPLE__
@@ -8546,6 +8856,9 @@ rb_clock_gettime(int argc, VALUE *argv, VALUE _)
 
   success:
     return make_clock_result(&tt, numerators, num_numerators, denominators, num_denominators, unit);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(clk_id);
+    RB_GC_GUARD(unit);
 }
 
 /*
@@ -8721,6 +9034,9 @@ rb_clock_getres(int argc, VALUE *argv, VALUE _)
     }
     else {
         return make_clock_result(&tt, numerators, num_numerators, denominators, num_denominators, unit);
+        RB_GC_GUARD(unit);
+        RB_GC_GUARD(_);
+        RB_GC_GUARD(clk_id);
     }
 }
 
@@ -8820,6 +9136,7 @@ static VALUE
 proc_rb_f_kill(int c, const VALUE *v, VALUE _)
 {
     return rb_f_kill(c, v);
+    RB_GC_GUARD(_);
 }
 
 VALUE rb_mProcess;
@@ -8860,6 +9177,7 @@ proc_warmup(VALUE _)
     rb_gc_prepare_heap();
     RB_VM_LOCK_LEAVE();
     return Qtrue;
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -9398,6 +9716,7 @@ InitVM_process(void)
             VALUE v = RLIM_INFINITY == RLIM_SAVED_MAX ? inf : RLIM2NUM(RLIM_SAVED_MAX);
             /* see Process.setrlimit */
             rb_define_const(rb_mProcess, "RLIM_SAVED_MAX", v);
+            RB_GC_GUARD(v);
         }
 #endif
         /* see Process.setrlimit */
@@ -9407,6 +9726,8 @@ InitVM_process(void)
             VALUE v = RLIM_INFINITY == RLIM_SAVED_CUR ? inf : RLIM2NUM(RLIM_SAVED_CUR);
             /* see Process.setrlimit */
             rb_define_const(rb_mProcess, "RLIM_SAVED_CUR", v);
+            RB_GC_GUARD(v);
+            RB_GC_GUARD(inf);
         }
 #endif
     }

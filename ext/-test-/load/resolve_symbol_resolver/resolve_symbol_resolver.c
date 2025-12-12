@@ -10,6 +10,7 @@ VALUE
 rsr_any_method(VALUE klass)
 {
     return rst_any_method((VALUE)NULL);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -22,6 +23,7 @@ rsr_try_resolve_fname(VALUE klass)
         rb_raise(rb_eLoadError, "symbol not found: missing fname");
     }
     return Qtrue;
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -34,6 +36,7 @@ rsr_try_resolve_sname(VALUE klass)
         rb_raise(rb_eLoadError, "symbol not found: missing sname");
     }
     return Qtrue;
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -53,4 +56,5 @@ Init_resolve_symbol_resolver(void)
     rb_define_singleton_method(mod, "any_method", rsr_any_method, 0);
     rb_define_singleton_method(mod, "try_resolve_fname", rsr_try_resolve_fname, 0);
     rb_define_singleton_method(mod, "try_resolve_sname", rsr_try_resolve_sname, 0);
+    RB_GC_GUARD(mod);
 }

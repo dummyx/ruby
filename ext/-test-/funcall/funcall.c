@@ -4,30 +4,35 @@ static VALUE
 with_funcall2(int argc, VALUE *argv, VALUE self)
 {
     return rb_funcallv(self, rb_intern("target"), argc, argv);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 with_funcall_passing_block(int argc, VALUE *argv, VALUE self)
 {
     return rb_funcall_passing_block(self, rb_intern("target"), argc, argv);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 with_funcall_passing_block_kw(int argc, VALUE *argv, VALUE self)
 {
     return rb_funcall_passing_block_kw(self, rb_intern("target"), argc-1, argv+1, FIX2INT(argv[0]));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 with_funcallv_public_kw(int argc, VALUE *argv, VALUE self)
 {
     return rb_funcallv_public_kw(argv[0], SYM2ID(argv[1]), argc-3, argv+3, FIX2INT(argv[2]));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 with_yield_splat_kw(int argc, VALUE *argv, VALUE self)
 {
     return rb_yield_splat_kw(argv[1], FIX2INT(argv[0]));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -38,6 +43,7 @@ extra_args_name(VALUE self)
      * [ruby-core:85266] [Bug #14425]
      */
     return rb_funcall(self, rb_intern("name"), 0, 0);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -69,4 +75,6 @@ Init_funcall(void)
     rb_define_singleton_method(cTestFuncall, "extra_args_name",
                                 extra_args_name,
                                 0);
+                                RB_GC_GUARD(cTestFuncall);
+                                RB_GC_GUARD(cRelay);
 }

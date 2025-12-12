@@ -17,6 +17,9 @@ prelude_ast_value(VALUE name, VALUE code, int line)
         rb_exc_raise(rb_errinfo());
     }
     return ast_value;
+    RB_GC_GUARD(code);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(ast_value);
 }
 
 static void
@@ -29,6 +32,9 @@ pm_prelude_load(pm_parse_result_t *result, VALUE name, VALUE code, int line)
         pm_parse_result_free(result);
         rb_exc_raise(error);
     }
+        RB_GC_GUARD(error);
+        RB_GC_GUARD(code);
+        RB_GC_GUARD(name);
 }
 
 static const rb_iseq_t *
@@ -83,6 +89,7 @@ builtin_iseq_load(const char *feature_name, const struct rb_builtin_function *ta
 
         vm->builtin_function_table = NULL;
         rb_ast_dispose(ast);
+    RB_GC_GUARD(ast_value);
     }
 
     // for debug
@@ -93,6 +100,8 @@ builtin_iseq_load(const char *feature_name, const struct rb_builtin_function *ta
     BUILTIN_LOADED(feature_name, iseq);
 
     return iseq;
+    RB_GC_GUARD(code);
+    RB_GC_GUARD(name_str);
 }
 
 void

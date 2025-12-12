@@ -83,6 +83,11 @@ ancillary_initialize(VALUE self, VALUE vfamily, VALUE vlevel, VALUE vtype, VALUE
     rb_ivar_set(self, rb_intern("type"), INT2NUM(type));
     rb_ivar_set(self, rb_intern("data"), data);
     return self;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(vtype);
+    RB_GC_GUARD(vlevel);
+    RB_GC_GUARD(vfamily);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -92,6 +97,8 @@ ancdata_new(int family, int level, int type, VALUE data)
     StringValue(data);
     ancillary_initialize(obj, INT2NUM(family), INT2NUM(level), INT2NUM(type), data);
     return (VALUE)obj;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -99,6 +106,8 @@ ancillary_family(VALUE self)
 {
     VALUE v = rb_attr_get(self, rb_intern("family"));
     return NUM2INT(v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -114,6 +123,7 @@ static VALUE
 ancillary_family_m(VALUE self)
 {
     return INT2NUM(ancillary_family(self));
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -121,6 +131,8 @@ ancillary_level(VALUE self)
 {
     VALUE v = rb_attr_get(self, rb_intern("level"));
     return NUM2INT(v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -136,6 +148,7 @@ static VALUE
 ancillary_level_m(VALUE self)
 {
     return INT2NUM(ancillary_level(self));
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -143,6 +156,8 @@ ancillary_type(VALUE self)
 {
     VALUE v = rb_attr_get(self, rb_intern("type"));
     return NUM2INT(v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -158,6 +173,7 @@ static VALUE
 ancillary_type_m(VALUE self)
 {
     return INT2NUM(ancillary_type(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -175,6 +191,8 @@ ancillary_data(VALUE self)
     VALUE v = rb_attr_get(self, rb_intern("data"));
     StringValue(v);
     return v;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
 }
 
 #ifdef SCM_RIGHTS
@@ -201,6 +219,7 @@ ancillary_s_unix_rights(int argc, VALUE *argv, VALUE klass)
             rb_raise(rb_eTypeError, "IO expected");
         }
         rb_ary_push(ary, obj);
+    RB_GC_GUARD(obj);
     }
 
     str = rb_str_buf_new(sizeof(int) * argc);
@@ -212,11 +231,16 @@ ancillary_s_unix_rights(int argc, VALUE *argv, VALUE klass)
         GetOpenFile(obj, fptr);
         fd = fptr->fd;
         rb_str_buf_cat(str, (char *)&fd, sizeof(int));
+    RB_GC_GUARD(obj);
     }
 
     result = ancdata_new(AF_UNIX, SOL_SOCKET, SCM_RIGHTS, str);
     rb_ivar_set(result, rb_intern("unix_rights"), ary);
     return result;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 #else
 #define ancillary_s_unix_rights rb_f_notimplement
@@ -265,6 +289,7 @@ ancillary_unix_rights(VALUE self)
         rb_raise(rb_eTypeError, "SCM_RIGHTS ancillary data expected");
 
     return rb_attr_get(self, rb_intern("unix_rights"));
+    RB_GC_GUARD(self);
 }
 #else
 #define ancillary_unix_rights rb_f_notimplement
@@ -346,6 +371,9 @@ ancillary_timestamp(VALUE self)
         rb_raise(rb_eTypeError, "timestamp ancillary data expected");
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(data);
 }
 #else
 #define ancillary_timestamp rb_f_notimplement
@@ -372,6 +400,11 @@ ancillary_s_int(VALUE klass, VALUE vfamily, VALUE vlevel, VALUE vtype, VALUE int
     int type = rsock_cmsg_type_arg(family, level, vtype);
     int i = NUM2INT(integer);
     return ancdata_new(family, level, type, rb_str_new((char*)&i, sizeof(i)));
+    RB_GC_GUARD(integer);
+    RB_GC_GUARD(vtype);
+    RB_GC_GUARD(vlevel);
+    RB_GC_GUARD(vfamily);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -395,6 +428,8 @@ ancillary_int(VALUE self)
         rb_raise(rb_eTypeError, "size differ.  expected as sizeof(int)=%d but %ld", (int)sizeof(int), (long)RSTRING_LEN(data));
     memcpy((char*)&i, RSTRING_PTR(data), sizeof(int));
     return INT2NUM(i);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(data);
 }
 
 #if defined(IPPROTO_IP) && defined(IP_PKTINFO) && defined(HAVE_STRUCT_IN_PKTINFO_IPI_SPEC_DST) /* GNU/Linux */
@@ -456,6 +491,10 @@ ancillary_s_ip_pktinfo(int argc, VALUE *argv, VALUE self)
     memcpy(&pktinfo.ipi_spec_dst, &sa.sin_addr, sizeof(pktinfo.ipi_spec_dst));
 
     return ancdata_new(AF_INET, IPPROTO_IP, IP_PKTINFO, rb_str_new((char *)&pktinfo, sizeof(pktinfo)));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v_spec_dst);
+    RB_GC_GUARD(v_ifindex);
+    RB_GC_GUARD(v_addr);
 }
 #else
 #define ancillary_s_ip_pktinfo rb_f_notimplement
@@ -511,6 +550,10 @@ ancillary_ip_pktinfo(VALUE self)
     v_spec_dst = rsock_addrinfo_new((struct sockaddr *)&sa, sizeof(sa), PF_INET, 0, 0, Qnil, Qnil);
 
     return rb_ary_new3(3, v_addr, UINT2NUM(pktinfo.ipi_ifindex), v_spec_dst);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v_addr);
+    RB_GC_GUARD(v_spec_dst);
+    RB_GC_GUARD(data);
 }
 #else
 #define ancillary_ip_pktinfo rb_f_notimplement
@@ -554,6 +597,9 @@ ancillary_s_ipv6_pktinfo(VALUE self, VALUE v_addr, VALUE v_ifindex)
     pktinfo.ipi6_ifindex = ifindex;
 
     return ancdata_new(AF_INET6, IPPROTO_IPV6, IPV6_PKTINFO, rb_str_new((char *)&pktinfo, sizeof(pktinfo)));
+    RB_GC_GUARD(v_ifindex);
+    RB_GC_GUARD(v_addr);
+    RB_GC_GUARD(self);
 }
 #else
 #define ancillary_s_ipv6_pktinfo rb_f_notimplement
@@ -581,6 +627,8 @@ extract_ipv6_pktinfo(VALUE self, struct in6_pktinfo *pktinfo_ptr, struct sockadd
     memcpy(&sa_ptr->sin6_addr, &pktinfo_ptr->ipi6_addr, sizeof(sa_ptr->sin6_addr));
     if (IN6_IS_ADDR_LINKLOCAL(&sa_ptr->sin6_addr))
         sa_ptr->sin6_scope_id = pktinfo_ptr->ipi6_ifindex;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(self);
 }
 #endif
 
@@ -609,6 +657,8 @@ ancillary_ipv6_pktinfo(VALUE self)
     extract_ipv6_pktinfo(self, &pktinfo, &sa);
     v_addr = rsock_addrinfo_new((struct sockaddr *)&sa, (socklen_t)sizeof(sa), PF_INET6, 0, 0, Qnil, Qnil);
     return rb_ary_new3(2, v_addr, UINT2NUM(pktinfo.ipi6_ifindex));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v_addr);
 }
 #else
 #define ancillary_ipv6_pktinfo rb_f_notimplement
@@ -636,6 +686,7 @@ ancillary_ipv6_pktinfo_addr(VALUE self)
     struct sockaddr_in6 sa;
     extract_ipv6_pktinfo(self, &pktinfo, &sa);
     return rsock_addrinfo_new((struct sockaddr *)&sa, (socklen_t)sizeof(sa), PF_INET6, 0, 0, Qnil, Qnil);
+    RB_GC_GUARD(self);
 }
 #else
 #define ancillary_ipv6_pktinfo_addr rb_f_notimplement
@@ -663,6 +714,7 @@ ancillary_ipv6_pktinfo_ifindex(VALUE self)
     struct sockaddr_in6 sa;
     extract_ipv6_pktinfo(self, &pktinfo, &sa);
     return UINT2NUM(pktinfo.ipi6_ifindex);
+    RB_GC_GUARD(self);
 }
 #else
 #define ancillary_ipv6_pktinfo_ifindex rb_f_notimplement
@@ -684,6 +736,8 @@ anc_inspect_socket_rights(int level, int type, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -702,6 +756,8 @@ anc_inspect_passcred_credentials(int level, int type, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -819,6 +875,8 @@ anc_inspect_ip_pktinfo(int level, int type, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -847,6 +905,8 @@ anc_inspect_ipv6_pktinfo(int level, int type, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -875,6 +935,8 @@ inspect_timeval_as_abstime(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -895,6 +957,8 @@ inspect_timespec_as_abstime(int level, int optname, VALUE data, VALUE ret)
     }
     else {
         return 0;
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(ret);
     }
 }
 #endif
@@ -1080,6 +1144,10 @@ ancillary_inspect(VALUE self)
     rb_str_cat2(ret, ">");
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vtype);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1106,6 +1174,9 @@ ancillary_cmsg_is_p(VALUE self, VALUE vlevel, VALUE vtype)
         return Qtrue;
     else
         return Qfalse;
+        RB_GC_GUARD(vtype);
+        RB_GC_GUARD(vlevel);
+        RB_GC_GUARD(self);
 }
 
 #endif
@@ -1216,6 +1287,11 @@ bsock_sendmsg_internal(VALUE sock, VALUE data, VALUE vflags,
             last_type = cmh.cmsg_type;
 #endif
             last_pad = cspace - cmh.cmsg_len;
+        RB_GC_GUARD(cdata);
+        RB_GC_GUARD(vtype);
+        RB_GC_GUARD(vlevel);
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(elt);
         }
         if (last_pad) {
             /*
@@ -1305,6 +1381,14 @@ bsock_sendmsg_internal(VALUE sock, VALUE data, VALUE vflags,
     rb_str_tmp_frozen_release(data, tmp);
 
     return SSIZET2NUM(ss);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(controls);
+    RB_GC_GUARD(dest_sockaddr);
+    RB_GC_GUARD(vflags);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(controls_str);
+    RB_GC_GUARD(tmp);
 }
 #endif
 
@@ -1315,6 +1399,11 @@ rsock_bsock_sendmsg(VALUE sock, VALUE data, VALUE flags, VALUE dest_sockaddr,
 {
     return bsock_sendmsg_internal(sock, data, flags, dest_sockaddr, controls,
                                   Qtrue, 0);
+                                  RB_GC_GUARD(controls);
+                                  RB_GC_GUARD(dest_sockaddr);
+                                  RB_GC_GUARD(flags);
+                                  RB_GC_GUARD(data);
+                                  RB_GC_GUARD(sock);
 }
 #endif
 
@@ -1325,6 +1414,12 @@ rsock_bsock_sendmsg_nonblock(VALUE sock, VALUE data, VALUE flags,
 {
     return bsock_sendmsg_internal(sock, data, flags, dest_sockaddr,
                                   controls, ex, 1);
+                                  RB_GC_GUARD(ex);
+                                  RB_GC_GUARD(controls);
+                                  RB_GC_GUARD(dest_sockaddr);
+                                  RB_GC_GUARD(flags);
+                                  RB_GC_GUARD(data);
+                                  RB_GC_GUARD(sock);
 }
 #endif
 
@@ -1442,9 +1537,12 @@ make_io_for_unix_rights(VALUE ctl, struct cmsghdr *cmh, char *msg_end)
             ary = rb_attr_get(ctl, rb_intern("unix_rights"));
             rb_ary_push(ary, io);
             fdp++;
+        RB_GC_GUARD(io);
         }
         OBJ_FREEZE(ary);
+        RB_GC_GUARD(ary);
     }
+        RB_GC_GUARD(ctl);
 }
 #endif
 
@@ -1671,12 +1769,23 @@ bsock_recvmsg_internal(VALUE sock,
             else
                 discard_cmsg(cmh, msg_end, (flags & MSG_PEEK) != 0);
             rb_ary_push(ret, ctl);
+        RB_GC_GUARD(ctl);
         }
         RB_GC_GUARD(ctl_str);
     }
 #endif
 
     return ret;
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(scm_rights);
+    RB_GC_GUARD(vmaxctllen);
+    RB_GC_GUARD(vflags);
+    RB_GC_GUARD(vmaxdatlen);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(msg_flags);
+    RB_GC_GUARD(ctl_str);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(dat_str);
 }
 #endif
 
@@ -1687,6 +1796,12 @@ rsock_bsock_recvmsg(VALUE sock, VALUE dlen, VALUE flags, VALUE clen,
 {
     VALUE ex = Qtrue;
     return bsock_recvmsg_internal(sock, dlen, flags, clen, scm_rights, ex, 0);
+    RB_GC_GUARD(scm_rights);
+    RB_GC_GUARD(clen);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(dlen);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(ex);
 }
 #endif
 
@@ -1696,6 +1811,12 @@ rsock_bsock_recvmsg_nonblock(VALUE sock, VALUE dlen, VALUE flags, VALUE clen,
                              VALUE scm_rights, VALUE ex)
 {
     return bsock_recvmsg_internal(sock, dlen, flags, clen, scm_rights, ex, 1);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(scm_rights);
+    RB_GC_GUARD(clen);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(dlen);
+    RB_GC_GUARD(sock);
 }
 #endif
 

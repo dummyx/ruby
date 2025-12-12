@@ -7,6 +7,9 @@ bug_big_zero(VALUE self, VALUE length)
     VALUE z = rb_big_new(len, 1);
     MEMZERO(BIGNUM_DIGITS(z), BDIGIT, len);
     return z;
+    RB_GC_GUARD(length);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -16,6 +19,9 @@ bug_big_negzero(VALUE self, VALUE length)
     VALUE z = rb_big_new(len, 0);
     MEMZERO(BIGNUM_DIGITS(z), BDIGIT, len);
     return z;
+    RB_GC_GUARD(length);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(z);
 }
 
 void

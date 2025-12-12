@@ -98,6 +98,7 @@ io_nread(VALUE io)
     if (ioctl(fd, FIONREAD, &n)) return INT2FIX(0);
     if (n > 0) return ioctl_arg2num(n);
     return INT2FIX(0);
+    RB_GC_GUARD(io);
 }
 
 #ifdef HAVE_RB_IO_WAIT
@@ -120,6 +121,9 @@ io_wait_event(VALUE io, int event, VALUE timeout, int return_io)
     }
     else {
         return Qfalse;
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(timeout);
+        RB_GC_GUARD(io);
     }
 }
 #endif
@@ -150,6 +154,7 @@ io_ready_p(VALUE io)
     return wait_for_single_fd(fptr, RB_WAITFD_IN, &tv) ? Qtrue : Qfalse;
 #else
     return io_wait_event(io, RUBY_IO_READABLE, RB_INT2NUM(0), 1);
+    RB_GC_GUARD(io);
 #endif
 }
 

@@ -90,6 +90,7 @@ rb_fiddle_handle_close(VALUE self)
     rb_raise(rb_eFiddleDLError, "dlclose() called too many times");
 
     UNREACHABLE;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -104,6 +105,8 @@ rb_fiddle_handle_s_allocate(VALUE klass)
     fiddle_handle->enable_close = 0;
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -116,6 +119,7 @@ predefined_fiddle_handle(void *handle)
     fiddle_handle->open = 1;
     OBJ_FREEZE(obj);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -204,6 +208,9 @@ rb_fiddle_handle_initialize(int argc, VALUE argv[], VALUE self)
     }
 
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(flag);
+    RB_GC_GUARD(lib);
 }
 
 /*
@@ -219,6 +226,7 @@ rb_fiddle_handle_enable_close(VALUE self)
     TypedData_Get_Struct(self, struct dl_handle, &fiddle_handle_data_type, fiddle_handle);
     fiddle_handle->enable_close = 1;
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -234,6 +242,7 @@ rb_fiddle_handle_disable_close(VALUE self)
     TypedData_Get_Struct(self, struct dl_handle, &fiddle_handle_data_type, fiddle_handle);
     fiddle_handle->enable_close = 0;
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -252,6 +261,7 @@ rb_fiddle_handle_close_enabled_p(VALUE self)
 
     if(fiddle_handle->enable_close) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -266,6 +276,7 @@ rb_fiddle_handle_to_i(VALUE self)
 
     TypedData_Get_Struct(self, struct dl_handle, &fiddle_handle_data_type, fiddle_handle);
     return PTR2NUM(fiddle_handle->ptr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -280,6 +291,7 @@ rb_fiddle_handle_to_ptr(VALUE self)
 
     TypedData_Get_Struct(self, struct dl_handle, &fiddle_handle_data_type, fiddle_handle);
     return rb_fiddle_ptr_new_wrap(fiddle_handle->ptr, 0, 0, self, 0);
+    RB_GC_GUARD(self);
 }
 
 static VALUE fiddle_handle_sym(void *handle, VALUE symbol);
@@ -302,6 +314,8 @@ rb_fiddle_handle_sym(VALUE self, VALUE sym)
     }
 
     return fiddle_handle_sym(fiddle_handle->ptr, sym);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
 }
 
 #ifndef RTLD_NEXT
@@ -325,6 +339,8 @@ static VALUE
 rb_fiddle_handle_s_sym(VALUE self, VALUE sym)
 {
     return fiddle_handle_sym(RTLD_NEXT, sym);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
 }
 
 typedef void (*fiddle_void_func)(void);
@@ -389,6 +405,7 @@ fiddle_handle_find_func(void *handle, VALUE symbol)
 #endif
 
     return func;
+    RB_GC_GUARD(symbol);
 }
 
 static VALUE
@@ -403,6 +420,8 @@ rb_fiddle_handle_s_sym_defined(VALUE self, VALUE sym)
     }
     else {
 	return Qnil;
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(sym);
     }
 }
 
@@ -424,6 +443,8 @@ rb_fiddle_handle_sym_defined(VALUE self, VALUE sym)
     }
     else {
 	return Qnil;
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(sym);
     }
 }
 
@@ -439,6 +460,7 @@ fiddle_handle_sym(void *handle, VALUE symbol)
     }
 
     return PTR2NUM(func);
+    RB_GC_GUARD(symbol);
 }
 
 /*
@@ -481,6 +503,7 @@ rb_fiddle_handle_file_name(VALUE self)
     (void)fiddle_handle;
     return Qnil;
 #endif
+    RB_GC_GUARD(self);
 }
 
 void

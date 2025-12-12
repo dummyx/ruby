@@ -27,6 +27,10 @@ open_with_rb_file_open(VALUE self, VALUE filename, VALUE read_or_write, VALUE bi
     }
 
     return rb_file_open(StringValueCStr(filename), fmode);
+    RB_GC_GUARD(binary_or_text);
+    RB_GC_GUARD(read_or_write);
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -62,6 +66,10 @@ open_with_rb_io_fdopen(VALUE self, VALUE filename, VALUE read_or_write, VALUE bi
 
     rb_update_max_fd(fd);
     return rb_io_fdopen(fd, omode, StringValueCStr(filename));
+    RB_GC_GUARD(binary_or_text);
+    RB_GC_GUARD(read_or_write);
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -70,4 +78,5 @@ Init_newline_conv(VALUE module)
     VALUE newline_conv = rb_define_module_under(module, "NewlineConv");
     rb_define_module_function(newline_conv, "rb_file_open", open_with_rb_file_open, 3);
     rb_define_module_function(newline_conv, "rb_io_fdopen", open_with_rb_io_fdopen, 3);
+    RB_GC_GUARD(newline_conv);
 }

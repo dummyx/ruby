@@ -11,6 +11,8 @@ enumerator_kw(int argc, VALUE *argv, VALUE self)
     enum_args[2] = opt;
     RETURN_SIZED_ENUMERATOR_KW(self, 4, enum_args, 0, RB_NO_KEYWORDS);
     return rb_yield_values_kw(4, enum_args, RB_NO_KEYWORDS);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
 }
 
 void
@@ -19,4 +21,5 @@ Init_enumerator_kw(void)
     VALUE module = rb_define_module("Bug");
     module = rb_define_module_under(module, "EnumeratorKw");
     rb_define_method(module, "m", enumerator_kw, -1);
+    RB_GC_GUARD(module);
 }

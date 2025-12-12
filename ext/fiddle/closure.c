@@ -214,6 +214,12 @@ with_gvl_callback(void *ptr)
 	rb_raise(rb_eRuntimeError, "closure retval: %d", type);
     }
     return 0;
+    RB_GC_GUARD(cPointer);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(params);
+    RB_GC_GUARD(ctype);
+    RB_GC_GUARD(rbargs);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -249,6 +255,8 @@ allocate(VALUE klass)
 #endif
 
     return i;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(i);
 }
 
 static fiddle_closure *
@@ -260,6 +268,7 @@ get_raw(VALUE self)
         rb_raise(rb_eArgError, "already freed: %+"PRIsVALUE, self);
     }
     return closure;
+    RB_GC_GUARD(self);
 }
 
 typedef struct {
@@ -298,6 +307,7 @@ initialize_body(VALUE user_data)
         VALUE arg = rb_fiddle_type_ensure(RARRAY_AREF(args, i));
         rb_ary_push(normalized_args, arg);
         cl->argv[i] = rb_fiddle_int_to_ffi_type(NUM2INT(arg));
+    RB_GC_GUARD(arg);
     }
     cl->argv[argc] = NULL;
     OBJ_FREEZE_RAW(normalized_args);
@@ -336,6 +346,11 @@ initialize_body(VALUE user_data)
     }
 
     return data->self;
+    RB_GC_GUARD(user_data);
+    RB_GC_GUARD(abi);
+    RB_GC_GUARD(normalized_args);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -346,6 +361,8 @@ initialize_rescue(VALUE user_data, VALUE exception)
     RTYPEDDATA_DATA(data->self) = NULL;
     rb_exc_raise(exception);
     return data->self;
+    RB_GC_GUARD(exception);
+    RB_GC_GUARD(user_data);
 }
 
 static VALUE
@@ -357,6 +374,7 @@ initialize(int argc, VALUE *argv, VALUE self)
     data.argv = argv;
     return rb_rescue(initialize_body, (VALUE)&data,
                      initialize_rescue, (VALUE)&data);
+                     RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -364,6 +382,7 @@ to_i(VALUE self)
 {
     fiddle_closure *closure = get_raw(self);
     return PTR2NUM(closure->code);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -376,6 +395,7 @@ closure_free(VALUE self)
         RTYPEDDATA_DATA(self) = NULL;
     }
     return RUBY_Qnil;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -384,6 +404,7 @@ closure_freed_p(VALUE self)
     fiddle_closure *closure;
     TypedData_Get_Struct(self, fiddle_closure, &closure_data_type, closure);
     return closure ? RUBY_Qfalse : RUBY_Qtrue;
+    RB_GC_GUARD(self);
 }
 
 void

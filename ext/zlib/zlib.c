@@ -355,6 +355,7 @@ raise_zlib_error(int err, const char *msg)
     }
 
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
 }
 
 
@@ -380,6 +381,7 @@ static VALUE
 rb_zlib_version(VALUE klass)
 {
     return rb_str_new2(zlibVersion());
+    RB_GC_GUARD(klass);
 }
 
 #if SIZEOF_LONG * CHAR_BIT > 32
@@ -434,6 +436,8 @@ do_checksum(int argc, VALUE *argv, checksum_func func)
         while (!NIL_P(buf = rb_funcall(str, id_read, 1, buflen))) {
             StringValue(buf);
             sum = checksum_long(func, sum, (Bytef*)RSTRING_PTR(buf), RSTRING_LEN(buf));
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(buflen);
         }
     }
     else {
@@ -441,6 +445,8 @@ do_checksum(int argc, VALUE *argv, checksum_func func)
 	sum = checksum_long(func, sum, (Bytef*)RSTRING_PTR(str), RSTRING_LEN(str));
     }
     return rb_uint2inum(sum);
+    RB_GC_GUARD(vsum);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -467,6 +473,7 @@ static VALUE
 rb_zlib_adler32(int argc, VALUE *argv, VALUE klass)
 {
     return do_checksum(argc, argv, adler32);
+    RB_GC_GUARD(klass);
 }
 
 #ifdef HAVE_ADLER32_COMBINE
@@ -485,6 +492,10 @@ rb_zlib_adler32_combine(VALUE klass, VALUE adler1, VALUE adler2, VALUE len2)
 {
     return ULONG2NUM(
 	adler32_combine(NUM2ULONG(adler1), NUM2ULONG(adler2), NUM2LONG(len2)));
+	RB_GC_GUARD(len2);
+	RB_GC_GUARD(adler2);
+	RB_GC_GUARD(adler1);
+	RB_GC_GUARD(klass);
 }
 #else
 #define rb_zlib_adler32_combine rb_f_notimplement
@@ -507,6 +518,7 @@ static VALUE
 rb_zlib_crc32(int argc, VALUE *argv, VALUE klass)
 {
     return do_checksum(argc, argv, crc32);
+    RB_GC_GUARD(klass);
 }
 
 #ifdef HAVE_CRC32_COMBINE
@@ -525,6 +537,10 @@ rb_zlib_crc32_combine(VALUE klass, VALUE crc1, VALUE crc2, VALUE len2)
 {
     return ULONG2NUM(
 	crc32_combine(NUM2ULONG(crc1), NUM2ULONG(crc2), NUM2LONG(len2)));
+	RB_GC_GUARD(len2);
+	RB_GC_GUARD(crc2);
+	RB_GC_GUARD(crc1);
+	RB_GC_GUARD(klass);
 }
 #else
 #define rb_zlib_crc32_combine rb_f_notimplement
@@ -553,6 +569,8 @@ rb_zlib_crc_table(VALUE obj)
 	rb_ary_push(dst, rb_uint2inum(crctbl[i]));
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 
@@ -814,6 +832,7 @@ zstream_detach_buffer(struct zstream *z)
     }
 
     return dst;
+    RB_GC_GUARD(dst);
 }
 
 static VALUE
@@ -852,6 +871,7 @@ zstream_shift_buffer(struct zstream *z, long len, VALUE dst)
     z->stream.avail_out = (uInt)buflen;
 
     return dst;
+    RB_GC_GUARD(dst);
 }
 
 static void
@@ -972,6 +992,7 @@ zstream_detach_input(struct zstream *z)
     }
     z->input = Qnil;
     return dst;
+    RB_GC_GUARD(dst);
 }
 
 static void
@@ -1017,6 +1038,7 @@ static VALUE
 zstream_ensure_end(VALUE v)
 {
     return zstream_end((struct zstream *)v);
+    RB_GC_GUARD(v);
 }
 
 static void *
@@ -1059,6 +1081,7 @@ zstream_run_once_begin(VALUE _arguments)
     return (VALUE)rb_thread_call_without_gvl(zstream_run_once, (void *)arguments, zstream_unblock_func, (void *)arguments);
 #else
     return (VALUE)rb_nogvl(zstream_run_once, (void *)arguments, zstream_unblock_func, (void *)arguments, RB_NOGVL_UBF_ASYNC_SAFE | RB_NOGVL_OFFLOAD_SAFE);
+    RB_GC_GUARD(_arguments);
 #endif
 }
 
@@ -1071,6 +1094,7 @@ zstream_run_once_ensure(VALUE _arguments)
     rb_str_unlocktmp(z->buf);
 
     return Qnil;
+    RB_GC_GUARD(_arguments);
 }
 
 static int
@@ -1192,7 +1216,10 @@ loop:
 		if (!NIL_P(dict)) {
 		    rb_inflate_set_dictionary(self, dict);
 		    goto loop;
+	RB_GC_GUARD(dicts);
+	RB_GC_GUARD(dict);
 		}
+	RB_GC_GUARD(self);
 	    }
 	}
 	raise_zlib_error(err, z->stream.msg);
@@ -1206,6 +1233,8 @@ loop:
     }
 
     return Qnil;
+    RB_GC_GUARD(value_arg);
+    RB_GC_GUARD(old_input);
 }
 
 static VALUE
@@ -1218,6 +1247,7 @@ zstream_run_ensure(VALUE value_arg)
     z->flags &= ~ZSTREAM_IN_PROGRESS;
 
     return Qnil;
+    RB_GC_GUARD(value_arg);
 }
 
 static void
@@ -1330,6 +1360,8 @@ zstream_new(VALUE klass, const struct zstream_funcs *funcs)
     zstream_init(z, funcs);
     z->stream.opaque = (voidpf)obj;
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 #define zstream_deflate_new(klass)  zstream_new((klass), &deflate_funcs)
@@ -1345,6 +1377,7 @@ get_zstream(VALUE obj)
 	rb_raise(cZError, "stream is not ready");
     }
     return z;
+    RB_GC_GUARD(obj);
 }
 
 
@@ -1420,6 +1453,7 @@ rb_zstream_end(VALUE obj)
 {
     zstream_end(get_zstream(obj));
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1431,6 +1465,7 @@ rb_zstream_reset(VALUE obj)
 {
     zstream_reset(get_zstream(obj));
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1450,6 +1485,7 @@ rb_zstream_finish(VALUE obj)
     zstream_run(z, (Bytef*)"", 0, Z_FINISH);
 
     return zstream_detach_buffer(z);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1466,6 +1502,8 @@ rb_zstream_flush_next_in(VALUE obj)
     TypedData_Get_Struct(obj, struct zstream, &zstream_data_type, z);
     dst = zstream_detach_input(z);
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -1485,6 +1523,7 @@ rb_zstream_flush_next_out(VALUE obj)
     TypedData_Get_Struct(obj, struct zstream, &zstream_data_type, z);
 
     return zstream_detach_buffer(z);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1497,6 +1536,7 @@ rb_zstream_avail_out(VALUE obj)
     struct zstream *z;
     TypedData_Get_Struct(obj, struct zstream, &zstream_data_type, z);
     return rb_uint2inum(z->stream.avail_out);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1512,6 +1552,8 @@ rb_zstream_set_avail_out(VALUE obj, VALUE size)
 
     zstream_expand_buffer_into(z, FIX2INT(size));
     return size;
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1523,6 +1565,7 @@ rb_zstream_avail_in(VALUE obj)
     struct zstream *z;
     TypedData_Get_Struct(obj, struct zstream, &zstream_data_type, z);
     return INT2FIX(NIL_P(z->input) ? 0 : (int)(RSTRING_LEN(z->input)));
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1532,6 +1575,7 @@ static VALUE
 rb_zstream_total_in(VALUE obj)
 {
     return rb_uint2inum(get_zstream(obj)->stream.total_in);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1541,6 +1585,7 @@ static VALUE
 rb_zstream_total_out(VALUE obj)
 {
     return rb_uint2inum(get_zstream(obj)->stream.total_out);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1552,6 +1597,7 @@ static VALUE
 rb_zstream_data_type(VALUE obj)
 {
     return INT2FIX(get_zstream(obj)->stream.data_type);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1561,6 +1607,7 @@ static VALUE
 rb_zstream_adler(VALUE obj)
 {
     return rb_uint2inum(get_zstream(obj)->stream.adler);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1570,6 +1617,7 @@ static VALUE
 rb_zstream_finished_p(VALUE obj)
 {
     return ZSTREAM_IS_FINISHED(get_zstream(obj)) ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1581,6 +1629,7 @@ rb_zstream_closed_p(VALUE obj)
     struct zstream *z;
     TypedData_Get_Struct(obj, struct zstream, &zstream_data_type, z);
     return ZSTREAM_IS_READY(z) ? Qfalse : Qtrue;
+    RB_GC_GUARD(obj);
 }
 
 
@@ -1608,6 +1657,7 @@ static VALUE
 rb_deflate_s_allocate(VALUE klass)
 {
     return zstream_deflate_new(klass);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1702,6 +1752,11 @@ rb_deflate_initialize(int argc, VALUE *argv, VALUE obj)
     ZSTREAM_READY(z);
 
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(strategy);
+    RB_GC_GUARD(memlevel);
+    RB_GC_GUARD(wbits);
+    RB_GC_GUARD(level);
 }
 
 /*
@@ -1728,6 +1783,8 @@ rb_deflate_init_copy(VALUE self, VALUE orig)
     z1->flags = z2->flags;
 
     return self;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1738,6 +1795,8 @@ deflate_run(VALUE args)
 
     zstream_run(z, (Bytef*)RSTRING_PTR(src), RSTRING_LEN(src), Z_FINISH);
     return zstream_detach_buffer(z);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(src);
 }
 
 /*
@@ -1786,6 +1845,10 @@ rb_deflate_s_deflate(int argc, VALUE *argv, VALUE klass)
     dst = rb_ensure(deflate_run, (VALUE)args, zstream_ensure_end, (VALUE)&z);
 
     return dst;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(level);
+    RB_GC_GUARD(src);
 }
 
 static void
@@ -1799,6 +1862,7 @@ do_deflate(struct zstream *z, VALUE src, int flush)
     if (flush != Z_NO_FLUSH || RSTRING_LEN(src) > 0) { /* prevent BUF_ERROR */
 	zstream_run(z, (Bytef*)RSTRING_PTR(src), RSTRING_LEN(src), flush);
     }
+	RB_GC_GUARD(src);
 }
 
 struct rb_zlib_deflate_arguments {
@@ -1815,6 +1879,7 @@ rb_deflate_deflate_body(VALUE args)
     do_deflate(arguments->z, arguments->src, arguments->flush);
 
     return zstream_detach_buffer(arguments->z);
+    RB_GC_GUARD(args);
 }
 
 /*
@@ -1852,6 +1917,9 @@ rb_deflate_deflate(int argc, VALUE *argv, VALUE obj)
     struct rb_zlib_deflate_arguments arguments = {z, src, ARG_FLUSH(flush)};
 
     return rb_mutex_synchronize(z->mutex, rb_deflate_deflate_body, (VALUE)&arguments);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(flush);
+    RB_GC_GUARD(src);
 }
 
 /*
@@ -1868,6 +1936,8 @@ rb_deflate_addstr(VALUE obj, VALUE src)
 {
     do_deflate(get_zstream(obj), src, Z_NO_FLUSH);
     return obj;
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1899,6 +1969,8 @@ rb_deflate_flush(int argc, VALUE *argv, VALUE obj)
     }
 
     return zstream_detach_buffer(z);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v_flush);
 }
 
 /*
@@ -1942,6 +2014,9 @@ rb_deflate_params(VALUE obj, VALUE v_level, VALUE v_strategy)
     rb_str_set_len(z->buf, RSTRING_LEN(z->buf) + filled);
 
     return Qnil;
+    RB_GC_GUARD(v_strategy);
+    RB_GC_GUARD(v_level);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1973,6 +2048,9 @@ rb_deflate_set_dictionary(VALUE obj, VALUE dic)
     }
 
     return dic;
+    RB_GC_GUARD(dic);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(src);
 }
 
 
@@ -1992,6 +2070,8 @@ rb_inflate_s_allocate(VALUE klass)
     VALUE inflate = zstream_inflate_new(klass);
     rb_ivar_set(inflate, id_dictionaries, rb_hash_new());
     return inflate;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(inflate);
 }
 
 /*
@@ -2056,6 +2136,8 @@ rb_inflate_initialize(int argc, VALUE *argv, VALUE obj)
     ZSTREAM_READY(z);
 
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(wbits);
 }
 
 static VALUE
@@ -2067,6 +2149,8 @@ inflate_run(VALUE args)
     zstream_run(z, (Bytef*)RSTRING_PTR(src), RSTRING_LEN(src), Z_SYNC_FLUSH);
     zstream_run(z, (Bytef*)"", 0, Z_FINISH);  /* for checking errors */
     return zstream_detach_buffer(z);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(src);
 }
 
 /*
@@ -2112,6 +2196,9 @@ rb_inflate_s_inflate(VALUE obj, VALUE src)
     dst = rb_ensure(inflate_run, (VALUE)args, zstream_ensure_end, (VALUE)&z);
 
     return dst;
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 static void
@@ -2125,6 +2212,7 @@ do_inflate(struct zstream *z, VALUE src)
     if (RSTRING_LEN(src) > 0 || z->stream.avail_in > 0) { /* prevent Z_BUF_ERROR */
 	zstream_run(z, (Bytef*)RSTRING_PTR(src), RSTRING_LEN(src), Z_SYNC_FLUSH);
     }
+	RB_GC_GUARD(src);
 }
 
 /* Document-method: Zlib::Inflate#add_dictionary
@@ -2145,6 +2233,10 @@ rb_inflate_add_dictionary(VALUE obj, VALUE dictionary)
     rb_hash_aset(dictionaries, checksum, dictionary);
 
     return obj;
+    RB_GC_GUARD(dictionary);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(checksum);
+    RB_GC_GUARD(dictionaries);
 }
 
 struct rb_zlib_inflate_arguments {
@@ -2167,6 +2259,7 @@ rb_inflate_inflate_body(VALUE _arguments)
         rb_get_kwargs(opts, &id_buffer, 0, 1, &buf);
         if (buf != Qundef && buf != Qnil) {
             buffer = StringValue(buf);
+    RB_GC_GUARD(buf);
         }
     }
     if (buffer != Qnil) {
@@ -2212,6 +2305,11 @@ rb_inflate_inflate_body(VALUE _arguments)
     }
 
     return dst;
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -2266,6 +2364,7 @@ rb_inflate_inflate(int argc, VALUE* argv, VALUE obj)
     struct zstream *z = get_zstream(obj);
     struct rb_zlib_inflate_arguments arguments = {z, argc, argv};
     return rb_mutex_synchronize(z->mutex, rb_inflate_inflate_body, (VALUE)&arguments);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2294,6 +2393,8 @@ rb_inflate_addstr(VALUE obj, VALUE src)
     }
 
     return obj;
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2311,6 +2412,8 @@ rb_inflate_sync(VALUE obj, VALUE src)
 
     StringValue(src);
     return zstream_sync(z, (Bytef*)RSTRING_PTR(src), RSTRING_LEN(src));
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2334,6 +2437,7 @@ rb_inflate_sync_point_p(VALUE obj)
 	raise_zlib_error(err, z->stream.msg);
     }
     return Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2358,6 +2462,9 @@ rb_inflate_set_dictionary(VALUE obj, VALUE dic)
     }
 
     return dic;
+    RB_GC_GUARD(dic);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(src);
 }
 
 
@@ -2527,6 +2634,8 @@ gzfile_new(VALUE klass, const struct zstream_funcs *funcs, void (*endfunc)(struc
     obj = TypedData_Make_Struct(klass, struct gzfile, &gzfile_data_type, gz);
     gzfile_init(gz, funcs, endfunc);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 #define gzfile_writer_new(gz) gzfile_new((gz),&deflate_funcs,gzfile_writer_end)
@@ -2559,6 +2668,7 @@ gzfile_close(struct gzfile *gz, int closeflag)
     if (closeflag && rb_respond_to(io, id_close)) {
 	rb_funcall(io, id_close, 0);
     }
+	RB_GC_GUARD(io);
 }
 
 static void
@@ -2573,6 +2683,7 @@ gzfile_write_raw(struct gzfile *gz)
 	    && rb_respond_to(gz->io, id_flush))
 	    rb_funcall(gz->io, id_flush, 0);
     }
+	    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -2585,6 +2696,8 @@ gzfile_read_raw_partial(VALUE arg)
     str = rb_funcallv(ra->io, id_readpartial, argc, ra->as.argv);
     Check_Type(str, T_STRING);
     return str;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -2600,6 +2713,9 @@ gzfile_read_raw_rescue(VALUE arg, VALUE _)
         }
     }
     return str; /* return nil when EOFError */
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -2614,6 +2730,7 @@ gzfile_read_raw(struct gzfile *gz, VALUE outbuf)
     return rb_rescue2(gzfile_read_raw_partial, (VALUE)&ra,
                       gzfile_read_raw_rescue, (VALUE)&ra,
                       rb_eEOFError, rb_eNoMethodError, (VALUE)0);
+                      RB_GC_GUARD(outbuf);
 }
 
 static int
@@ -2631,6 +2748,8 @@ gzfile_read_raw_ensure(struct gzfile *gz, long size, VALUE outbuf)
 	zstream_append_input2(&gz->z, str);
     }
     return 1;
+    RB_GC_GUARD(outbuf);
+    RB_GC_GUARD(str);
 }
 
 static char *
@@ -2651,6 +2770,7 @@ gzfile_read_raw_until_zero(struct gzfile *gz, long offset)
 	zstream_append_input2(&gz->z, str);
     }
     return p;
+    RB_GC_GUARD(str);
 }
 
 static unsigned int
@@ -2690,6 +2810,8 @@ gzfile_raise(struct gzfile *gz, VALUE klass, const char *message)
 	rb_ivar_set(exc, id_input, rb_str_resurrect(gz->z.input));
     }
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2710,6 +2832,9 @@ gzfile_error_inspect(VALUE error)
 	rb_str_cat2(str, ">");
     }
     return str;
+    RB_GC_GUARD(error);
+    RB_GC_GUARD(input);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -2845,6 +2970,7 @@ gzfile_read_header(struct gzfile *gz, VALUE outbuf)
     if (gz->z.input != Qnil && RSTRING_LEN(gz->z.input) > 0) {
 	zstream_run(&gz->z, 0, 0, Z_SYNC_FLUSH);
     }
+	RB_GC_GUARD(outbuf);
 }
 
 static void
@@ -2871,6 +2997,7 @@ gzfile_check_footer(struct gzfile *gz, VALUE outbuf)
     if ((uint32_t)gz->z.stream.total_out != length) {
 	rb_raise(cLengthError, "invalid compressed data -- length error");
     }
+	RB_GC_GUARD(outbuf);
 }
 
 static void
@@ -2909,6 +3036,8 @@ gzfile_read_more(struct gzfile *gz, VALUE outbuf)
 	if (ZSTREAM_BUF_FILLED(&gz->z) > 0) break;
     }
     return ZSTREAM_BUF_FILLED(&gz->z);
+    RB_GC_GUARD(outbuf);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -2922,6 +3051,7 @@ gzfile_calc_crc(struct gzfile *gz, VALUE str)
 				RSTRING_LEN(str) - gz->ungetc);
 	gz->ungetc = 0;
     }
+	RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -2938,6 +3068,7 @@ gzfile_newstr(struct gzfile *gz, VALUE str)
     }
     return rb_str_conv_enc_opts(str, gz->enc2, gz->enc,
 				gz->ecflags, gz->ecopts);
+				RB_GC_GUARD(str);
 }
 
 static long
@@ -2957,6 +3088,7 @@ gzfile_fill(struct gzfile *gz, long len, VALUE outbuf)
 	return -1;
     }
     return len < ZSTREAM_BUF_FILLED(&gz->z) ? len : ZSTREAM_BUF_FILLED(&gz->z);
+    RB_GC_GUARD(outbuf);
 }
 
 static VALUE
@@ -2983,6 +3115,8 @@ gzfile_read(struct gzfile *gz, long len, VALUE outbuf)
     dst = zstream_shift_buffer(&gz->z, len, outbuf);
     if (!NIL_P(dst)) gzfile_calc_crc(gz, dst);
     return dst;
+    RB_GC_GUARD(outbuf);
+    RB_GC_GUARD(dst);
 }
 
 static VALUE
@@ -3017,6 +3151,8 @@ gzfile_readpartial(struct gzfile *gz, long len, VALUE outbuf)
     gzfile_calc_crc(gz, dst);
 
     return dst;
+    RB_GC_GUARD(outbuf);
+    RB_GC_GUARD(dst);
 }
 
 static VALUE
@@ -3040,6 +3176,7 @@ gzfile_read_all(struct gzfile *gz, VALUE dst)
     if (NIL_P(dst)) return dst;
     gzfile_calc_crc(gz, dst);
     return gzfile_newstr(gz, dst);
+    RB_GC_GUARD(dst);
 }
 
 static VALUE
@@ -3074,6 +3211,7 @@ gzfile_getc(struct gzfile *gz)
 	gzfile_calc_crc(gz, dst);
 	rb_str_resize(cbuf, dp - ds);
 	return cbuf;
+    RB_GC_GUARD(cbuf);
     }
     else {
 	buf = gz->z.buf;
@@ -3081,6 +3219,8 @@ gzfile_getc(struct gzfile *gz)
 	dst = gzfile_read(gz, len, Qnil);
 	if (NIL_P(dst)) return dst;
 	return gzfile_newstr(gz, dst);
+	RB_GC_GUARD(buf);
+	RB_GC_GUARD(dst);
     }
 }
 
@@ -3112,6 +3252,7 @@ gzfile_writer_end_run(VALUE arg)
     gzfile_write_raw(gz);
 
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 static void
@@ -3134,6 +3275,7 @@ gzfile_reader_end_run(VALUE arg)
     }
 
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 static void
@@ -3173,6 +3315,7 @@ gzfile_reader_get_unused(struct gzfile *gz)
 
     str = rb_str_resurrect(gz->z.input);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static struct gzfile *
@@ -3185,6 +3328,7 @@ get_gzfile(VALUE obj)
 	rb_raise(cGzError, "closed gzip stream");
     }
     return gz;
+    RB_GC_GUARD(obj);
 }
 
 
@@ -3239,6 +3383,7 @@ new_wrap(VALUE tmp)
 {
     new_wrap_arg_t *arg = (new_wrap_arg_t *)tmp;
     return rb_class_new_instance_kw(arg->argc, arg->argv, arg->klass, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(tmp);
 }
 
 static VALUE
@@ -3251,6 +3396,7 @@ gzfile_ensure_close(VALUE obj)
 	gzfile_close(gz, 1);
     }
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3279,6 +3425,8 @@ gzfile_wrap(int argc, VALUE *argv, VALUE klass, int close_io_on_error)
     }
     else {
 	return obj;
+	RB_GC_GUARD(obj);
+	RB_GC_GUARD(klass);
     }
 }
 
@@ -3301,6 +3449,7 @@ static VALUE
 rb_gzfile_s_wrap(int argc, VALUE *argv, VALUE klass)
 {
     return gzfile_wrap(argc, argv, klass, 0);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3318,6 +3467,9 @@ gzfile_s_open(int argc, VALUE *argv, VALUE klass, const char *mode)
     io = rb_file_open_str(filename, mode);
     argv[0] = io;
     return gzfile_wrap(argc, argv, klass, 1);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(filename);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -3329,6 +3481,7 @@ static VALUE
 rb_gzfile_to_io(VALUE obj)
 {
     return get_gzfile(obj)->io;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3340,6 +3493,7 @@ static VALUE
 rb_gzfile_crc(VALUE obj)
 {
     return rb_uint2inum(get_gzfile(obj)->crc);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3351,6 +3505,7 @@ static VALUE
 rb_gzfile_mtime(VALUE obj)
 {
     return rb_time_new(get_gzfile(obj)->mtime, (time_t)0);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3362,6 +3517,7 @@ static VALUE
 rb_gzfile_level(VALUE obj)
 {
     return INT2FIX(get_gzfile(obj)->level);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3373,6 +3529,7 @@ static VALUE
 rb_gzfile_os_code(VALUE obj)
 {
     return INT2FIX(get_gzfile(obj)->os_code);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3389,6 +3546,8 @@ rb_gzfile_orig_name(VALUE obj)
 	str = rb_str_dup(str);
     }
     return str;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3405,6 +3564,8 @@ rb_gzfile_comment(VALUE obj)
 	str = rb_str_dup(str);
     }
     return str;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3416,6 +3577,7 @@ static VALUE
 rb_gzfile_lineno(VALUE obj)
 {
     return INT2NUM(get_gzfile(obj)->lineno);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3429,6 +3591,8 @@ rb_gzfile_set_lineno(VALUE obj, VALUE lineno)
     struct gzfile *gz = get_gzfile(obj);
     gz->lineno = NUM2INT(lineno);
     return lineno;
+    RB_GC_GUARD(lineno);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3465,6 +3629,9 @@ rb_gzfile_set_mtime(VALUE obj, VALUE mtime)
     gz->z.flags |= GZFILE_FLAG_MTIME_IS_SET;
 
     return mtime;
+    RB_GC_GUARD(mtime);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -3489,6 +3656,9 @@ rb_gzfile_set_orig_name(VALUE obj, VALUE str)
     }
     gz->orig_name = s;
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -3513,6 +3683,9 @@ rb_gzfile_set_comment(VALUE obj, VALUE str)
     }
     gz->comment = s;
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -3534,6 +3707,8 @@ rb_gzfile_close(VALUE obj)
     io = gz->io;
     gzfile_close(gz, 1);
     return io;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -3552,6 +3727,8 @@ rb_gzfile_finish(VALUE obj)
     io = gz->io;
     gzfile_close(gz, 0);
     return io;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -3566,6 +3743,7 @@ rb_gzfile_closed_p(VALUE obj)
     struct gzfile *gz;
     TypedData_Get_Struct(obj, struct gzfile, &gzfile_data_type, gz);
     return NIL_P(gz->io) ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3581,6 +3759,7 @@ rb_gzfile_eof_p(VALUE obj)
 	gzfile_read_more(gz, Qnil);
     }
     return GZFILE_IS_FINISHED(gz) ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3593,6 +3772,7 @@ static VALUE
 rb_gzfile_sync(VALUE obj)
 {
     return (get_gzfile(obj)->z.flags & GZFILE_FLAG_SYNC) ? Qtrue : Qfalse;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3616,6 +3796,8 @@ rb_gzfile_set_sync(VALUE obj, VALUE mode)
 	gz->z.flags &= ~GZFILE_FLAG_SYNC;
     }
     return mode;
+    RB_GC_GUARD(mode);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3627,6 +3809,7 @@ static VALUE
 rb_gzfile_total_in(VALUE obj)
 {
     return rb_uint2inum(get_gzfile(obj)->z.stream.total_in);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3645,6 +3828,7 @@ rb_gzfile_total_out(VALUE obj)
         return rb_uint2inum(total_out - buf_filled);
     } else {
         return LONG2FIX(-(buf_filled - (long)total_out));
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3662,6 +3846,7 @@ rb_gzfile_path(VALUE obj)
     struct gzfile *gz;
     TypedData_Get_Struct(obj, struct gzfile, &gzfile_data_type, gz);
     return gz->path;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3672,6 +3857,7 @@ gzfile_initialize_path_partial(VALUE obj)
     gz->path = rb_funcall(gz->io, id_path, 0);
     rb_define_singleton_method(obj, "path", rb_gzfile_path, 0);
     return Qnil;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -3686,6 +3872,7 @@ rb_gzfile_ecopts(struct gzfile *gz, VALUE opts)
 				    gz->ecflags, opts);
 	gz->ecopts = opts;
     }
+	RB_GC_GUARD(opts);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -3727,6 +3914,7 @@ static VALUE
 rb_gzwriter_s_allocate(VALUE klass)
 {
     return gzfile_writer_new(klass);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3740,6 +3928,7 @@ static VALUE
 rb_gzwriter_s_open(int argc, VALUE *argv, VALUE klass)
 {
     return gzfile_s_open(argc, argv, klass, "wb");
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3787,6 +3976,11 @@ rb_gzwriter_initialize(int argc, VALUE *argv, VALUE obj)
     }
 
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(strategy);
+    RB_GC_GUARD(level);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -3815,6 +4009,8 @@ rb_gzwriter_flush(int argc, VALUE *argv, VALUE obj)
 	rb_funcall(gz->io, id_flush, 0);
     }
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v_flush);
 }
 
 /*
@@ -3838,6 +4034,7 @@ rb_gzwriter_write(int argc, VALUE *argv, VALUE obj)
 	RB_GC_GUARD(str);
     }
     return SIZET2NUM(total);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -3851,6 +4048,8 @@ rb_gzwriter_putc(VALUE obj, VALUE ch)
 
     gzfile_write(gz, (Bytef*)&c, 1);
     return ch;
+    RB_GC_GUARD(ch);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -3935,6 +4134,7 @@ static VALUE
 rb_gzreader_s_allocate(VALUE klass)
 {
     return gzfile_reader_new(klass);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3950,6 +4150,7 @@ static VALUE
 rb_gzreader_s_open(int argc, VALUE *argv, VALUE klass)
 {
     return gzfile_s_open(argc, argv, klass, "rb");
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -4004,6 +4205,12 @@ rb_gzreader_s_zcat(int argc, VALUE *argv, VALUE klass)
         return Qnil;
     }
     return buf;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(tmpbuf);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(unused);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -4049,6 +4256,9 @@ rb_gzreader_initialize(int argc, VALUE *argv, VALUE obj)
     }
 
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -4063,6 +4273,7 @@ rb_gzreader_rewind(VALUE obj)
     struct gzfile *gz = get_gzfile(obj);
     gzfile_reader_rewind(gz);
     return INT2FIX(0);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -4077,6 +4288,7 @@ rb_gzreader_unused(VALUE obj)
     struct gzfile *gz;
     TypedData_Get_Struct(obj, struct gzfile, &gzfile_data_type, gz);
     return gzfile_reader_get_unused(gz);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -4101,6 +4313,9 @@ rb_gzreader_read(int argc, VALUE *argv, VALUE obj)
 	rb_raise(rb_eArgError, "negative length %ld given", len);
     }
     return gzfile_read(gz, len, outbuf);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(outbuf);
+    RB_GC_GUARD(vlen);
 }
 
 /*
@@ -4131,6 +4346,9 @@ rb_gzreader_readpartial(int argc, VALUE *argv, VALUE obj)
     if (!NIL_P(outbuf))
         Check_Type(outbuf, T_STRING);
     return gzfile_readpartial(gz, len, outbuf);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(outbuf);
+    RB_GC_GUARD(vlen);
 }
 
 /*
@@ -4144,6 +4362,7 @@ rb_gzreader_getc(VALUE obj)
     struct gzfile *gz = get_gzfile(obj);
 
     return gzfile_getc(gz);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -4160,6 +4379,8 @@ rb_gzreader_readchar(VALUE obj)
 	rb_raise(rb_eEOFError, "end of file reached");
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -4178,6 +4399,8 @@ rb_gzreader_getbyte(VALUE obj)
 	dst = INT2FIX((unsigned int)(RSTRING_PTR(dst)[0]) & 0xff);
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -4194,6 +4417,8 @@ rb_gzreader_readbyte(VALUE obj)
 	rb_raise(rb_eEOFError, "end of file reached");
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -4212,6 +4437,8 @@ rb_gzreader_each_char(VALUE obj)
 	rb_yield(c);
     }
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(c);
 }
 
 /*
@@ -4230,6 +4457,8 @@ rb_gzreader_each_byte(VALUE obj)
 	rb_yield(c);
     }
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(c);
 }
 
 /*
@@ -4252,6 +4481,8 @@ rb_gzreader_ungetc(VALUE obj, VALUE s)
     gzfile_ungets(gz, (const Bytef*)RSTRING_PTR(s), RSTRING_LEN(s));
     RB_GC_GUARD(s);
     return Qnil;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -4265,6 +4496,8 @@ rb_gzreader_ungetbyte(VALUE obj, VALUE ch)
     struct gzfile *gz = get_gzfile(obj);
     gzfile_ungetbyte(gz, NUM2CHR(ch));
     return Qnil;
+    RB_GC_GUARD(ch);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -4297,6 +4530,7 @@ gzreader_skip_linebreaks(struct gzfile *gz)
 
     str = zstream_shift_buffer(&gz->z, n - 1, Qnil);
     gzfile_calc_crc(gz, str);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -4304,6 +4538,7 @@ rscheck(const char *rsptr, long rslen, VALUE rs)
 {
     if (RSTRING_PTR(rs) != rsptr && RSTRING_LEN(rs) != rslen)
 	rb_raise(rb_eRuntimeError, "rs modified");
+	RB_GC_GUARD(rs);
 }
 
 static long
@@ -4363,6 +4598,8 @@ gzreader_gets(int argc, VALUE *argv, VALUE obj)
 	if (!NIL_P(lim)) {
 	    limit = NUM2LONG(lim);
 	    if (limit == 0) return rb_str_new(0,0);
+    RB_GC_GUARD(lim);
+    RB_GC_GUARD(tmp);
 	}
     }
 
@@ -4453,6 +4690,9 @@ gzreader_gets(int argc, VALUE *argv, VALUE obj)
     RB_GC_GUARD(rs);
 
     return gzfile_newstr(gz, dst);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(rs);
 }
 
 /*
@@ -4471,6 +4711,8 @@ rb_gzreader_gets(int argc, VALUE *argv, VALUE obj)
 	rb_lastline_set(dst);
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -4487,6 +4729,8 @@ rb_gzreader_readline(int argc, VALUE *argv, VALUE obj)
 	rb_raise(rb_eEOFError, "end of file reached");
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
 }
 
 /*
@@ -4505,6 +4749,8 @@ rb_gzreader_each(int argc, VALUE *argv, VALUE obj)
 	rb_yield(str);
     }
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4521,6 +4767,9 @@ rb_gzreader_readlines(int argc, VALUE *argv, VALUE obj)
 	rb_ary_push(dst, str);
     }
     return dst;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dst);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4532,6 +4781,7 @@ static VALUE
 rb_gzreader_external_encoding(VALUE self)
 {
     return rb_enc_from_encoding(get_gzfile(self)->enc);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -4540,12 +4790,14 @@ zlib_gzip_end_rescue(VALUE arg)
     struct gzfile *gz = (struct gzfile *)arg;
     gz->end(gz);
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
 zlib_gzip_ensure(VALUE arg)
 {
     return rb_rescue(zlib_gzip_end_rescue, arg, NULL, Qnil);
+    RB_GC_GUARD(arg);
 }
 
 static void
@@ -4617,6 +4869,11 @@ zlib_s_gzip(int argc, VALUE *argv, VALUE klass)
     args[0] = (VALUE)gz;
     args[1] = src;
     return rb_ensure(zlib_gzip_run, (VALUE)args, zlib_gzip_ensure, (VALUE)gz);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(strategy);
+    RB_GC_GUARD(level);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(src);
 }
 
 static VALUE
@@ -4636,6 +4893,8 @@ zlib_gzip_run(VALUE arg)
     }
     gzfile_close(gz, 0);
     return zstream_detach_buffer(&gz->z);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(src);
 }
 
 static void
@@ -4683,6 +4942,8 @@ zlib_gunzip(VALUE klass, VALUE src)
     gz->z.input = src;
     ZSTREAM_READY(&gz->z);
     return rb_ensure(zlib_gunzip_run, (VALUE)gz, zlib_gzip_ensure, (VALUE)gz);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -4703,6 +4964,8 @@ zlib_gunzip_run(VALUE arg)
     }
     gzfile_check_footer(gz, Qnil);
     return dst;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(dst);
 }
 
 #endif /* GZIP_SUPPORT */
@@ -5020,6 +5283,13 @@ Init_zlib(void)
     id_strategy = rb_intern("strategy");
     id_buffer = rb_intern("buffer");
 #endif /* GZIP_SUPPORT */
+    RB_GC_GUARD(mZlib);
+    RB_GC_GUARD(cGzipReader);
+    RB_GC_GUARD(cGzipWriter);
+    RB_GC_GUARD(cGzipFile);
+    RB_GC_GUARD(cInflate);
+    RB_GC_GUARD(cDeflate);
+    RB_GC_GUARD(cZStream);
 }
 
 /* Document error classes. */

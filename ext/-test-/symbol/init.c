@@ -6,6 +6,8 @@ static VALUE
 sym_find(VALUE dummy, VALUE sym)
 {
     return rb_check_symbol(&sym);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(dummy);
 }
 
 static VALUE
@@ -15,6 +17,8 @@ sym_pinneddown_p(VALUE dummy, VALUE sym)
     if (!id) return Qnil;
 #ifdef ULL2NUM
     return ULL2NUM(id);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(dummy);
 #else
     return ULONG2NUM(id);
 #endif
@@ -25,6 +29,9 @@ sym_iv_get(VALUE dummy, VALUE obj, VALUE name)
 {
     const char *n = StringValueCStr(name);
     return rb_iv_get(obj, n);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(dummy);
 }
 
 void
@@ -36,4 +43,6 @@ Init_symbol(void)
     rb_define_singleton_method(klass, "pinneddown?", sym_pinneddown_p, 1);
     rb_define_singleton_method(klass, "iv_get", sym_iv_get, 2);
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(klass);
 }

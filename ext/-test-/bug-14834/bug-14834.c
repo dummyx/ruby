@@ -14,6 +14,7 @@ Init_bug_14834(void)
 {
     VALUE q = rb_define_module("Bug");
     rb_define_module_function(q, "bug_14834", f, 0);
+    RB_GC_GUARD(q);
 }
 
 VALUE
@@ -24,6 +25,8 @@ f(VALUE q)
 
     rb_tracepoint_enable(e);
     return rb_ensure(rb_yield, q, rb_tracepoint_disable, e);
+    RB_GC_GUARD(q);
+    RB_GC_GUARD(e);
 }
 
 void
@@ -36,4 +39,5 @@ g(MAYBE_UNUSED(VALUE q), void* w)
     int       *u = ALLOCA_N(int, t);
 
     rb_profile_frames(r, t, y, u);
+    RB_GC_GUARD(q);
 }

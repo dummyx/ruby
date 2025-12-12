@@ -55,6 +55,7 @@ static VALUE
 ossl_x509stctx_new_i(VALUE arg)
 {
     return ossl_x509stctx_new((X509_STORE_CTX *)arg);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -63,6 +64,7 @@ call_verify_cb_proc(VALUE arg)
     struct ossl_verify_cb_args *args = (struct ossl_verify_cb_args *)arg;
     return rb_funcall(args->proc, rb_intern("call"), 2,
 		      args->preverify_ok, args->store_ctx);
+		      RB_GC_GUARD(arg);
 }
 
 int
@@ -103,6 +105,9 @@ ossl_verify_cb_call(VALUE proc, int ok, X509_STORE_CTX *ctx)
     }
 
     return ok;
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(rctx);
 }
 
 /*
@@ -147,6 +152,7 @@ GetX509StorePtr(VALUE obj)
     GetX509Store(obj, store);
 
     return store;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -165,6 +171,7 @@ x509store_verify_cb(int ok, X509_STORE_CTX *ctx)
 	return ok;
 
     return ossl_verify_cb_call(proc, ok, ctx);
+    RB_GC_GUARD(proc);
 }
 
 static VALUE
@@ -179,6 +186,8 @@ ossl_x509store_alloc(VALUE klass)
     SetX509Store(obj, store);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -195,6 +204,8 @@ ossl_x509store_set_vfy_cb(VALUE self, VALUE cb)
     X509_STORE_set_ex_data(store, store_ex_verify_cb_idx, (void *)cb);
 
     return cb;
+    RB_GC_GUARD(cb);
+    RB_GC_GUARD(self);
 }
 
 
@@ -225,6 +236,7 @@ ossl_x509store_initialize(int argc, VALUE *argv, VALUE self)
     rb_iv_set(self, "@chain", Qnil);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -252,6 +264,8 @@ ossl_x509store_set_flags(VALUE self, VALUE flags)
     X509_STORE_set_flags(store, f);
 
     return flags;
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -287,6 +301,8 @@ ossl_x509store_set_purpose(VALUE self, VALUE purpose)
     X509_STORE_set_purpose(store, p);
 
     return purpose;
+    RB_GC_GUARD(purpose);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -311,6 +327,8 @@ ossl_x509store_set_trust(VALUE self, VALUE trust)
     X509_STORE_set_trust(store, t);
 
     return trust;
+    RB_GC_GUARD(trust);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -339,6 +357,8 @@ ossl_x509store_set_time(VALUE self, VALUE time)
 #endif
     X509_VERIFY_PARAM_set_time(param, NUM2LONG(rb_Integer(time)));
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -376,6 +396,8 @@ ossl_x509store_add_file(VALUE self, VALUE file)
 #endif
 
     return self;
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -402,6 +424,8 @@ ossl_x509store_add_path(VALUE self, VALUE dir)
         ossl_raise(eX509StoreError, "X509_LOOKUP_add_dir");
 
     return self;
+    RB_GC_GUARD(dir);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -427,6 +451,7 @@ ossl_x509store_set_default_paths(VALUE self)
         ossl_raise(eX509StoreError, "X509_STORE_set_default_paths");
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -449,6 +474,8 @@ ossl_x509store_add_cert(VALUE self, VALUE arg)
         ossl_raise(eX509StoreError, "X509_STORE_add_cert");
 
     return self;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -471,6 +498,8 @@ ossl_x509store_add_crl(VALUE self, VALUE arg)
         ossl_raise(eX509StoreError, "X509_STORE_add_crl");
 
     return self;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 static VALUE ossl_x509stctx_get_err(VALUE);
@@ -510,6 +539,12 @@ ossl_x509store_verify(int argc, VALUE *argv, VALUE self)
     rb_iv_set(self, "@chain", ossl_x509stctx_get_chain(ctx));
 
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(ctx);
+    RB_GC_GUARD(chain);
+    RB_GC_GUARD(cert);
 }
 
 /*
@@ -556,6 +591,8 @@ ossl_x509stctx_alloc(VALUE klass)
     SetX509StCtx(obj, ctx);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -567,6 +604,7 @@ ossl_x509stctx_new(X509_STORE_CTX *ctx)
     SetX509StCtx(obj, ctx);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE ossl_x509stctx_set_flags(VALUE, VALUE);
@@ -610,6 +648,10 @@ ossl_x509stctx_initialize(int argc, VALUE *argv, VALUE self)
     rb_iv_set(self, "@cert", cert);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(chain);
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(store);
 }
 
 /*
@@ -638,6 +680,8 @@ ossl_x509stctx_verify(VALUE self)
       default:
         ossl_raise(eX509StoreError, "X509_verify_cert");
     }
+        RB_GC_GUARD(cb);
+        RB_GC_GUARD(self);
 }
 
 /*
@@ -659,6 +703,7 @@ ossl_x509stctx_get_chain(VALUE self)
     if (!chain)
         return Qnil; /* Could be an empty array instead? */
     return ossl_x509_sk2ary(chain);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -679,6 +724,7 @@ ossl_x509stctx_get_err(VALUE self)
     GetX509StCtx(self, ctx);
 
     return INT2NUM(X509_STORE_CTX_get_error(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -699,6 +745,8 @@ ossl_x509stctx_set_error(VALUE self, VALUE err)
     X509_STORE_CTX_set_error(ctx, NUM2INT(err));
 
     return err;
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -720,6 +768,7 @@ ossl_x509stctx_get_err_string(VALUE self)
     err = X509_STORE_CTX_get_error(ctx);
 
     return rb_str_new2(X509_verify_cert_error_string(err));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -738,6 +787,7 @@ ossl_x509stctx_get_err_depth(VALUE self)
     GetX509StCtx(self, ctx);
 
     return INT2NUM(X509_STORE_CTX_get_error_depth(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -756,6 +806,7 @@ ossl_x509stctx_get_curr_cert(VALUE self)
     GetX509StCtx(self, ctx);
 
     return ossl_x509_new(X509_STORE_CTX_get_current_cert(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -778,6 +829,7 @@ ossl_x509stctx_get_curr_crl(VALUE self)
 	return Qnil;
 
     return ossl_x509crl_new(crl);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -799,6 +851,8 @@ ossl_x509stctx_set_flags(VALUE self, VALUE flags)
     X509_STORE_CTX_set_flags(store, f);
 
     return flags;
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -820,6 +874,8 @@ ossl_x509stctx_set_purpose(VALUE self, VALUE purpose)
     X509_STORE_CTX_set_purpose(store, p);
 
     return purpose;
+    RB_GC_GUARD(purpose);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -841,6 +897,8 @@ ossl_x509stctx_set_trust(VALUE self, VALUE trust)
     X509_STORE_CTX_set_trust(store, t);
 
     return trust;
+    RB_GC_GUARD(trust);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -862,6 +920,8 @@ ossl_x509stctx_set_time(VALUE self, VALUE time)
     X509_STORE_CTX_set_time(store, 0, t);
 
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(self);
 }
 
 /*

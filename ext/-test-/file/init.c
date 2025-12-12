@@ -8,4 +8,6 @@ Init_file(void)
     VALUE mBug = rb_define_module("Bug");
     VALUE module = rb_define_module_under(mBug, "File");
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(module);
 }

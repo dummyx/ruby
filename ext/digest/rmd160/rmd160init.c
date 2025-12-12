@@ -53,4 +53,7 @@ Init_rmd160(void)
 
     cDigest_RMD160 = rb_define_class_under(mDigest, "RMD160", cDigest_Base);
     rb_iv_set(cDigest_RMD160, "metadata", rb_digest_make_metadata(&rmd160));
+    RB_GC_GUARD(mDigest);
+    RB_GC_GUARD(cDigest_RMD160);
+    RB_GC_GUARD(cDigest_Base);
 }

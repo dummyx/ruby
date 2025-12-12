@@ -858,6 +858,7 @@ host_str(VALUE host, char *hbuf, size_t hbuflen, int *flags_ptr)
             hbuf[len] = '\0';
         }
         return hbuf;
+        RB_GC_GUARD(host);
     }
 }
 
@@ -887,6 +888,7 @@ port_str(VALUE port, char *pbuf, size_t pbuflen, int *flags_ptr)
         memcpy(pbuf, serv, len);
         pbuf[len] = '\0';
         return pbuf;
+        RB_GC_GUARD(port);
     }
 }
 
@@ -937,6 +939,10 @@ rb_scheduler_getaddrinfo(VALUE scheduler, VALUE host, const char *service,
         return 0;
     } else {
         return EAI_NONAME;
+        RB_GC_GUARD(ip_addresses_array);
+        RB_GC_GUARD(host);
+        RB_GC_GUARD(scheduler);
+        RB_GC_GUARD(ip_address);
     }
 }
 
@@ -982,6 +988,7 @@ rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_h
                 res->allocated_by_malloc = 0;
                 res->ai = ai;
             }
+    RB_GC_GUARD(scheduler);
         }
     }
 
@@ -993,6 +1000,8 @@ rsock_getaddrinfo(VALUE host, VALUE port, struct addrinfo *hints, int socktype_h
     }
 
     return res;
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
 }
 
 int
@@ -1018,6 +1027,8 @@ rsock_addrinfo(VALUE host, VALUE port, int family, int socktype, int flags)
     hints.ai_socktype = socktype;
     hints.ai_flags = flags;
     return rsock_getaddrinfo(host, port, &hints, 1);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
 }
 
 VALUE
@@ -1058,6 +1069,11 @@ rsock_ipaddr(struct sockaddr *sockaddr, socklen_t sockaddrlen, int norevlookup)
     ary = rb_ary_new3(4, family, port, addr1, addr2);
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(addr2);
+    RB_GC_GUARD(addr1);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(family);
 }
 
 #ifdef HAVE_TYPE_STRUCT_SOCKADDR_UN
@@ -1106,6 +1122,7 @@ rsock_unix_sockaddr_len(VALUE path)
 #endif
         return (socklen_t) sizeof(struct sockaddr_un);
 #ifdef __linux__
+        RB_GC_GUARD(path);
     }
 #endif
 }
@@ -1160,6 +1177,10 @@ make_hostent_internal(VALUE v)
     }
 
     return ary;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(names);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(host);
 }
 
 VALUE
@@ -1168,6 +1189,7 @@ rsock_freeaddrinfo(VALUE arg)
     struct rb_addrinfo *addr = (struct rb_addrinfo *)arg;
     rb_freeaddrinfo(addr);
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 VALUE
@@ -1180,6 +1202,7 @@ rsock_make_hostent(VALUE host, struct rb_addrinfo *addr, VALUE (*ipaddr)(struct 
     arg.ipaddr = ipaddr;
     return rb_ensure(make_hostent_internal, (VALUE)&arg,
                      rsock_freeaddrinfo, (VALUE)addr);
+                     RB_GC_GUARD(host);
 }
 
 typedef struct {
@@ -1217,6 +1240,7 @@ static VALUE
 addrinfo_s_allocate(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &addrinfo_type, 0);
+    RB_GC_GUARD(klass);
 }
 
 #define IS_ADDRINFO(obj) rb_typeddata_is_kind_of((obj), &addrinfo_type)
@@ -1224,6 +1248,7 @@ static inline rb_addrinfo_t *
 check_addrinfo(VALUE self)
 {
     return rb_check_typeddata(self, &addrinfo_type);
+    RB_GC_GUARD(self);
 }
 
 static rb_addrinfo_t *
@@ -1235,6 +1260,7 @@ get_addrinfo(VALUE self)
         rb_raise(rb_eTypeError, "uninitialized socket address");
     }
     return rai;
+    RB_GC_GUARD(self);
 }
 
 
@@ -1262,6 +1288,8 @@ init_addrinfo(rb_addrinfo_t *rai, struct sockaddr *sa, socklen_t len,
     rai->protocol = protocol;
     rai->canonname = canonname;
     rai->inspectname = inspectname;
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(inspectname);
 }
 
 VALUE
@@ -1276,6 +1304,9 @@ rsock_addrinfo_new(struct sockaddr *addr, socklen_t len,
     DATA_PTR(a) = rai = alloc_addrinfo();
     init_addrinfo(rai, addr, len, family, socktype, protocol, canonname, inspectname);
     return a;
+    RB_GC_GUARD(inspectname);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(a);
 }
 
 static struct rb_addrinfo *
@@ -1304,6 +1335,13 @@ call_getaddrinfo(VALUE node, VALUE service,
     if (res == NULL)
         rb_raise(rb_eSocket, "host not found");
     return res;
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(service);
+    RB_GC_GUARD(node);
 }
 
 static VALUE make_inspectname(VALUE node, VALUE service, struct addrinfo *res);
@@ -1328,6 +1366,16 @@ init_addrinfo_getaddrinfo(rb_addrinfo_t *rai, VALUE node, VALUE service,
                   canonname, inspectname);
 
     rb_freeaddrinfo(res);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(inspectservice);
+    RB_GC_GUARD(inspectnode);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(service);
+    RB_GC_GUARD(node);
+    RB_GC_GUARD(inspectname);
 }
 
 static VALUE
@@ -1372,6 +1420,9 @@ make_inspectname(VALUE node, VALUE service, struct addrinfo *res)
         OBJ_FREEZE(inspectname);
     }
     return inspectname;
+    RB_GC_GUARD(service);
+    RB_GC_GUARD(node);
+    RB_GC_GUARD(inspectname);
 }
 
 static VALUE
@@ -1398,6 +1449,15 @@ addrinfo_firstonly_new(VALUE node, VALUE service, VALUE family, VALUE socktype, 
 
     rb_freeaddrinfo(res);
     return ret;
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(service);
+    RB_GC_GUARD(node);
+    RB_GC_GUARD(inspectname);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -1426,10 +1486,21 @@ addrinfo_list_new(VALUE node, VALUE service, VALUE family, VALUE socktype, VALUE
                                   canonname, inspectname);
 
         rb_ary_push(ret, addr);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(addr);
     }
 
     rb_freeaddrinfo(res);
     return ret;
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(service);
+    RB_GC_GUARD(node);
+    RB_GC_GUARD(inspectname);
+    RB_GC_GUARD(ret);
 }
 
 
@@ -1453,6 +1524,7 @@ init_unix_addrinfo(rb_addrinfo_t *rai, VALUE path, int socktype)
     len = rsock_unix_sockaddr_len(path);
     init_addrinfo(rai, (struct sockaddr *)&un, len,
                   PF_UNIX, socktype, 0, Qnil, Qnil);
+                  RB_GC_GUARD(path);
 }
 
 static long
@@ -1536,6 +1608,7 @@ addrinfo_initialize(int argc, VALUE *argv, VALUE self)
         if (rsock_family_to_int(RSTRING_PTR(afamily), RSTRING_LEN(afamily), &af) == -1)
             rb_raise(rb_eSocket, "unknown address family: %s", StringValueCStr(afamily));
         switch (af) {
+          RB_GC_GUARD(afamily);
           case AF_INET: /* ["AF_INET", 46102, "localhost.localdomain", "127.0.0.1"] */
 #ifdef INET6
           case AF_INET6: /* ["AF_INET6", 42304, "ip6-localhost", "::1"] */
@@ -1560,6 +1633,9 @@ addrinfo_initialize(int argc, VALUE *argv, VALUE self)
                     INT2NUM(flags),
                     nodename, service);
             break;
+            RB_GC_GUARD(numericnode);
+            RB_GC_GUARD(nodename);
+            RB_GC_GUARD(service);
           }
 
 #ifdef HAVE_TYPE_STRUCT_SOCKADDR_UN
@@ -1569,6 +1645,7 @@ addrinfo_initialize(int argc, VALUE *argv, VALUE self)
             StringValue(path);
             init_unix_addrinfo(rai, path, SOCK_STREAM);
             break;
+            RB_GC_GUARD(path);
           }
 #endif
 
@@ -1586,6 +1663,14 @@ addrinfo_initialize(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(inspectname);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(pfamily);
+    RB_GC_GUARD(sockaddr_ary);
+    RB_GC_GUARD(sockaddr_arg);
 }
 
 static int
@@ -1610,6 +1695,8 @@ inspect_sockaddr(VALUE addrinfo, VALUE ret)
     union_sockaddr *sockaddr = &rai->addr;
     socklen_t socklen = rai->sockaddr_len;
     return rsock_inspect_sockaddr((struct sockaddr *)sockaddr, socklen, ret);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(addrinfo);
 }
 
 VALUE
@@ -1895,6 +1982,7 @@ rsock_inspect_sockaddr(struct sockaddr *sockaddr_arg, socklen_t socklen, VALUE r
     }
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1965,15 +2053,19 @@ addrinfo_inspect(VALUE self)
     if (!NIL_P(rai->canonname)) {
         VALUE name = rai->canonname;
         rb_str_catf(ret, " %s", StringValueCStr(name));
+    RB_GC_GUARD(name);
     }
 
     if (!NIL_P(rai->inspectname)) {
         VALUE name = rai->inspectname;
         rb_str_catf(ret, " (%s)", StringValueCStr(name));
+    RB_GC_GUARD(name);
     }
 
     rb_str_buf_cat2(ret, ">");
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1991,6 +2083,7 @@ VALUE
 rsock_addrinfo_inspect_sockaddr(VALUE self)
 {
     return inspect_sockaddr(self, rb_str_new("", 0));
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -2062,6 +2155,14 @@ addrinfo_mdump(VALUE self)
     }
 
     return rb_ary_new3(7, afamily, sockaddr, pfamily, socktype, protocol, canonname, inspectname);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(inspectname);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(pfamily);
+    RB_GC_GUARD(afamily);
+    RB_GC_GUARD(sockaddr);
 }
 
 /* :nodoc: */
@@ -2165,6 +2266,7 @@ addrinfo_mload(VALUE self, VALUE ary)
         memcpy(&ss, res->ai->ai_addr, res->ai->ai_addrlen);
         rb_freeaddrinfo(res);
         break;
+    RB_GC_GUARD(pair);
       }
     }
 
@@ -2173,6 +2275,11 @@ addrinfo_mload(VALUE self, VALUE ary)
                   pfamily, socktype, protocol,
                   canonname, inspectname);
     return self;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(inspectname);
+    RB_GC_GUARD(canonname);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -2189,6 +2296,7 @@ addrinfo_afamily(VALUE self)
 {
     rb_addrinfo_t *rai = get_addrinfo(self);
     return INT2NUM(ai_get_afamily(rai));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2205,6 +2313,7 @@ addrinfo_pfamily(VALUE self)
 {
     rb_addrinfo_t *rai = get_addrinfo(self);
     return INT2NUM(rai->pfamily);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2221,6 +2330,7 @@ addrinfo_socktype(VALUE self)
 {
     rb_addrinfo_t *rai = get_addrinfo(self);
     return INT2NUM(rai->socktype);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2237,6 +2347,7 @@ addrinfo_protocol(VALUE self)
 {
     rb_addrinfo_t *rai = get_addrinfo(self);
     return INT2NUM(rai->protocol);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2257,6 +2368,8 @@ addrinfo_to_sockaddr(VALUE self)
     VALUE ret;
     ret = rb_str_new((char*)&rai->addr, rai->sockaddr_len);
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -2279,6 +2392,7 @@ addrinfo_canonname(VALUE self)
 {
     rb_addrinfo_t *rai = get_addrinfo(self);
     return rai->canonname;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2299,6 +2413,7 @@ addrinfo_ip_p(VALUE self)
     rb_addrinfo_t *rai = get_addrinfo(self);
     int family = ai_get_afamily(rai);
     return IS_IP_FAMILY(family) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2318,6 +2433,7 @@ addrinfo_ipv4_p(VALUE self)
 {
     rb_addrinfo_t *rai = get_addrinfo(self);
     return ai_get_afamily(rai) == AF_INET ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2338,6 +2454,7 @@ addrinfo_ipv6_p(VALUE self)
 #ifdef AF_INET6
     rb_addrinfo_t *rai = get_addrinfo(self);
     return ai_get_afamily(rai) == AF_INET6 ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 #else
     return Qfalse;
 #endif
@@ -2361,6 +2478,7 @@ addrinfo_unix_p(VALUE self)
     rb_addrinfo_t *rai = get_addrinfo(self);
 #ifdef AF_UNIX
     return ai_get_afamily(rai) == AF_UNIX ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 #else
     return Qfalse;
 #endif
@@ -2404,6 +2522,8 @@ addrinfo_getnameinfo(int argc, VALUE *argv, VALUE self)
     }
 
     return rb_assoc_new(rb_str_new2(hbuf), rb_str_new2(pbuf));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vflags);
 }
 
 /*
@@ -2431,6 +2551,10 @@ addrinfo_ip_unpack(VALUE self)
     portstr = rb_ary_entry(ret, 1);
     rb_ary_store(ret, 1, INT2NUM(atoi(StringValueCStr(portstr))));
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(portstr);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(vflags);
 }
 
 /*
@@ -2456,6 +2580,9 @@ addrinfo_ip_address(VALUE self)
     vflags = INT2NUM(NI_NUMERICHOST|NI_NUMERICSERV);
     ret = addrinfo_getnameinfo(1, &vflags, self);
     return rb_ary_entry(ret, 0);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(vflags);
 }
 
 /*
@@ -2503,6 +2630,7 @@ addrinfo_ip_port(VALUE self)
     }
 
     return INT2NUM(port);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -2513,6 +2641,7 @@ extract_in_addr(VALUE self, uint32_t *addrp)
     if (family != AF_INET) return 0;
     *addrp = ntohl(rai->addr.in.sin_addr.s_addr);
     return 1;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2529,6 +2658,7 @@ addrinfo_ipv4_private_p(VALUE self)
         (a & 0xffff0000) == 0xc0a80000)   /* 192.168.0.0/16 */
         return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2543,6 +2673,7 @@ addrinfo_ipv4_loopback_p(VALUE self)
     if ((a & 0xff000000) == 0x7f000000) /* 127.0.0.0/8 */
         return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2557,6 +2688,7 @@ addrinfo_ipv4_multicast_p(VALUE self)
     if ((a & 0xf0000000) == 0xe0000000) /* 224.0.0.0/4 */
         return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 #ifdef INET6
@@ -2568,6 +2700,7 @@ extract_in6_addr(VALUE self)
     int family = ai_get_afamily(rai);
     if (family != AF_INET6) return NULL;
     return &rai->addr.in6.sin6_addr;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2580,6 +2713,7 @@ addrinfo_ipv6_unspecified_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_UNSPECIFIED(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2592,6 +2726,7 @@ addrinfo_ipv6_loopback_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_LOOPBACK(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2604,6 +2739,7 @@ addrinfo_ipv6_multicast_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_MULTICAST(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2616,6 +2752,7 @@ addrinfo_ipv6_linklocal_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_LINKLOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2628,6 +2765,7 @@ addrinfo_ipv6_sitelocal_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_SITELOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2640,6 +2778,7 @@ addrinfo_ipv6_unique_local_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_UNIQUE_LOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2652,6 +2791,7 @@ addrinfo_ipv6_v4mapped_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_V4MAPPED(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2664,6 +2804,7 @@ addrinfo_ipv6_v4compat_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_V4COMPAT(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2676,6 +2817,7 @@ addrinfo_ipv6_mc_nodelocal_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_MC_NODELOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2688,6 +2830,7 @@ addrinfo_ipv6_mc_linklocal_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_MC_LINKLOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2700,6 +2843,7 @@ addrinfo_ipv6_mc_sitelocal_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_MC_SITELOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2712,6 +2856,7 @@ addrinfo_ipv6_mc_orglocal_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_MC_ORGLOCAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2724,6 +2869,7 @@ addrinfo_ipv6_mc_global_p(VALUE self)
     struct in6_addr *addr = extract_in6_addr(self);
     if (addr && IN6_IS_ADDR_MC_GLOBAL(addr)) return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2754,6 +2900,7 @@ addrinfo_ipv6_to_ipv4(VALUE self)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
     }
 }
 
@@ -2790,6 +2937,7 @@ addrinfo_unix_path(VALUE self)
             "too long AF_UNIX path (%"PRIuSIZE" bytes given but %"PRIuSIZE" bytes max)",
             (size_t)n, sizeof(addr->sun_path));
     return rb_str_new(addr->sun_path, n);
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -2851,6 +2999,15 @@ addrinfo_s_getaddrinfo(int argc, VALUE *argv, VALUE self)
     }
 
     return addrinfo_list_new(node, service, family, socktype, protocol, flags, timeout);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(service);
+    RB_GC_GUARD(node);
 }
 
 /*
@@ -2875,6 +3032,9 @@ addrinfo_s_ip(VALUE self, VALUE host)
     rai->socktype = 0;
     rai->protocol = 0;
     return ret;
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -2890,6 +3050,9 @@ addrinfo_s_tcp(VALUE self, VALUE host, VALUE port)
 {
     return addrinfo_firstonly_new(host, port,
             INT2NUM(PF_UNSPEC), INT2NUM(SOCK_STREAM), INT2NUM(IPPROTO_TCP), INT2FIX(0));
+            RB_GC_GUARD(port);
+            RB_GC_GUARD(host);
+            RB_GC_GUARD(self);
 }
 
 /*
@@ -2905,6 +3068,9 @@ addrinfo_s_udp(VALUE self, VALUE host, VALUE port)
 {
     return addrinfo_firstonly_new(host, port,
             INT2NUM(PF_UNSPEC), INT2NUM(SOCK_DGRAM), INT2NUM(IPPROTO_UDP), INT2FIX(0));
+            RB_GC_GUARD(port);
+            RB_GC_GUARD(host);
+            RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_TYPE_STRUCT_SOCKADDR_UN
@@ -2939,6 +3105,10 @@ addrinfo_s_unix(int argc, VALUE *argv, VALUE self)
     DATA_PTR(addr) = rai = alloc_addrinfo();
     init_unix_addrinfo(rai, path, socktype);
     return addr;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(vsocktype);
+    RB_GC_GUARD(path);
 }
 
 #endif
@@ -2952,6 +3122,7 @@ rsock_sockaddr_string_value(volatile VALUE *v)
     }
     StringValue(*v);
     return *v;
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -2965,6 +3136,7 @@ rsock_sockaddr_string_value_with_addrinfo(volatile VALUE *v, VALUE *rai_ret)
     }
     StringValue(*v);
     return *v;
+    RB_GC_GUARD(val);
 }
 
 char *
@@ -2980,6 +3152,7 @@ rb_check_sockaddr_string_type(VALUE val)
     if (IS_ADDRINFO(val))
         return addrinfo_to_sockaddr(val);
     return rb_check_string_type(val);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -3022,6 +3195,7 @@ rsock_io_socket_addrinfo(VALUE io, struct sockaddr *addr, socklen_t len)
     }
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(io);
 }
 
 #if FAST_FALLBACK_INIT_INETSOCK_IMPL == 1

@@ -168,6 +168,7 @@ rb_memsearch_qs(const unsigned char *xs, long m, const unsigned char *ys, long n
             return y - ys;
     }
     return -1;
+    RB_GC_GUARD(i);
 }
 
 static inline unsigned int
@@ -222,6 +223,7 @@ rb_memsearch_qs_utf8(const unsigned char *xs, long m, const unsigned char *ys, l
             return y - ys;
     }
     return -1;
+    RB_GC_GUARD(i);
 }
 
 static inline long
@@ -361,6 +363,7 @@ rb_reg_check(VALUE re)
     if (!RREGEXP_PTR(re) || !RREGEXP_SRC(re) || !RREGEXP_SRC_PTR(re)) {
         rb_raise(rb_eTypeError, "uninitialized Regexp");
     }
+        RB_GC_GUARD(re);
 }
 
 static void
@@ -450,6 +453,7 @@ rb_reg_expr_str(VALUE str, const char *s, long len,
             p += clen;
         }
     }
+            RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -481,6 +485,9 @@ rb_reg_desc(VALUE re)
             rb_str_buf_cat2(str, "n");
     }
     return str;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(src_str);
+    RB_GC_GUARD(str);
 }
 
 
@@ -510,6 +517,8 @@ rb_reg_source(VALUE re)
     rb_reg_check(re);
     str = rb_str_dup(RREGEXP_SRC(re));
     return str;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -530,6 +539,7 @@ rb_reg_inspect(VALUE re)
         return rb_any_to_s(re);
     }
     return rb_reg_desc(re);
+    RB_GC_GUARD(re);
 }
 
 static VALUE rb_reg_str_with_term(VALUE re, int term);
@@ -565,6 +575,7 @@ static VALUE
 rb_reg_to_s(VALUE re)
 {
     return rb_reg_str_with_term(re, '/');
+    RB_GC_GUARD(re);
 }
 
 static VALUE
@@ -629,6 +640,7 @@ rb_reg_str_with_term(VALUE re, int term)
                            enc, OnigDefaultSyntax, NULL);
             onig_free(rp);
             ruby_verbose = verbose;
+        RB_GC_GUARD(verbose);
         }
         if (err) {
             options = RREGEXP_PTR(re)->options;
@@ -675,6 +687,9 @@ rb_reg_str_with_term(VALUE re, int term)
     RB_GC_GUARD(src_str);
 
     return str;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(src_str);
+    RB_GC_GUARD(str);
 }
 
 NORETURN(static void rb_reg_raise(const char *err, VALUE re));
@@ -685,6 +700,8 @@ rb_reg_raise(const char *err, VALUE re)
     VALUE desc = rb_reg_desc(re);
 
     rb_raise(rb_eRegexpError, "%s: %"PRIsVALUE, err, desc);
+    RB_GC_GUARD(desc);
+    RB_GC_GUARD(re);
 }
 
 static VALUE
@@ -702,6 +719,7 @@ rb_enc_reg_error_desc(const char *s, long len, rb_encoding *enc, int options, co
     option_to_str(opts + 1, options);
     rb_str_buf_cat2(desc, opts);
     return rb_exc_new3(rb_eRegexpError, desc);
+    RB_GC_GUARD(desc);
 }
 
 NORETURN(static void rb_enc_reg_raise(const char *s, long len, rb_encoding *enc, int options, const char *err));
@@ -717,6 +735,7 @@ rb_reg_error_desc(VALUE str, int options, const char *err)
 {
     return rb_enc_reg_error_desc(RSTRING_PTR(str), RSTRING_LEN(str),
                                  rb_enc_get(str), options, err);
+                                 RB_GC_GUARD(str);
 }
 
 NORETURN(static void rb_reg_raise_str(VALUE str, int options, const char *err));
@@ -725,6 +744,7 @@ static void
 rb_reg_raise_str(VALUE str, int options, const char *err)
 {
     rb_exc_raise(rb_reg_error_desc(str, options, err));
+    RB_GC_GUARD(str);
 }
 
 
@@ -746,6 +766,7 @@ rb_reg_casefold_p(VALUE re)
 {
     rb_reg_check(re);
     return RBOOL(RREGEXP_PTR(re)->options & ONIG_OPTION_IGNORECASE);
+    RB_GC_GUARD(re);
 }
 
 
@@ -791,6 +812,7 @@ rb_reg_options_m(VALUE re)
 {
     int options = rb_reg_options(re);
     return INT2NUM(options);
+    RB_GC_GUARD(re);
 }
 
 static int
@@ -800,6 +822,7 @@ reg_names_iter(const OnigUChar *name, const OnigUChar *name_end,
     VALUE ary = (VALUE)arg;
     rb_ary_push(ary, rb_enc_str_new((const char *)name, name_end-name, regex->enc));
     return 0;
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -823,6 +846,8 @@ rb_reg_names(VALUE re)
     ary = rb_ary_new_capa(onig_number_of_names(RREGEXP_PTR(re)));
     onig_foreach_name(RREGEXP_PTR(re), reg_names_iter, (void*)ary);
     return ary;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -839,6 +864,8 @@ reg_named_captures_iter(const OnigUChar *name, const OnigUChar *name_end,
     rb_hash_aset(hash, rb_str_new((const char*)name, name_end-name),ary);
 
     return 0;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -866,6 +893,8 @@ rb_reg_named_captures(VALUE re)
     VALUE hash = rb_hash_new_with_size(onig_number_of_names(reg));
     onig_foreach_name(reg, reg_named_captures_iter, (void*)hash);
     return hash;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -978,6 +1007,8 @@ match_alloc(VALUE klass)
     memset(RMATCH_EXT(match), 0, sizeof(rb_matchext_t));
 
     return (VALUE)match;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(flags);
 }
 
 int
@@ -1073,6 +1104,7 @@ update_char_offset(VALUE match)
         found = bsearch(&key, pairs, num_pos, sizeof(pair_t), pair_byte_cmp);
         rm->char_offset[i].end = found->char_pos;
     }
+        RB_GC_GUARD(match);
 }
 
 static VALUE
@@ -1082,6 +1114,7 @@ match_check(VALUE match)
         rb_raise(rb_eTypeError, "uninitialized MatchData");
     }
     return match;
+    RB_GC_GUARD(match);
 }
 
 /* :nodoc: */
@@ -1110,6 +1143,8 @@ match_init_copy(VALUE obj, VALUE orig)
     }
 
     return obj;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -1134,8 +1169,11 @@ match_regexp(VALUE match)
         VALUE str = rb_reg_nth_match(0, match);
         regexp = rb_reg_regcomp(rb_reg_quote(str));
         RB_OBJ_WRITE(match, &RMATCH(match)->regexp, regexp);
+    RB_GC_GUARD(str);
     }
     return regexp;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(regexp);
 }
 
 /*
@@ -1166,6 +1204,7 @@ match_names(VALUE match)
     if (NIL_P(RMATCH(match)->regexp))
         return rb_ary_new_capa(0);
     return rb_reg_names(RMATCH(match)->regexp);
+    RB_GC_GUARD(match);
 }
 
 /*
@@ -1185,6 +1224,7 @@ match_size(VALUE match)
 {
     match_check(match);
     return INT2FIX(RMATCH_REGS(match)->num_regs);
+    RB_GC_GUARD(match);
 }
 
 static int name_to_backref_number(struct re_registers *, VALUE, const char*, const char*);
@@ -1195,6 +1235,7 @@ name_to_backref_error(VALUE name)
 {
     rb_raise(rb_eIndexError, "undefined group name reference: % "PRIsVALUE,
              name);
+             RB_GC_GUARD(name);
 }
 
 static void
@@ -1229,12 +1270,17 @@ match_backref_number(VALUE match, VALUE backref)
     }
 
     return num;
+    RB_GC_GUARD(backref);
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(regexp);
 }
 
 int
 rb_reg_backref_number(VALUE match, VALUE backref)
 {
     return match_backref_number(match, backref);
+    RB_GC_GUARD(backref);
+    RB_GC_GUARD(match);
 }
 
 /*
@@ -1261,6 +1307,8 @@ match_offset(VALUE match, VALUE n)
     update_char_offset(match);
     return rb_assoc_new(LONG2NUM(RMATCH_EXT(match)->char_offset[i].beg),
                         LONG2NUM(RMATCH_EXT(match)->char_offset[i].end));
+                        RB_GC_GUARD(n);
+                        RB_GC_GUARD(match);
 }
 
 /*
@@ -1293,6 +1341,8 @@ match_byteoffset(VALUE match, VALUE n)
     if (BEG(i) < 0)
         return rb_assoc_new(Qnil, Qnil);
     return rb_assoc_new(LONG2NUM(BEG(i)), LONG2NUM(END(i)));
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 
@@ -1317,6 +1367,8 @@ match_bytebegin(VALUE match, VALUE n)
     if (BEG(i) < 0)
         return Qnil;
     return LONG2NUM(BEG(i));
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 
@@ -1341,6 +1393,8 @@ match_byteend(VALUE match, VALUE n)
     if (BEG(i) < 0)
         return Qnil;
     return LONG2NUM(END(i));
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 
@@ -1367,6 +1421,8 @@ match_begin(VALUE match, VALUE n)
 
     update_char_offset(match);
     return LONG2NUM(RMATCH_EXT(match)->char_offset[i].beg);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 
@@ -1393,6 +1449,8 @@ match_end(VALUE match, VALUE n)
 
     update_char_offset(match);
     return LONG2NUM(RMATCH_EXT(match)->char_offset[i].end);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 /*
@@ -1434,6 +1492,8 @@ match_nth(VALUE match, VALUE n)
         return Qnil;
 
     return rb_str_subseq(RMATCH(match)->str, start, end - start);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 /*
@@ -1481,6 +1541,8 @@ match_nth_length(VALUE match, VALUE n)
     const struct rmatch_offset *const ofs =
         &RMATCH_EXT(match)->char_offset[i];
     return LONG2NUM(ofs->end - ofs->beg);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(match);
 }
 
 #define MATCH_BUSY FL_USER2
@@ -1489,12 +1551,14 @@ void
 rb_match_busy(VALUE match)
 {
     FL_SET(match, MATCH_BUSY);
+    RB_GC_GUARD(match);
 }
 
 void
 rb_match_unbusy(VALUE match)
 {
     FL_UNSET(match, MATCH_BUSY);
+    RB_GC_GUARD(match);
 }
 
 int
@@ -1505,6 +1569,7 @@ rb_match_count(VALUE match)
     regs = RMATCH_REGS(match);
     if (!regs) return -1;
     return regs->num_regs;
+    RB_GC_GUARD(match);
 }
 
 static void
@@ -1519,6 +1584,8 @@ match_set_string(VALUE m, VALUE string, long pos, long len)
     if (err) rb_memerror();
     rmatch->regs.beg[0] = pos;
     rmatch->regs.end[0] = pos + len;
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(string);
 }
 
 void
@@ -1530,6 +1597,8 @@ rb_backref_set_string(VALUE string, long pos, long len)
     }
     match_set_string(match, string, pos, len);
     rb_backref_set(match);
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(string);
 }
 
 /*
@@ -1565,6 +1634,7 @@ static VALUE
 rb_reg_fixed_encoding_p(VALUE re)
 {
     return RBOOL(FL_TEST(re, KCODE_FIXED));
+    RB_GC_GUARD(re);
 }
 
 static VALUE
@@ -1580,6 +1650,8 @@ reg_enc_error(VALUE re, VALUE str)
              "incompatible encoding regexp match (%s regexp with %s string)",
              rb_enc_inspect_name(rb_enc_get(re)),
              rb_enc_inspect_name(rb_enc_get(str)));
+             RB_GC_GUARD(re);
+             RB_GC_GUARD(str);
 }
 
 static inline int
@@ -1590,6 +1662,7 @@ str_coderange(VALUE str)
         cr = rb_enc_str_coderange(str);
     }
     return cr;
+    RB_GC_GUARD(str);
 }
 
 static rb_encoding*
@@ -1629,6 +1702,8 @@ rb_reg_prepare_enc(VALUE re, VALUE str, int warn)
                 rb_enc_name(enc));
     }
     return enc;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 regex_t *
@@ -1697,6 +1772,10 @@ rb_reg_prepare_re(VALUE re, VALUE str)
     RB_GC_GUARD(unescaped);
     RB_GC_GUARD(src_str);
     return reg;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(src_str);
+    RB_GC_GUARD(unescaped);
 }
 
 OnigPosition
@@ -1733,6 +1812,8 @@ rb_reg_onig_match(VALUE re, VALUE str,
     }
 
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 long
@@ -1764,6 +1845,8 @@ rb_reg_adjust_startpos(VALUE re, VALUE str, long pos, int reverse)
     }
 
     return pos;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 struct reg_onig_search_args {
@@ -1787,6 +1870,7 @@ reg_onig_search(regex_t *reg, VALUE str, struct re_registers *regs, void *args_p
         (UChar *)(ptr + args->range),
         regs,
         ONIG_OPTION_NONE);
+        RB_GC_GUARD(str);
 }
 
 /* returns byte offset */
@@ -1832,18 +1916,25 @@ rb_reg_search_set_match(VALUE re, VALUE str, long pos, int reverse, int set_back
     if (set_match) *set_match = match;
 
     return result;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(match);
 }
 
 long
 rb_reg_search0(VALUE re, VALUE str, long pos, int reverse, int set_backref_str)
 {
     return rb_reg_search_set_match(re, str, pos, reverse, set_backref_str, NULL);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 long
 rb_reg_search(VALUE re, VALUE str, long pos, int reverse)
 {
     return rb_reg_search0(re, str, pos, reverse, 1);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 static OnigPosition
@@ -1860,6 +1951,7 @@ reg_onig_match(regex_t *reg, VALUE str, struct re_registers *regs, void *_)
         (UChar *)ptr,
         regs,
         ONIG_OPTION_NONE);
+        RB_GC_GUARD(str);
 }
 
 bool
@@ -1882,6 +1974,9 @@ rb_reg_start_with_p(VALUE re, VALUE str)
     rb_backref_set(match);
 
     return true;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(match);
 }
 
 VALUE
@@ -1899,6 +1994,7 @@ rb_reg_nth_defined(int nth, VALUE match)
         if (nth <= 0) return Qnil;
     }
     return RBOOL(BEG(nth) != -1);
+    RB_GC_GUARD(match);
 }
 
 VALUE
@@ -1924,12 +2020,15 @@ rb_reg_nth_match(int nth, VALUE match)
     len = end - start;
     str = rb_str_subseq(RMATCH(match)->str, start, len);
     return str;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(str);
 }
 
 VALUE
 rb_reg_last_match(VALUE match)
 {
     return rb_reg_nth_match(0, match);
+    RB_GC_GUARD(match);
 }
 
 
@@ -1962,6 +2061,8 @@ rb_reg_match_pre(VALUE match)
     if (BEG(0) == -1) return Qnil;
     str = rb_str_subseq(RMATCH(match)->str, 0, BEG(0));
     return str;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(str);
 }
 
 
@@ -1998,6 +2099,8 @@ rb_reg_match_post(VALUE match)
     pos = END(0);
     str = rb_str_subseq(str, pos, RSTRING_LEN(str) - pos);
     return str;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -2014,6 +2117,7 @@ match_last_index(VALUE match)
     for (i=regs->num_regs-1; BEG(i) == -1 && i > 0; i--)
         ;
     return i;
+    RB_GC_GUARD(match);
 }
 
 VALUE
@@ -2023,6 +2127,7 @@ rb_reg_match_last(VALUE match)
     if (i <= 0) return Qnil;
     struct re_registers *regs = RMATCH_REGS(match);
     return rb_str_subseq(RMATCH(match)->str, BEG(i), END(i) - BEG(i));
+    RB_GC_GUARD(match);
 }
 
 VALUE
@@ -2031,6 +2136,7 @@ rb_reg_last_defined(VALUE match)
     int i = match_last_index(match);
     if (i < 0) return Qnil;
     return RBOOL(i);
+    RB_GC_GUARD(match);
 }
 
 static VALUE
@@ -2077,9 +2183,13 @@ match_array(VALUE match, int start)
         else {
             VALUE str = rb_str_subseq(target, regs->beg[i], regs->end[i]-regs->beg[i]);
             rb_ary_push(ary, str);
+    RB_GC_GUARD(str);
         }
     }
     return ary;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(ary);
 }
 
 
@@ -2101,6 +2211,7 @@ static VALUE
 match_to_a(VALUE match)
 {
     return match_array(match, 0);
+    RB_GC_GUARD(match);
 }
 
 
@@ -2123,6 +2234,7 @@ static VALUE
 match_captures(VALUE match)
 {
     return match_array(match, 1);
+    RB_GC_GUARD(match);
 }
 
 static int
@@ -2131,6 +2243,7 @@ name_to_backref_number(struct re_registers *regs, VALUE regexp, const char* name
     if (NIL_P(regexp)) return -1;
     return onig_name_to_backref_number(RREGEXP_PTR(regexp),
         (const unsigned char *)name, (const unsigned char *)name_end, regs);
+        RB_GC_GUARD(regexp);
 }
 
 #define NAME_TO_NUMBER(regs, re, name, name_ptr, name_end)	\
@@ -2155,6 +2268,8 @@ namev_to_backref_number(struct re_registers *regs, VALUE re, VALUE name)
         name_to_backref_error(name);
     }
     return num;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(re);
 }
 
 static VALUE
@@ -2172,6 +2287,8 @@ match_ary_subseq(VALUE match, long beg, long len, VALUE result)
         rb_ary_resize(result, RARRAY_LEN(result) + (beg + len) - j);
     }
     return result;
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(match);
 }
 
 static VALUE
@@ -2190,6 +2307,9 @@ match_ary_aref(VALUE match, VALUE idx, VALUE result)
         return Qnil;
       default:
         return match_ary_subseq(match, beg, len, result);
+        RB_GC_GUARD(match);
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(idx);
     }
 }
 
@@ -2271,6 +2391,9 @@ match_aref(int argc, VALUE *argv, VALUE match)
             len = num_regs - beg;
         }
         return match_ary_subseq(match, beg, len, Qnil);
+        RB_GC_GUARD(idx);
+        RB_GC_GUARD(match);
+        RB_GC_GUARD(length);
     }
 }
 
@@ -2324,6 +2447,8 @@ match_values_at(int argc, VALUE *argv, VALUE match)
         }
     }
     return result;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(result);
 }
 
 
@@ -2352,6 +2477,8 @@ match_to_s(VALUE match)
 
     if (NIL_P(str)) str = rb_str_new(0,0);
     return str;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -2387,6 +2514,10 @@ match_named_captures_iter(const OnigUChar *name, const OnigUChar *name_end,
     }
 
     return 0;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2447,6 +2578,7 @@ match_named_captures(int argc, VALUE *argv, VALUE match)
         rb_get_kwargs(opt, keyword_ids, 0, 1, &symbolize_names_val);
         if (!UNDEF_P(symbolize_names_val) && RTEST(symbolize_names_val)) {
             symbolize_names = 1;
+    RB_GC_GUARD(symbolize_names_val);
         }
     }
 
@@ -2456,6 +2588,10 @@ match_named_captures(int argc, VALUE *argv, VALUE match)
     onig_foreach_name(RREGEXP(RMATCH(match)->regexp)->ptr, match_named_captures_iter, (void*)memo);
 
     return hash;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(symbolize_names);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(hash);
 }
 
 /*
@@ -2521,10 +2657,15 @@ match_deconstruct_keys(VALUE match, VALUE keys)
         }
         else {
             return h;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(name);
         }
     }
 
     return h;
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(h);
 }
 
 /*
@@ -2545,6 +2686,7 @@ match_string(VALUE match)
 {
     match_check(match);
     return RMATCH(match)->str;	/* str is frozen */
+    RB_GC_GUARD(match);
 }
 
 struct backref_name_tag {
@@ -2631,10 +2773,15 @@ match_inspect(VALUE match)
             rb_str_buf_cat2(str, "nil");
         else
             rb_str_buf_append(str, rb_str_inspect(v));
+    RB_GC_GUARD(v);
     }
     rb_str_buf_cat2(str, ">");
 
     return str;
+    RB_GC_GUARD(match);
+    RB_GC_GUARD(regexp);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(cname);
 }
 
 VALUE rb_cRegexp;
@@ -2796,6 +2943,7 @@ unescape_escaped_nonascii(const char **pp, const char *end, rb_encoding *enc,
     }
     *pp = p;
     return 0;
+    RB_GC_GUARD(buf);
 }
 
 static int
@@ -2834,6 +2982,7 @@ append_utf8(unsigned long uv,
         }
     }
     return 0;
+    RB_GC_GUARD(buf);
 }
 
 static int
@@ -2871,6 +3020,7 @@ unescape_unicode_list(const char **pp, const char *end,
     *pp = p;
 
     return 0;
+    RB_GC_GUARD(buf);
 }
 
 static int
@@ -2894,6 +3044,7 @@ unescape_unicode_bmp(const char **pp, const char *end,
         return -1;
     *pp = p + 4;
     return 0;
+    RB_GC_GUARD(buf);
 }
 
 static int
@@ -3165,6 +3316,7 @@ fallthrough:
         *pp = p;
     }
     return 0;
+    RB_GC_GUARD(buf);
 }
 
 static int
@@ -3174,6 +3326,7 @@ unescape_nonascii(const char *p, const char *end, rb_encoding *enc,
 {
     return unescape_nonascii0(&p, end, enc, buf, encp, has_property,
                               err, options, 0);
+                              RB_GC_GUARD(buf);
 }
 
 static VALUE
@@ -3204,6 +3357,7 @@ rb_reg_preprocess(const char *p, const char *end, rb_encoding *enc,
     }
 
     return buf;
+    RB_GC_GUARD(buf);
 }
 
 VALUE
@@ -3227,6 +3381,8 @@ rb_reg_check_preprocess(VALUE str)
         return rb_reg_error_desc(str, 0, err);
     }
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(buf);
 }
 
 static VALUE
@@ -3279,12 +3435,16 @@ rb_reg_preprocess_dregexp(VALUE ary, int options)
             result = rb_str_new3(str);
         else
             rb_str_buf_append(result, str);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(str);
     }
     if (regexp_enc) {
         rb_enc_associate(result, regexp_enc);
     }
 
     return result;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(result);
 }
 
 static void
@@ -3294,6 +3454,7 @@ rb_reg_initialize_check(VALUE obj)
     if (RREGEXP_PTR(obj)) {
         rb_raise(rb_eTypeError, "already initialized regexp");
     }
+        RB_GC_GUARD(obj);
 }
 
 static int
@@ -3346,6 +3507,8 @@ rb_reg_initialize(VALUE obj, const char *s, long len, rb_encoding *enc,
     if (!re->ptr) return -1;
     RB_GC_GUARD(unescaped);
     return 0;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(unescaped);
 }
 
 static void
@@ -3356,6 +3519,8 @@ reg_set_source(VALUE reg, VALUE str, rb_encoding *enc)
         str = rb_enc_associate(rb_str_dup(str), enc = regenc);
     }
     RB_OBJ_WRITE(reg, &RREGEXP(reg)->src, rb_fstring(str));
+    RB_GC_GUARD(reg);
+    RB_GC_GUARD(str);
 }
 
 static int
@@ -3378,6 +3543,8 @@ rb_reg_initialize_str(VALUE obj, VALUE str, int options, onig_errmsg_buffer err,
                             options, err, sourcefile, sourceline);
     if (ret == 0) reg_set_source(obj, str, str_enc);
     return ret;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3390,6 +3557,7 @@ rb_reg_s_alloc(VALUE klass)
     re->usecnt = 0;
 
     return (VALUE)re;
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -3402,6 +3570,7 @@ VALUE
 rb_reg_new_str(VALUE s, int options)
 {
     return rb_reg_init_str(rb_reg_alloc(), s, options);
+    RB_GC_GUARD(s);
 }
 
 VALUE
@@ -3414,6 +3583,8 @@ rb_reg_init_str(VALUE re, VALUE s, int options)
     }
 
     return re;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(re);
 }
 
 static VALUE
@@ -3428,6 +3599,8 @@ rb_reg_init_str_enc(VALUE re, VALUE s, rb_encoding *enc, int options)
     reg_set_source(re, s, enc);
 
     return re;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(re);
 }
 
 VALUE
@@ -3436,6 +3609,8 @@ rb_reg_new_ary(VALUE ary, int opt)
     VALUE re = rb_reg_new_str(rb_reg_preprocess_dregexp(ary, opt), opt);
     rb_obj_freeze(re);
     return re;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(re);
 }
 
 VALUE
@@ -3450,6 +3625,7 @@ rb_enc_reg_new(const char *s, long len, rb_encoding *enc, int options)
     RB_OBJ_WRITE(re, &RREGEXP(re)->src, rb_fstring(rb_enc_str_new(s, len, enc)));
 
     return re;
+    RB_GC_GUARD(re);
 }
 
 VALUE
@@ -3471,6 +3647,8 @@ rb_reg_compile(VALUE str, int options, const char *sourcefile, int sourceline)
     }
     rb_obj_freeze(re);
     return re;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 static VALUE reg_cache;
@@ -3484,6 +3662,7 @@ rb_reg_regcomp(VALUE str)
         return reg_cache;
 
     return reg_cache = rb_reg_new_str(str, 0);
+    RB_GC_GUARD(str);
 }
 
 static st_index_t reg_hash(VALUE re);
@@ -3502,6 +3681,7 @@ rb_reg_hash(VALUE re)
 {
     st_index_t hashval = reg_hash(re);
     return ST2FIX(hashval);
+    RB_GC_GUARD(re);
 }
 
 static st_index_t
@@ -3513,6 +3693,7 @@ reg_hash(VALUE re)
     hashval = RREGEXP_PTR(re)->options;
     hashval = rb_hash_uint(hashval, rb_memhash(RREGEXP_SRC_PTR(re), RREGEXP_SRC_LEN(re)));
     return rb_hash_end(hashval);
+    RB_GC_GUARD(re);
 }
 
 
@@ -3541,6 +3722,8 @@ rb_reg_equal(VALUE re1, VALUE re2)
     if (RREGEXP_SRC_LEN(re1) != RREGEXP_SRC_LEN(re2)) return Qfalse;
     if (ENCODING_GET(re1) != ENCODING_GET(re2)) return Qfalse;
     return RBOOL(memcmp(RREGEXP_SRC_PTR(re1), RREGEXP_SRC_PTR(re2), RREGEXP_SRC_LEN(re1)) == 0);
+    RB_GC_GUARD(re2);
+    RB_GC_GUARD(re1);
 }
 
 /*
@@ -3569,6 +3752,7 @@ match_hash(VALUE match)
     hashval = rb_hash_uint(hashval, rb_memhash(regs->end, regs->num_regs * sizeof(*regs->end)));
     hashval = rb_hash_end(hashval);
     return ST2FIX(hashval);
+    RB_GC_GUARD(match);
 }
 
 /*
@@ -3596,6 +3780,8 @@ match_equal(VALUE match1, VALUE match2)
     if (memcmp(regs1->beg, regs2->beg, regs1->num_regs * sizeof(*regs1->beg))) return Qfalse;
     if (memcmp(regs1->end, regs2->end, regs1->num_regs * sizeof(*regs1->end))) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(match2);
+    RB_GC_GUARD(match1);
 }
 
 static VALUE
@@ -3609,6 +3795,7 @@ reg_operand(VALUE s, int check)
     }
     else {
         return check ? rb_str_to_str(s) : rb_check_string_type(s);
+        RB_GC_GUARD(s);
     }
 }
 
@@ -3628,11 +3815,14 @@ reg_match_pos(VALUE re, VALUE *strp, long pos, VALUE* set_match)
             pos += NUM2INT(l);
             if (pos < 0) {
                 return pos;
+        RB_GC_GUARD(l);
             }
         }
         pos = rb_str_offset(str, pos);
     }
     return rb_reg_search_set_match(re, str, pos, 0, 1, set_match);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -3698,6 +3888,8 @@ rb_reg_match(VALUE re, VALUE str)
     if (pos < 0) return Qnil;
     pos = rb_str_sublen(str, pos);
     return LONG2FIX(pos);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 /*
@@ -3732,6 +3924,8 @@ rb_reg_eqq(VALUE re, VALUE str)
     }
     start = rb_reg_search(re, str, 0, 0);
     return RBOOL(start >= 0);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 
@@ -3763,6 +3957,8 @@ rb_reg_match2(VALUE re)
     }
     start = rb_str_sublen(line, start);
     return LONG2FIX(start);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(line);
 }
 
 
@@ -3830,6 +4026,10 @@ rb_reg_match_m(int argc, VALUE *argv, VALUE re)
         return rb_yield(result);
     }
     return result;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(initpos);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -3853,6 +4053,7 @@ rb_reg_match_m_p(int argc, VALUE *argv, VALUE re)
 {
     long pos = rb_check_arity(argc, 1, 2) > 1 ? NUM2LONG(argv[1]) : 0;
     return rb_reg_match_p(re, argv[0], pos);
+    RB_GC_GUARD(re);
 }
 
 VALUE
@@ -3879,6 +4080,8 @@ rb_reg_match_p(VALUE re, VALUE str, long pos)
     };
 
     return rb_reg_onig_match(re, str, reg_onig_search, &args, NULL) == ONIG_MISMATCH ? Qfalse : Qtrue;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(re);
 }
 
 /*
@@ -3904,6 +4107,7 @@ str_to_option(VALUE str)
         flag |= f;
     }
     return flag;
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -3914,6 +4118,7 @@ set_timeout(rb_hrtime_t *hrt, VALUE timeout)
         rb_raise(rb_eArgError, "invalid timeout: %"PRIsVALUE, timeout);
     }
     double2hrtime(hrt, timeout_d);
+    RB_GC_GUARD(timeout);
 }
 
 static VALUE
@@ -3934,6 +4139,8 @@ reg_copy(VALUE copy, VALUE orig)
     FL_SET_RAW(copy, FL_TEST_RAW(orig, KCODE_FIXED|REG_ENCODING_NONE));
 
     return copy;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(copy);
 }
 
 struct reg_init_args {
@@ -4017,6 +4224,8 @@ rb_reg_initialize_m(int argc, VALUE *argv, VALUE self)
     set_timeout(&RREGEXP_PTR(self)->timelimit, args.timeout);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(re);
 }
 
 static VALUE
@@ -4062,6 +4271,11 @@ reg_extract_args(int argc, VALUE *argv, struct reg_init_args *args)
     args->enc = enc;
     args->flags = flags;
     return re;
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(kwargs);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -4072,6 +4286,8 @@ reg_init_args(VALUE self, VALUE str, rb_encoding *enc, int flags)
     else
         rb_reg_init_str(self, str, flags);
     return self;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -4169,6 +4385,8 @@ rb_reg_quote(VALUE str)
     }
     rb_str_resize(tmp, t - RSTRING_PTR(tmp));
     return tmp;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(tmp);
 }
 
 
@@ -4192,6 +4410,8 @@ static VALUE
 rb_reg_s_quote(VALUE c, VALUE str)
 {
     return rb_reg_quote(reg_operand(str, TRUE));
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(c);
 }
 
 int
@@ -4204,12 +4424,14 @@ rb_reg_options(VALUE re)
     if (RBASIC(re)->flags & KCODE_FIXED) options |= ARG_ENCODING_FIXED;
     if (RBASIC(re)->flags & REG_ENCODING_NONE) options |= ARG_ENCODING_NONE;
     return options;
+    RB_GC_GUARD(re);
 }
 
 static VALUE
 rb_check_regexp_type(VALUE re)
 {
     return rb_check_convert_type(re, T_REGEXP, "Regexp", "to_regexp");
+    RB_GC_GUARD(re);
 }
 
 /*
@@ -4234,6 +4456,8 @@ static VALUE
 rb_reg_s_try_convert(VALUE dummy, VALUE re)
 {
     return rb_check_regexp_type(re);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(dummy);
 }
 
 static VALUE
@@ -4255,6 +4479,9 @@ rb_reg_s_union(VALUE self, VALUE args0)
             VALUE quoted;
             quoted = rb_reg_s_quote(Qnil, arg);
             return rb_reg_new_str(quoted, 0);
+    RB_GC_GUARD(quoted);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(re);
         }
     }
     else {
@@ -4333,6 +4560,7 @@ rb_reg_s_union(VALUE self, VALUE args0)
                 rb_enc_copy(source, v);
             }
             rb_str_append(source, v);
+        RB_GC_GUARD(e);
         }
 
         if (has_ascii_incompat) {
@@ -4347,6 +4575,9 @@ rb_reg_s_union(VALUE self, VALUE args0)
 
         rb_enc_associate(source, result_enc);
         return rb_class_new_instance(1, &source, rb_cRegexp);
+        RB_GC_GUARD(source);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(args0);
     }
 }
 
@@ -4393,6 +4624,9 @@ rb_reg_s_union_m(VALUE self, VALUE args)
         return rb_reg_s_union(self, v);
     }
     return rb_reg_s_union(self, args);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
 }
 
 /*
@@ -4427,6 +4661,8 @@ rb_reg_s_linear_time_p(int argc, VALUE *argv, VALUE self)
     }
 
     return RBOOL(onig_check_linear_time(RREGEXP_PTR(re)));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(re);
 }
 
 /* :nodoc: */
@@ -4436,6 +4672,8 @@ rb_reg_init_copy(VALUE copy, VALUE re)
     if (!OBJ_INIT_COPY(copy, re)) return copy;
     rb_reg_check(re);
     return reg_copy(copy, re);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(copy);
 }
 
 VALUE
@@ -4511,6 +4749,7 @@ rb_reg_regsub(VALUE str, VALUE src, struct re_registers *regs, VALUE regexp)
                     }
                     p = s = name_end + clen;
                     break;
+                RB_GC_GUARD(n);
                 }
                 else {
                     rb_raise(rb_eRuntimeError, "invalid group name reference format");
@@ -4561,6 +4800,10 @@ rb_reg_regsub(VALUE str, VALUE src, struct re_registers *regs, VALUE regexp)
     }
 
     return val;
+    RB_GC_GUARD(regexp);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -4574,6 +4817,7 @@ static void
 ignorecase_setter(VALUE val, ID id, VALUE *_)
 {
     rb_category_warn(RB_WARN_CATEGORY_DEPRECATED, "variable $= is no longer effective; ignored");
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -4584,6 +4828,7 @@ match_getter(void)
     if (NIL_P(match)) return Qnil;
     rb_match_busy(match);
     return match;
+    RB_GC_GUARD(match);
 }
 
 static VALUE
@@ -4599,6 +4844,7 @@ match_setter(VALUE val, ID _x, VALUE *_y)
         Check_Type(val, T_MATCH);
     }
     rb_backref_set(val);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -4648,8 +4894,10 @@ rb_reg_s_last_match(int argc, VALUE *argv, VALUE _)
         if (NIL_P(match)) return Qnil;
         n = match_backref_number(match, argv[0]);
         return rb_reg_nth_match(n, match);
+    RB_GC_GUARD(match);
     }
     return match_getter();
+    RB_GC_GUARD(_);
 }
 
 static void
@@ -4707,6 +4955,7 @@ rb_reg_s_timeout_get(VALUE dummy)
     double d = hrtime2double(rb_reg_match_time_limit);
     if (d == 0.0) return Qnil;
     return DBL2NUM(d);
+    RB_GC_GUARD(dummy);
 }
 
 /*
@@ -4730,6 +4979,8 @@ rb_reg_s_timeout_set(VALUE dummy, VALUE timeout)
     set_timeout(&rb_reg_match_time_limit, timeout);
 
     return timeout;
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(dummy);
 }
 
 /*
@@ -4754,6 +5005,7 @@ rb_reg_timeout_get(VALUE re)
     double d = hrtime2double(RREGEXP_PTR(re)->timelimit);
     if (d == 0.0) return Qnil;
     return DBL2NUM(d);
+    RB_GC_GUARD(re);
 }
 
 /*

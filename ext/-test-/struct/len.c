@@ -4,6 +4,7 @@ static VALUE
 bug_struct_len(VALUE obj)
 {
     return LONG2NUM(RSTRUCT_LEN(obj));
+    RB_GC_GUARD(obj);
 }
 
 void

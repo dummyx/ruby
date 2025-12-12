@@ -6,12 +6,17 @@ static VALUE
 bug_proc_call_receiver(RB_BLOCK_CALL_FUNC_ARGLIST(yieldarg, procarg))
 {
     return rb_current_receiver();
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(procarg);
+    RB_GC_GUARD(yieldarg);
 }
 
 static VALUE
 bug_proc_make_call_receiver(VALUE self, VALUE procarg)
 {
     return rb_proc_new(bug_proc_call_receiver, procarg);
+    RB_GC_GUARD(procarg);
+    RB_GC_GUARD(self);
 }
 
 void

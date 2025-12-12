@@ -47,6 +47,8 @@ get_freefunc(VALUE func, volatile VALUE *wrap)
     addrnum = rb_Integer(func);
     *wrap = (addrnum != func) ? func : 0;
     return (freefunc_t)(VALUE)NUM2PTR(addrnum);
+    RB_GC_GUARD(func);
+    RB_GC_GUARD(addrnum);
 }
 
 static ID id_to_ptr;
@@ -105,12 +107,14 @@ fiddle_ptr_check_memory_view(VALUE obj)
     TypedData_Get_Struct(obj, struct ptr_data, &fiddle_ptr_data_type, data);
     if (data->ptr == NULL || data->size == 0) return NULL;
     return data;
+    RB_GC_GUARD(obj);
 }
 
 static bool
 fiddle_ptr_memory_view_available_p(VALUE obj)
 {
     return fiddle_ptr_check_memory_view(obj) != NULL;
+    RB_GC_GUARD(obj);
 }
 
 static bool
@@ -120,6 +124,7 @@ fiddle_ptr_get_memory_view(VALUE obj, rb_memory_view_t *view, int flags)
     rb_memory_view_init_as_byte_array(view, obj, data->ptr, data->size, true);
 
     return true;
+    RB_GC_GUARD(obj);
 }
 
 static const rb_memory_view_entry_t fiddle_ptr_memory_view_entry = {
@@ -144,12 +149,18 @@ rb_fiddle_ptr_new2(VALUE klass, void *ptr, long size, freefunc_t func, VALUE wra
     RB_OBJ_WRITE(val, &data->wrap[1], wrap1);
 
     return val;
+    RB_GC_GUARD(wrap1);
+    RB_GC_GUARD(wrap0);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(val);
 }
 
 VALUE
 rb_fiddle_ptr_new_wrap(void *ptr, long size, freefunc_t func, VALUE wrap0, VALUE wrap1)
 {
     return rb_fiddle_ptr_new2(rb_cPointer, ptr, size, func, wrap0, wrap1);
+    RB_GC_GUARD(wrap1);
+    RB_GC_GUARD(wrap0);
 }
 
 static VALUE
@@ -166,6 +177,7 @@ rb_fiddle_ptr_malloc(VALUE klass, long size, freefunc_t func)
     ptr = ruby_xmalloc((size_t)size);
     memset(ptr,0,(size_t)size);
     return rb_fiddle_ptr_new2(klass, ptr, size, func, 0, 0);
+    RB_GC_GUARD(klass);
 }
 
 static void *
@@ -186,6 +198,7 @@ rb_fiddle_ptr2cptr(VALUE val)
     }
 
     return ptr;
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -201,6 +214,8 @@ rb_fiddle_ptr_s_allocate(VALUE klass)
     data->freed = false;
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -226,6 +241,7 @@ rb_fiddle_ptr_initialize(int argc, VALUE argv[], VALUE self)
 	VALUE addrnum = rb_Integer(ptr);
 	if (addrnum != ptr) wrap = ptr;
 	p = NUM2PTR(addrnum);
+    RB_GC_GUARD(addrnum);
     }
     if (argc >= 2) {
 	s = NUM2LONG(size);
@@ -248,6 +264,12 @@ rb_fiddle_ptr_initialize(int argc, VALUE argv[], VALUE self)
     }
 
     return Qnil;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(funcwrap);
+    RB_GC_GUARD(wrap);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(ptr);
 }
 
 static VALUE
@@ -328,6 +350,11 @@ rb_fiddle_ptr_s_malloc(int argc, VALUE argv[], VALUE klass)
         return rb_ensure(rb_yield, obj, rb_fiddle_ptr_call_free, obj);
     } else {
         return obj;
+        RB_GC_GUARD(size);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(wrap);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(sym);
     }
 }
 
@@ -343,6 +370,7 @@ rb_fiddle_ptr_to_i(VALUE self)
 
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, data);
     return PTR2NUM(data->ptr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -356,6 +384,7 @@ rb_fiddle_ptr_to_value(VALUE self)
     struct ptr_data *data;
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, data);
     return (VALUE)(data->ptr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -373,6 +402,7 @@ rb_fiddle_ptr_ptr(VALUE self)
 
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, data);
     return rb_fiddle_ptr_new(*((void**)(data->ptr)),0,0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -390,6 +420,7 @@ rb_fiddle_ptr_ref(VALUE self)
 
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, data);
     return rb_fiddle_ptr_new(&(data->ptr),0,0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -404,6 +435,7 @@ rb_fiddle_ptr_null_p(VALUE self)
 
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, data);
     return data->ptr ? Qfalse : Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -421,6 +453,8 @@ rb_fiddle_ptr_free_set(VALUE self, VALUE val)
     data->free = get_freefunc(val, &data->wrap[1]);
 
     return Qnil;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -451,6 +485,10 @@ rb_fiddle_ptr_free_get(VALUE self)
     rb_ary_push(arg_types, INT2NUM(TYPE_VOIDP));
 
     return rb_fiddle_new_function(address, arg_types, ret_type);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret_type);
+    RB_GC_GUARD(arg_types);
+    RB_GC_GUARD(address);
 }
 
 /*
@@ -466,6 +504,7 @@ rb_fiddle_ptr_call_free(VALUE self)
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, pdata);
     fiddle_ptr_free_ptr(pdata);
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -479,6 +518,7 @@ rb_fiddle_ptr_freed_p(VALUE self)
     struct ptr_data *pdata;
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, pdata);
     return pdata->freed ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -517,6 +557,9 @@ rb_fiddle_ptr_to_s(int argc, VALUE argv[], VALUE self)
     }
 
     return val;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(arg1);
 }
 
 /*
@@ -555,6 +598,9 @@ rb_fiddle_ptr_to_str(int argc, VALUE argv[], VALUE self)
     }
 
     return val;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(arg1);
 }
 
 /*
@@ -571,6 +617,7 @@ rb_fiddle_ptr_inspect(VALUE self)
     TypedData_Get_Struct(self, struct ptr_data, &fiddle_ptr_data_type, data);
     return rb_sprintf("#<%"PRIsVALUE":%p ptr=%p size=%ld free=%p>",
 		      RB_OBJ_CLASSNAME(self), (void *)data, data->ptr, data->size, (void *)(VALUE)data->free);
+		      RB_GC_GUARD(self);
 }
 
 /*
@@ -592,6 +639,8 @@ rb_fiddle_ptr_eql(VALUE self, VALUE other)
     ptr2 = rb_fiddle_ptr2cptr(other);
 
     return ptr1 == ptr2 ? Qtrue : Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -615,6 +664,8 @@ rb_fiddle_ptr_cmp(VALUE self, VALUE other)
     diff = (SIGNED_VALUE)ptr1 - (SIGNED_VALUE)ptr2;
     if (!diff) return INT2FIX(0);
     return diff > 0 ? INT2NUM(1) : INT2NUM(-1);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -633,6 +684,8 @@ rb_fiddle_ptr_plus(VALUE self, VALUE other)
     size = RPTR_DATA(self)->size;
     num = NUM2LONG(other);
     return rb_fiddle_ptr_new((char *)ptr + num, size - num, 0);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -651,6 +704,8 @@ rb_fiddle_ptr_minus(VALUE self, VALUE other)
     size = RPTR_DATA(self)->size;
     num = NUM2LONG(other);
     return rb_fiddle_ptr_new((char *)ptr - num, size + num, 0);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -687,6 +742,10 @@ rb_fiddle_ptr_aref(int argc, VALUE argv[], VALUE self)
 	rb_bug("rb_fiddle_ptr_aref()");
     }
     return retval;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(retval);
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(arg0);
 }
 
 /*
@@ -736,6 +795,11 @@ rb_fiddle_ptr_aset(int argc, VALUE argv[], VALUE self)
 	rb_bug("rb_fiddle_ptr_aset()");
     }
     return retval;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(retval);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
+    RB_GC_GUARD(arg0);
 }
 
 /*
@@ -748,6 +812,8 @@ rb_fiddle_ptr_size_set(VALUE self, VALUE size)
 {
     RPTR_DATA(self)->size = NUM2LONG(size);
     return size;
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -759,6 +825,7 @@ static VALUE
 rb_fiddle_ptr_size_get(VALUE self)
 {
     return LONG2NUM(RPTR_DATA(self)->size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -799,9 +866,15 @@ rb_fiddle_ptr_s_to_ptr(VALUE self, VALUE val)
 	VALUE num = rb_Integer(val);
 	if (num == val) wrap = 0;
 	ptr = rb_fiddle_ptr_new(NUM2PTR(num), 0, NULL);
+    RB_GC_GUARD(num);
     }
     if (wrap) RB_OBJ_WRITE(ptr, &RPTR_DATA(ptr)->wrap[0], wrap);
     return ptr;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vptr);
+    RB_GC_GUARD(wrap);
+    RB_GC_GUARD(ptr);
 }
 
 /*
@@ -816,6 +889,9 @@ static VALUE
 rb_fiddle_ptr_read_mem(VALUE klass, VALUE address, VALUE len)
 {
     return rb_str_new((char *)NUM2PTR(address), NUM2ULONG(len));
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(address);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -830,6 +906,9 @@ rb_fiddle_ptr_write_mem(VALUE klass, VALUE addr, VALUE str)
     const char *ptr = StringValuePtr(str);
     memcpy(NUM2PTR(addr), ptr, RSTRING_LEN(str));
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(klass);
 }
 
 void

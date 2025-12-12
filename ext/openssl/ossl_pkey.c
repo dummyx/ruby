@@ -62,6 +62,9 @@ pkey_new0(VALUE arg)
     obj = rb_obj_alloc(klass);
     RTYPEDDATA_DATA(obj) = pkey;
     return obj;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -77,6 +80,7 @@ ossl_pkey_new(EVP_PKEY *pkey)
     }
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 #if OSSL_OPENSSL_PREREQ(3, 0, 0)
@@ -112,6 +116,7 @@ ossl_pkey_read(BIO *bio, const char *input_type, int selection, VALUE pass)
     OSSL_BIO_reset(bio);
     OSSL_DECODER_CTX_free(dctx);
     return pkey;
+    RB_GC_GUARD(pass);
 }
 
 EVP_PKEY *
@@ -178,6 +183,7 @@ ossl_pkey_read_generic(BIO *bio, VALUE pass)
     }
   out:
     return pkey;
+    RB_GC_GUARD(pass);
 }
 #else
 EVP_PKEY *
@@ -240,6 +246,9 @@ ossl_pkey_new_from_data(int argc, VALUE *argv, VALUE self)
     if (!pkey)
 	ossl_raise(ePKeyError, "Could not parse PKey");
     return ossl_pkey_new(pkey);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(data);
 }
 
 static VALUE
@@ -256,6 +265,11 @@ pkey_ctx_apply_options_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, ctx_v))
         ossl_raise(ePKeyError, "EVP_PKEY_CTX_ctrl_str(ctx, %+"PRIsVALUE", %+"PRIsVALUE")",
                    key, value);
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(ctx_v);
+    RB_GC_GUARD(i);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -267,6 +281,7 @@ pkey_ctx_apply_options0(VALUE args_v)
     rb_block_call(args[1], rb_intern("each"), 0, NULL,
                   pkey_ctx_apply_options_i, args[0]);
     return Qnil;
+    RB_GC_GUARD(args_v);
 }
 
 static void
@@ -277,6 +292,7 @@ pkey_ctx_apply_options(EVP_PKEY_CTX *ctx, VALUE options, int *state)
     args[1] = options;
 
     rb_protect(pkey_ctx_apply_options0, (VALUE)args, state);
+    RB_GC_GUARD(options);
 }
 
 struct pkey_blocking_generate_arg {
@@ -301,6 +317,7 @@ pkey_gen_cb_yield(VALUE ctx_v)
         argv[i] = INT2NUM(EVP_PKEY_CTX_get_keygen_info(ctx, i));
 
     return rb_yield_values2(info_num, argv);
+    RB_GC_GUARD(ctx_v);
 }
 
 static VALUE
@@ -308,6 +325,7 @@ call_check_ints0(VALUE arg)
 {
     rb_thread_check_ints();
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 static void *
@@ -444,6 +462,9 @@ pkey_generate(int argc, VALUE *argv, VALUE self, int genparam)
     }
 
     return ossl_pkey_new(gen_arg.pkey);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(alg);
 }
 
 /*
@@ -470,6 +491,7 @@ static VALUE
 ossl_pkey_s_generate_parameters(int argc, VALUE *argv, VALUE self)
 {
     return pkey_generate(argc, argv, self, 1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -496,6 +518,7 @@ static VALUE
 ossl_pkey_s_generate_key(int argc, VALUE *argv, VALUE self)
 {
     return pkey_generate(argc, argv, self, 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -557,6 +580,7 @@ GetPKeyPtr(VALUE obj)
     GetPKey(obj, pkey);
 
     return pkey;
+    RB_GC_GUARD(obj);
 }
 
 EVP_PKEY *
@@ -577,6 +601,7 @@ GetPrivPKeyPtr(VALUE obj)
         return pkey;
 
     rb_raise(rb_eArgError, "private key is needed");
+    RB_GC_GUARD(obj);
 }
 
 EVP_PKEY *
@@ -588,6 +613,7 @@ DupPKeyPtr(VALUE obj)
     EVP_PKEY_up_ref(pkey);
 
     return pkey;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -597,6 +623,7 @@ static VALUE
 ossl_pkey_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &ossl_evp_pkey_type, NULL);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -613,6 +640,7 @@ ossl_pkey_initialize(VALUE self)
 	ossl_raise(rb_eTypeError, "OpenSSL::PKey::PKey can't be instantiated directly");
     }
     return self;
+    RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_EVP_PKEY_DUP
@@ -632,6 +660,8 @@ ossl_pkey_initialize_copy(VALUE self, VALUE other)
         RTYPEDDATA_DATA(self) = pkey;
     }
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -665,6 +695,9 @@ ossl_pkey_new_raw_private_key(VALUE self, VALUE type, VALUE key)
         ossl_raise(ePKeyError, "EVP_PKEY_new_raw_private_key");
 
     return ossl_pkey_new(pkey);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -698,6 +731,9 @@ ossl_pkey_new_raw_public_key(VALUE self, VALUE type, VALUE key)
         ossl_raise(ePKeyError, "EVP_PKEY_new_raw_public_key");
 
     return ossl_pkey_new(pkey);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -716,6 +752,7 @@ ossl_pkey_oid(VALUE self)
     GetPKey(self, pkey);
     nid = EVP_PKEY_id(pkey);
     return rb_str_new_cstr(OBJ_nid2sn(nid));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -735,6 +772,7 @@ ossl_pkey_inspect(VALUE self)
     return rb_sprintf("#<%"PRIsVALUE":%p oid=%s>",
                       rb_class_name(CLASS_OF(self)), (void *)self,
                       OBJ_nid2sn(nid));
+                      RB_GC_GUARD(self);
 }
 
 /*
@@ -772,6 +810,7 @@ ossl_pkey_to_text(VALUE self)
 
   out:
     return ossl_membio2str(bio);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -818,6 +857,9 @@ ossl_pkey_export_traditional(int argc, VALUE *argv, VALUE self, int to_der)
 	}
     }
     return ossl_membio2str(bio);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(cipher);
 }
 
 static VALUE
@@ -857,6 +899,9 @@ do_pkcs8_export(int argc, VALUE *argv, VALUE self, int to_der)
 	}
     }
     return ossl_membio2str(bio);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(cipher);
 }
 
 /*
@@ -873,6 +918,7 @@ static VALUE
 ossl_pkey_private_to_der(int argc, VALUE *argv, VALUE self)
 {
     return do_pkcs8_export(argc, argv, self, 1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -899,6 +945,7 @@ static VALUE
 ossl_pkey_private_to_pem(int argc, VALUE *argv, VALUE self)
 {
     return do_pkcs8_export(argc, argv, self, 0);
+    RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_EVP_PKEY_NEW_RAW_PRIVATE_KEY
@@ -927,6 +974,8 @@ ossl_pkey_raw_private_key(VALUE self)
     rb_str_set_len(str, len);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 #endif
 
@@ -953,6 +1002,7 @@ ossl_pkey_export_spki(VALUE self, int to_der)
 	}
     }
     return ossl_membio2str(bio);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -965,6 +1015,7 @@ static VALUE
 ossl_pkey_public_to_der(VALUE self)
 {
     return ossl_pkey_export_spki(self, 1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -983,6 +1034,7 @@ static VALUE
 ossl_pkey_public_to_pem(VALUE self)
 {
     return ossl_pkey_export_spki(self, 0);
+    RB_GC_GUARD(self);
 }
 
 #ifdef HAVE_EVP_PKEY_NEW_RAW_PRIVATE_KEY
@@ -1011,6 +1063,8 @@ ossl_pkey_raw_public_key(VALUE self)
     rb_str_set_len(str, len);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 #endif
 
@@ -1050,6 +1104,8 @@ ossl_pkey_compare(VALUE self, VALUE other)
         return Qtrue;
     else
         ossl_raise(ePKeyError, "EVP_PKEY_eq");
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(other);
 }
 
 /*
@@ -1164,6 +1220,11 @@ ossl_pkey_sign(int argc, VALUE *argv, VALUE self)
     EVP_MD_CTX_free(ctx);
     rb_str_set_len(sig, siglen);
     return sig;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(sig);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(digest);
 }
 
 /*
@@ -1244,6 +1305,11 @@ ossl_pkey_verify(int argc, VALUE *argv, VALUE self)
     else {
         ossl_clear_error();
         return Qfalse;
+        RB_GC_GUARD(digest);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(options);
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(sig);
     }
 }
 
@@ -1337,6 +1403,11 @@ ossl_pkey_sign_raw(int argc, VALUE *argv, VALUE self)
     EVP_PKEY_CTX_free(ctx);
     rb_str_set_len(sig, outlen);
     return sig;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(sig);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(digest);
 }
 
 /*
@@ -1404,6 +1475,11 @@ ossl_pkey_verify_raw(int argc, VALUE *argv, VALUE self)
     else {
         ossl_clear_error();
         return Qfalse;
+        RB_GC_GUARD(digest);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(options);
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(sig);
     }
 }
 
@@ -1474,6 +1550,11 @@ ossl_pkey_verify_recover(int argc, VALUE *argv, VALUE self)
     EVP_PKEY_CTX_free(ctx);
     rb_str_set_len(out, outlen);
     return out;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(out);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(sig);
+    RB_GC_GUARD(digest);
 }
 
 /*
@@ -1525,6 +1606,9 @@ ossl_pkey_derive(int argc, VALUE *argv, VALUE self)
     EVP_PKEY_CTX_free(ctx);
     rb_str_set_len(str, keylen);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(peer_pkey_obj);
 }
 
 /*
@@ -1601,6 +1685,10 @@ ossl_pkey_encrypt(int argc, VALUE *argv, VALUE self)
     EVP_PKEY_CTX_free(ctx);
     rb_str_set_len(str, outlen);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -1664,6 +1752,10 @@ ossl_pkey_decrypt(int argc, VALUE *argv, VALUE self)
     EVP_PKEY_CTX_free(ctx);
     rb_str_set_len(str, outlen);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(data);
 }
 
 /*

@@ -59,4 +59,7 @@ Init_sha1(void)
 
     cDigest_SHA1 = rb_define_class_under(mDigest, "SHA1", cDigest_Base);
     rb_iv_set(cDigest_SHA1, "metadata", rb_digest_make_metadata(&sha1));
+    RB_GC_GUARD(mDigest);
+    RB_GC_GUARD(cDigest_SHA1);
+    RB_GC_GUARD(cDigest_Base);
 }

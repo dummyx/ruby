@@ -16,6 +16,7 @@ bug_str_cstr_term(VALUE str)
     enc = rb_enc_get(str);
     c = rb_enc_codepoint(&s[len], &s[len+rb_enc_mbminlen(enc)], enc);
     return INT2NUM(c);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -27,6 +28,8 @@ bug_str_cstr_unterm(VALUE str, VALUE c)
     len = RSTRING_LEN(str);
     RSTRING_PTR(str)[len] = NUM2CHR(c);
     return str;
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -49,6 +52,7 @@ bug_str_cstr_term_char(VALUE str)
         if (!c) return Qnil;
     }
     return rb_enc_uint_chr((unsigned int)c, enc);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -69,6 +73,9 @@ bug_str_unterminated_substring(VALUE str, VALUE vbeg, VALUE vlen)
         RSTRING(str)->as.heap.ptr += beg;
     }
     return str;
+    RB_GC_GUARD(vlen);
+    RB_GC_GUARD(vbeg);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -76,6 +83,8 @@ bug_str_s_cstr_term(VALUE self, VALUE str)
 {
     Check_Type(str, T_STRING);
     return bug_str_cstr_term(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -83,6 +92,9 @@ bug_str_s_cstr_unterm(VALUE self, VALUE str, VALUE c)
 {
     Check_Type(str, T_STRING);
     return bug_str_cstr_unterm(str, c);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -90,6 +102,8 @@ bug_str_s_cstr_term_char(VALUE self, VALUE str)
 {
     Check_Type(str, T_STRING);
     return bug_str_cstr_term_char(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 #define TERM_LEN(str) rb_enc_mbminlen(rb_enc_get(str))
@@ -116,18 +130,25 @@ bug_str_s_cstr_noembed(VALUE self, VALUE str)
     RSTRING(str2)->len = RSTRING_LEN(str);
     TERM_FILL(RSTRING_END(str2), TERM_LEN(str));
     return str2;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str2);
 }
 
 static VALUE
 bug_str_s_cstr_embedded_p(VALUE self, VALUE str)
 {
     return STR_EMBED_P(str) ? Qtrue : Qfalse;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 bug_str_s_rb_str_new_frozen(VALUE self, VALUE str)
 {
     return rb_str_new_frozen(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 void

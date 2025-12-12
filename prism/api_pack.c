@@ -255,6 +255,11 @@ pack_parse(VALUE self, VALUE version_symbol, VALUE variant_symbol, VALUE format_
     format_args[0] = directives_array;
     format_args[1] = pack_encoding_to_ruby(encoding);
     return rb_class_new_instance(2, format_args, rb_cPrismPackFormat);
+    RB_GC_GUARD(format_string);
+    RB_GC_GUARD(variant_symbol);
+    RB_GC_GUARD(version_symbol);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(directives_array);
 }
 
 /**

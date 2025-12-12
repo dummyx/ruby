@@ -4,6 +4,7 @@ VALUE
 bug_str_nofree(VALUE self)
 {
     return rb_str_new_cstr("abcdef");
+    RB_GC_GUARD(self);
 }
 
 void

@@ -102,11 +102,13 @@ args_check_block_arg0(struct args_info *args)
     if (args->rest && RARRAY_LEN(args->rest) == 1) {
         VALUE arg0 = RARRAY_AREF(args->rest, 0);
         ary = rb_check_array_type(arg0);
+    RB_GC_GUARD(arg0);
     }
     else if (args->argc == 1) {
         VALUE arg0 = args->argv[0];
         ary = rb_check_array_type(arg0);
         args->argv[0] = arg0; /* see: https://bugs.ruby-lang.org/issues/8484 */
+    RB_GC_GUARD(arg0);
     }
 
     if (!NIL_P(ary)) {
@@ -117,6 +119,7 @@ args_check_block_arg0(struct args_info *args)
     }
 
     return FALSE;
+    RB_GC_GUARD(ary);
 }
 
 static inline void
@@ -182,6 +185,7 @@ args_rest_array(struct args_info *args)
         ary = rb_ary_new();
     }
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -203,6 +207,7 @@ args_kw_argv_to_hash(struct args_info *args)
     args->argv[args->argc - 1] = h;
 
     return args->argc;
+    RB_GC_GUARD(h);
 }
 
 static inline void
@@ -285,6 +290,7 @@ make_unknown_kw_hash(const VALUE *passed_keywords, int passed_keyword_len, const
         }
     }
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -299,6 +305,7 @@ make_rest_kw_hash(const VALUE *passed_keywords, int passed_keyword_len, const VA
         }
     }
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static inline int
@@ -387,6 +394,7 @@ args_setup_kw_parameters(rb_execution_context_t *const ec, const rb_iseq_t *cons
         if (found != passed_keyword_len) {
             VALUE keys = make_unknown_kw_hash(passed_keywords, passed_keyword_len, passed_values);
             argument_kw_error(ec, iseq, "unknown", keys);
+    RB_GC_GUARD(keys);
         }
     }
 
@@ -394,6 +402,8 @@ args_setup_kw_parameters(rb_execution_context_t *const ec, const rb_iseq_t *cons
         unspecified_bits_value = INT2FIX(unspecified_bits);
     }
     locals[key_num] = unspecified_bits_value;
+    RB_GC_GUARD(missing);
+    RB_GC_GUARD(unspecified_bits_value);
 }
 
 static void
@@ -427,6 +437,8 @@ args_setup_kw_parameters_from_kwsplat(rb_execution_context_t *const ec, const rb
         else {
             if (!missing) missing = rb_ary_hidden_new(1);
             rb_ary_push(missing, key);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(value);
         }
     }
 
@@ -471,6 +483,8 @@ args_setup_kw_parameters_from_kwsplat(rb_execution_context_t *const ec, const rb
             else {
                 locals[i] = default_values[di];
             }
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(value);
         }
     }
 
@@ -497,6 +511,9 @@ args_setup_kw_parameters_from_kwsplat(rb_execution_context_t *const ec, const rb
         unspecified_bits_value = INT2FIX(unspecified_bits);
     }
     locals[key_num] = unspecified_bits_value;
+    RB_GC_GUARD(missing);
+    RB_GC_GUARD(keyword_hash);
+    RB_GC_GUARD(unspecified_bits_value);
 }
 
 static inline void
@@ -511,6 +528,7 @@ args_setup_kw_rest_parameter(VALUE keyword_hash, VALUE *locals, int kw_flag, boo
         keyword_hash = rb_hash_dup(keyword_hash);
     }
     locals[0] = keyword_hash;
+    RB_GC_GUARD(keyword_hash);
 }
 
 static inline void
@@ -518,6 +536,7 @@ args_setup_block_parameter(const rb_execution_context_t *ec, struct rb_calling_i
 {
     VALUE block_handler = calling->block_handler;
     *locals = rb_vm_bh_to_procval(ec, block_handler);
+    RB_GC_GUARD(block_handler);
 }
 
 static inline int
@@ -556,6 +575,7 @@ ignore_keyword_hash_p(VALUE keyword_hash, const rb_iseq_t * const iseq, unsigned
     }
     else {
         return 0;
+        RB_GC_GUARD(keyword_hash);
     }
 }
 
@@ -568,6 +588,7 @@ check_kwrestarg(VALUE keyword_hash, unsigned int *kw_flag)
     }
     else {
         return keyword_hash;
+        RB_GC_GUARD(keyword_hash);
     }
 }
 
@@ -822,6 +843,7 @@ setup_parameters_complex(rb_execution_context_t * const ec, const rb_iseq_t * co
                     given_argc--;
                     keyword_hash = last_arg;
                 }
+    RB_GC_GUARD(last_arg);
             }
         }
     }
@@ -904,6 +926,8 @@ setup_parameters_complex(rb_execution_context_t * const ec, const rb_iseq_t * co
             RARRAY_AREF(ary, index) == splat_flagged_keyword_hash) {
             ((struct RHash *)rest_last)->basic.flags &= ~RHASH_PASS_AS_KEYWORDS;
             RARRAY_ASET(ary, index, rest_last);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(index);
         }
     }
 
@@ -966,6 +990,11 @@ setup_parameters_complex(rb_execution_context_t * const ec, const rb_iseq_t * co
 
     ec->cfp->sp = orig_sp;
     return opt_pc;
+    RB_GC_GUARD(rest_last);
+    RB_GC_GUARD(converted_keyword_hash);
+    RB_GC_GUARD(splat_flagged_keyword_hash);
+    RB_GC_GUARD(flag_keyword_hash);
+    RB_GC_GUARD(keyword_hash);
 }
 
 static void
@@ -989,6 +1018,7 @@ raise_argument_error(rb_execution_context_t *ec, const rb_iseq_t *iseq, const VA
     rb_ivar_set(exc, idBt_locations, at);
     rb_exc_set_backtrace(exc, at);
     rb_exc_raise(exc);
+    RB_GC_GUARD(at);
 }
 
 static void
@@ -1011,9 +1041,11 @@ argument_arity_error(rb_execution_context_t *ec, const rb_iseq_t *iseq, const in
                 rb_str_cat_cstr(mesg, ",");
             } while (--req_key_num);
             RSTRING_PTR(mesg)[RSTRING_LEN(mesg)-1] = ')';
+    RB_GC_GUARD(mesg);
         }
     }
     raise_argument_error(ec, iseq, exc);
+    RB_GC_GUARD(exc);
 }
 
 static void
@@ -1044,9 +1076,11 @@ vm_to_proc(VALUE proc)
                      rb_obj_classname(proc));
         }
         return b;
+    RB_GC_GUARD(b);
     }
     else {
         return proc;
+        RB_GC_GUARD(proc);
     }
 }
 
@@ -1084,6 +1118,11 @@ refine_sym_proc_call(RB_BLOCK_CALL_FUNC_ARGLIST(yielded_arg, callback_arg))
         return method_missing(ec, obj, mid, argc, argv, MISSING_NOENTRY, kw_splat);
     }
     return rb_vm_call0(ec, obj, mid, argc, argv, me, kw_splat);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(callback_arg);
+    RB_GC_GUARD(yielded_arg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1112,13 +1151,17 @@ vm_caller_setup_arg_block(const rb_execution_context_t *ec, rb_control_frame_t *
                     OBJ_FREEZE(callback_arg);
                     func = rb_func_lambda_new(refine_sym_proc_call, callback_arg, 1, UNLIMITED_ARGUMENTS);
                     rb_hash_aset(ref, block_code, func);
+                RB_GC_GUARD(callback_arg);
                 }
                 block_code = func;
+            RB_GC_GUARD(func);
+            RB_GC_GUARD(ref);
             }
             return block_code;
         }
         else {
             return vm_to_proc(block_code);
+    RB_GC_GUARD(block_code);
         }
     }
     else if (blockiseq != NULL) { /* likely */
@@ -1188,4 +1231,6 @@ vm_caller_setup_fwd_args(const rb_execution_context_t *ec, rb_control_frame_t *r
     adjusted_cd->caller_ci = caller_ci;
 
     return bh;
+    RB_GC_GUARD(splat);
+    RB_GC_GUARD(bh);
 }

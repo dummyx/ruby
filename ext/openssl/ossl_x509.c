@@ -24,6 +24,7 @@ ossl_x509_time_adjust(ASN1_TIME *s, VALUE time)
 
     ossl_time_split(time, &sec, &off_days);
     return X509_time_adj_ex(s, off_days, 0, &sec);
+    RB_GC_GUARD(time);
 }
 
 void

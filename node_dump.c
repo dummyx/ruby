@@ -113,6 +113,7 @@ rb_dump_literal(VALUE lit)
     if (!RB_SPECIAL_CONST_P(lit)) {
         VALUE str;
         switch (RB_BUILTIN_TYPE(lit)) {
+          RB_GC_GUARD(str);
           case T_CLASS: case T_MODULE: case T_ICLASS:
             str = rb_class_path(lit);
             if (RCLASS_SINGLETON_P(lit)) {
@@ -124,12 +125,15 @@ rb_dump_literal(VALUE lit)
         }
     }
     return rb_inspect(lit);
+    RB_GC_GUARD(lit);
 }
 
 static void
 add_indent(VALUE buf, VALUE indent)
 {
     AR(indent);
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(indent);
 }
 
 static void
@@ -145,8 +149,10 @@ add_id(VALUE buf, ID id)
         }
         else {
             rb_str_catf(buf, "(internal variable: 0x%"PRIsVALUE")", id);
+            RB_GC_GUARD(str);
         }
     }
+            RB_GC_GUARD(buf);
 }
 
 struct add_option_arg {
@@ -170,6 +176,8 @@ dump_array(VALUE buf, VALUE indent, int comment, const NODE *node)
     }
     LAST_NODE;
     F_NODE(nd_next, RNODE_LIST, "next element");
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(indent);
 }
 
 static void
@@ -192,6 +200,8 @@ dump_parser_array(VALUE buf, VALUE indent, int comment, const rb_parser_ary_t *a
         dump_node(buf, indent, comment, ary->data[i]);
         D_DEDENT;
     }
+        RB_GC_GUARD(buf);
+        RB_GC_GUARD(indent);
 }
 
 static void
@@ -1265,6 +1275,8 @@ dump_node(VALUE buf, VALUE indent, int comment, const NODE * node)
     }
 
     rb_bug("dump_node: unknown node: %s", ruby_node_name(nd_type(node)));
+    RB_GC_GUARD(buf);
+    RB_GC_GUARD(indent);
 }
 
 VALUE
@@ -1278,4 +1290,5 @@ rb_parser_dump_tree(const NODE *node, int comment)
     );
     dump_node(buf, rb_str_new_cstr("# "), comment, node);
     return buf;
+    RB_GC_GUARD(buf);
 }

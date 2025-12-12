@@ -353,6 +353,7 @@ rb_shape_get_shape_id(VALUE obj)
 
 #if SHAPE_IN_BASIC_FLAGS
     return RBASIC_SHAPE_ID(obj);
+    RB_GC_GUARD(obj);
 #else
     switch (BUILTIN_TYPE(obj)) {
       case T_OBJECT:
@@ -384,6 +385,7 @@ rb_shape_t*
 rb_shape_get_shape(VALUE obj)
 {
     return rb_shape_get_shape_by_id(rb_shape_get_shape_id(obj));
+    RB_GC_GUARD(obj);
 }
 
 static rb_shape_t *
@@ -517,6 +519,7 @@ get_next_shape_internal(rb_shape_t * shape, ID id, enum shape_type shape_type, b
                 VALUE lookup_result;
                 if (rb_id_table_lookup(shape->edges, id, &lookup_result)) {
                     res = (rb_shape_t *)lookup_result;
+        RB_GC_GUARD(lookup_result);
                 }
             }
         }
@@ -660,6 +663,7 @@ rb_shape_transition_shape_remove_ivar(VALUE obj, ID id, rb_shape_t *shape, VALUE
         rb_shape_set_shape(obj, new_shape);
     }
     return true;
+    RB_GC_GUARD(obj);
 }
 
 rb_shape_t *
@@ -684,6 +688,7 @@ rb_shape_transition_shape_frozen(VALUE obj)
 
     RUBY_ASSERT(next_shape);
     return next_shape;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -718,6 +723,7 @@ shape_get_next(rb_shape_t *shape, VALUE obj, ID id, bool emit_warnings)
     if (BUILTIN_TYPE(obj) == T_OBJECT) {
         VALUE klass = rb_obj_class(obj);
         allow_new_shape = RCLASS_EXT(klass)->variation_count < SHAPE_MAX_VARIATIONS;
+    RB_GC_GUARD(klass);
     }
 
     bool variation_created = false;
@@ -743,22 +749,26 @@ shape_get_next(rb_shape_t *shape, VALUE obj, ID id, bool emit_warnings)
                     );
                 }
             }
+    RB_GC_GUARD(klass);
         }
     }
 
     return new_shape;
+    RB_GC_GUARD(obj);
 }
 
 rb_shape_t *
 rb_shape_get_next(rb_shape_t *shape, VALUE obj, ID id)
 {
     return shape_get_next(shape, obj, id, true);
+    RB_GC_GUARD(obj);
 }
 
 rb_shape_t *
 rb_shape_get_next_no_warnings(rb_shape_t *shape, VALUE obj, ID id)
 {
     return shape_get_next(shape, obj, id, false);
+    RB_GC_GUARD(obj);
 }
 
 // Same as rb_shape_get_iv_index, but uses a provided valid shape id and index
@@ -895,6 +905,7 @@ void
 rb_shape_set_shape(VALUE obj, rb_shape_t* shape)
 {
     rb_shape_set_shape_id(obj, rb_shape_id(shape));
+    RB_GC_GUARD(obj);
 }
 
 int32_t
@@ -948,6 +959,7 @@ rb_shape_traverse_from_new_root(rb_shape_t *initial_shape, rb_shape_t *dest_shap
       case SHAPE_OBJ_TOO_COMPLEX:
         rb_bug("Unreachable");
         break;
+    RB_GC_GUARD(lookup_result);
     }
 
     return next_shape;
@@ -993,6 +1005,7 @@ RUBY_FUNC_EXPORTED bool
 rb_shape_obj_too_complex(VALUE obj)
 {
     return rb_shape_get_shape_id(obj) == OBJ_TOO_COMPLEX_SHAPE_ID;
+    RB_GC_GUARD(obj);
 }
 
 size_t

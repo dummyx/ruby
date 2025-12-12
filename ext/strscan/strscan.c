@@ -146,6 +146,7 @@ str_new(struct strscanner *p, const char *ptr, long len)
     VALUE str = rb_str_new(ptr, len);
     rb_enc_copy(str, p->str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static inline long
@@ -218,6 +219,8 @@ strscan_s_allocate(VALUE klass)
     p->str = Qnil;
     p->regex = Qnil;
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -263,6 +266,7 @@ strscan_initialize(int argc, VALUE *argv, VALUE self)
         }
         else {
             p->fixed_anchor_p = RTEST(fixed_anchor);
+    RB_GC_GUARD(fixed_anchor);
         }
     }
     else {
@@ -272,12 +276,16 @@ strscan_initialize(int argc, VALUE *argv, VALUE self)
     p->str = str;
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(str);
 }
 
 static struct strscanner *
 check_strscan(VALUE obj)
 {
     return rb_check_typeddata(obj, &strscanner_type);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -308,6 +316,8 @@ strscan_init_copy(VALUE vself, VALUE vorig)
     }
 
     return vself;
+    RB_GC_GUARD(vorig);
+    RB_GC_GUARD(vself);
 }
 
 /* =======================================================================
@@ -326,6 +336,7 @@ static VALUE
 strscan_s_mustc(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -363,6 +374,7 @@ strscan_reset(VALUE self)
     p->curr = 0;
     CLEAR_MATCH_STATUS(p);
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -379,6 +391,7 @@ strscan_terminate(VALUE self)
     p->curr = S_LEN(p);
     CLEAR_MATCH_STATUS(p);
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -394,6 +407,7 @@ strscan_clear(VALUE self)
 {
     rb_warning("StringScanner#clear is obsolete; use #terminate instead");
     return strscan_terminate(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -420,6 +434,7 @@ strscan_get_string(VALUE self)
 
     GET_SCANNER(self, p);
     return p->str;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -467,6 +482,8 @@ strscan_set_string(VALUE self, VALUE str)
     p->curr = 0;
     CLEAR_MATCH_STATUS(p);
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -507,6 +524,8 @@ strscan_concat(VALUE self, VALUE str)
     StringValue(str);
     rb_str_append(p->str, str);
     return self;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -521,6 +540,7 @@ strscan_get_pos(VALUE self)
 
     GET_SCANNER(self, p);
     return INT2FIX(p->curr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -536,6 +556,7 @@ strscan_get_charpos(VALUE self)
     GET_SCANNER(self, p);
 
     return LONG2NUM(rb_enc_strlen(S_PBEG(p), CURPTR(p), rb_enc_get(p->str)));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -556,6 +577,8 @@ strscan_set_pos(VALUE self, VALUE v)
     if (i > S_LEN(p)) rb_raise(rb_eRangeError, "index out of range");
     p->curr = i;
     return LONG2NUM(i);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(self);
 }
 
 static inline UChar *
@@ -669,6 +692,7 @@ strscan_match(regex_t *reg, VALUE str, struct re_registers *regs, void *args_ptr
                       (UChar* )CURPTR(p),
                       regs,
                       ONIG_OPTION_NONE);
+                      RB_GC_GUARD(str);
 }
 
 static OnigPosition
@@ -683,6 +707,7 @@ strscan_search(regex_t *reg, VALUE str, struct re_registers *regs, void *args_pt
                        (UChar *)(CURPTR(p) + S_RESTLEN(p)),
                        regs,
                        ONIG_OPTION_NONE);
+                       RB_GC_GUARD(str);
 }
 
 static void
@@ -691,6 +716,8 @@ strscan_enc_check(VALUE str1, VALUE str2)
     if (RB_ENCODING_GET(str1) != RB_ENCODING_GET(str2)) {
         rb_enc_check(str1, str2);
     }
+        RB_GC_GUARD(str1);
+        RB_GC_GUARD(str2);
 }
 
 static VALUE
@@ -758,6 +785,8 @@ strscan_do_scan(VALUE self, VALUE pattern, int succptr, int getstr, int headonly
         else {
             return INT2FIX(length);
         }
+            RB_GC_GUARD(self);
+            RB_GC_GUARD(pattern);
     }
 }
 
@@ -770,6 +799,8 @@ static VALUE
 strscan_scan(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 1, 1, 1);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -832,6 +863,8 @@ static VALUE
 strscan_match_p(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 0, 0, 1);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -843,6 +876,8 @@ static VALUE
 strscan_skip(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 1, 0, 1);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -904,6 +939,8 @@ static VALUE
 strscan_check(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 0, 1, 1);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -929,6 +966,10 @@ static VALUE
 strscan_scan_full(VALUE self, VALUE re, VALUE s, VALUE f)
 {
     return strscan_do_scan(self, re, RTEST(s), RTEST(f), 1);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -940,6 +981,8 @@ static VALUE
 strscan_scan_until(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 1, 1, 0);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1003,6 +1046,8 @@ static VALUE
 strscan_exist_p(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 0, 0, 0);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1014,6 +1059,8 @@ static VALUE
 strscan_skip_until(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 1, 0, 0);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1077,6 +1124,8 @@ static VALUE
 strscan_check_until(VALUE self, VALUE re)
 {
     return strscan_do_scan(self, re, 0, 1, 0);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1102,6 +1151,10 @@ static VALUE
 strscan_search_full(VALUE self, VALUE re, VALUE s, VALUE f)
 {
     return strscan_do_scan(self, re, RTEST(s), RTEST(f), 0);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(re);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -1141,6 +1194,7 @@ strscan_getch(VALUE self)
     return extract_range(p,
                          adjust_register_position(p, p->regs.beg[0]),
                          adjust_register_position(p, p->regs.end[0]));
+                         RB_GC_GUARD(self);
 }
 
 /*
@@ -1169,6 +1223,8 @@ strscan_scan_byte(VALUE self)
     MATCHED(p);
     adjust_registers_to_matched(p);
     return byte;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(byte);
 }
 
 /*
@@ -1187,6 +1243,7 @@ strscan_peek_byte(VALUE self)
         return Qnil;
 
     return INT2FIX((unsigned char)*CURPTR(p));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1211,6 +1268,7 @@ strscan_get_byte(VALUE self)
     return extract_range(p,
                          adjust_register_position(p, p->regs.beg[0]),
                          adjust_register_position(p, p->regs.end[0]));
+                         RB_GC_GUARD(self);
 }
 
 /*
@@ -1227,6 +1285,7 @@ strscan_getbyte(VALUE self)
 {
     rb_warning("StringScanner#getbyte is obsolete; use #get_byte instead");
     return strscan_get_byte(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1262,6 +1321,8 @@ strscan_peek(VALUE self, VALUE vlen)
 
     len = minl(len, S_RESTLEN(p));
     return extract_beg_len(p, p->curr, len);
+    RB_GC_GUARD(vlen);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1278,6 +1339,8 @@ strscan_peep(VALUE self, VALUE vlen)
 {
     rb_warning("StringScanner#peep is obsolete; use #peek instead");
     return strscan_peek(self, vlen);
+    RB_GC_GUARD(vlen);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1293,6 +1356,8 @@ strscan_parse_integer(struct strscanner *p, int base, long len)
     RB_ALLOCV_END(buffer_v);
     p->curr += len;
     return integer;
+    RB_GC_GUARD(integer);
+    RB_GC_GUARD(buffer_v);
 }
 
 static inline bool
@@ -1300,6 +1365,7 @@ strscan_ascii_compat_fastpath(VALUE str) {
     int encindex = ENCODING_GET_INLINED(str);
     // The overwhelming majority of strings are in one of these 3 encodings.
     return encindex == utf8_encindex || encindex == binary_encindex || encindex == usascii_encindex;
+    RB_GC_GUARD(str);
 }
 
 static inline void
@@ -1311,6 +1377,7 @@ strscan_must_ascii_compat(VALUE str)
     }
 
     rb_must_asciicompat(str);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1349,6 +1416,7 @@ strscan_scan_base10_integer(VALUE self)
     }
 
     return strscan_parse_integer(p, 10, len);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1391,6 +1459,7 @@ strscan_scan_base16_integer(VALUE self)
     }
 
     return strscan_parse_integer(p, 16, len);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1442,6 +1511,7 @@ strscan_unscan(VALUE self)
     p->curr = p->prev;
     CLEAR_MATCH_STATUS(p);
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1486,6 +1556,7 @@ strscan_bol_p(VALUE self)
     if (CURPTR(p) > S_PEND(p)) return Qnil;
     if (p->curr == 0) return Qtrue;
     return (*(CURPTR(p) - 1) == '\n') ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1515,6 +1586,7 @@ strscan_eos_p(VALUE self)
 
     GET_SCANNER(self, p);
     return EOS_P(p) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1531,6 +1603,7 @@ strscan_empty_p(VALUE self)
 {
     rb_warning("StringScanner#empty? is obsolete; use #eos? instead");
     return strscan_eos_p(self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1554,6 +1627,7 @@ strscan_rest_p(VALUE self)
 
     GET_SCANNER(self, p);
     return EOS_P(p) ? Qfalse : Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1585,6 +1659,7 @@ strscan_matched_p(VALUE self)
 
     GET_SCANNER(self, p);
     return MATCHED_P(p) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1620,6 +1695,7 @@ strscan_matched(VALUE self)
     return extract_range(p,
                          adjust_register_position(p, p->regs.beg[0]),
                          adjust_register_position(p, p->regs.end[0]));
+                         RB_GC_GUARD(self);
 }
 
 /*
@@ -1655,6 +1731,7 @@ strscan_matched_size(VALUE self)
     GET_SCANNER(self, p);
     if (! MATCHED_P(p)) return Qnil;
     return LONG2NUM(p->regs.end[0] - p->regs.beg[0]);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -1673,6 +1750,7 @@ name_to_backref_number(struct re_registers *regs, VALUE regexp, const char* name
     }
 
     UNREACHABLE;
+    RB_GC_GUARD(regexp);
 }
 
 /*
@@ -1778,6 +1856,8 @@ strscan_aref(VALUE self, VALUE idx)
     return extract_range(p,
                          adjust_register_position(p, p->regs.beg[i]),
                          adjust_register_position(p, p->regs.end[i]));
+                         RB_GC_GUARD(idx);
+                         RB_GC_GUARD(self);
 }
 
 /*
@@ -1812,6 +1892,7 @@ strscan_size(VALUE self)
     GET_SCANNER(self, p);
     if (! MATCHED_P(p))        return Qnil;
     return INT2FIX(p->regs.num_regs);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1862,9 +1943,12 @@ strscan_captures(VALUE self)
                                 adjust_register_position(p, p->regs.beg[i]),
                                 adjust_register_position(p, p->regs.end[i]));
         rb_ary_push(new_ary, str);
+    RB_GC_GUARD(str);
     }
 
     return new_ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(new_ary);
 }
 
 /*
@@ -1905,6 +1989,8 @@ strscan_values_at(int argc, VALUE *argv, VALUE self)
     }
 
     return new_ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(new_ary);
 }
 
 /*
@@ -1942,6 +2028,7 @@ strscan_pre_match(VALUE self)
     return extract_range(p,
                          0,
                          adjust_register_position(p, p->regs.beg[0]));
+                         RB_GC_GUARD(self);
 }
 
 /*
@@ -1979,6 +2066,7 @@ strscan_post_match(VALUE self)
     return extract_range(p,
                          adjust_register_position(p, p->regs.end[0]),
                          S_LEN(p));
+                         RB_GC_GUARD(self);
 }
 
 /*
@@ -2011,6 +2099,7 @@ strscan_rest(VALUE self)
         return str_new(p, "", 0);
     }
     return extract_range(p, p->curr, S_LEN(p));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2047,6 +2136,7 @@ strscan_rest_size(VALUE self)
     }
     i = S_RESTLEN(p);
     return INT2FIX(i);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2063,6 +2153,7 @@ strscan_restsize(VALUE self)
 {
     rb_warning("StringScanner#restsize is obsolete; use #rest_size instead");
     return strscan_rest_size(self);
+    RB_GC_GUARD(self);
 }
 
 #define INSPECT_LENGTH 5
@@ -2132,6 +2223,9 @@ strscan_inspect(VALUE self)
 		   p->curr, S_LEN(p),
 		   a, b);
     return a;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
 }
 
 static VALUE
@@ -2151,6 +2245,7 @@ inspect1(struct strscanner *p)
     }
     rb_str_cat(str, CURPTR(p) - len, len);
     return rb_str_dump(str);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -2169,6 +2264,7 @@ inspect2(struct strscanner *p)
 	str = rb_str_new(CURPTR(p), len);
     }
     return rb_str_dump(str);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2186,6 +2282,7 @@ strscan_fixed_anchor_p(VALUE self)
     struct strscanner *p;
     p = check_strscan(self);
     return p->fixed_anchor_p ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 typedef struct {
@@ -2211,6 +2308,8 @@ named_captures_iter(const OnigUChar *name,
     }
     rb_hash_aset(data->captures, key, value);
     return 0;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 /*
@@ -2254,6 +2353,7 @@ strscan_named_captures(VALUE self)
     }
 
     return data.captures;
+    RB_GC_GUARD(self);
 }
 
 /* =======================================================================
@@ -2367,4 +2467,5 @@ Init_strscan(void)
     rb_define_method(StringScanner, "named_captures", strscan_named_captures, 0);
 
     rb_require("strscan/strscan");
+    RB_GC_GUARD(tmp);
 }

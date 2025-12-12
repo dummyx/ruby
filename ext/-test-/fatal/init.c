@@ -7,4 +7,5 @@ Init_fatal(void)
 {
     VALUE klass = rb_define_module("Bug");
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(klass);
 }

@@ -236,6 +236,7 @@ rb_gc_event_hook(VALUE obj, rb_event_flag_t event)
     if (!ec->cfp) return;
 
     EXEC_EVENT_HOOK(ec, event, ec->cfp->self, 0, 0, 0, obj);
+    RB_GC_GUARD(obj);
 }
 
 void *
@@ -298,6 +299,7 @@ rb_gc_run_obj_finalizer(VALUE objid, long count, VALUE (*callback)(long i, void 
         if (!UNDEF_P(failed_final) && !NIL_P(ruby_verbose)) {
             rb_warn("Exception in finalizer %+"PRIsVALUE, failed_final);
             rb_ec_error_print(ec, ec->errinfo);
+    RB_GC_GUARD(failed_final);
         }
     }
 
@@ -307,6 +309,7 @@ rb_gc_run_obj_finalizer(VALUE objid, long count, VALUE (*callback)(long i, void 
     }
     EC_POP_TAG();
 #undef RESTORE_FINALIZER
+    RB_GC_GUARD(objid);
 }
 
 void
@@ -360,6 +363,7 @@ rb_gc_shutdown_call_finalizer_p(VALUE obj)
 
       default:
         return ruby_free_at_exit_p();
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -367,12 +371,14 @@ uint32_t
 rb_gc_get_shape(VALUE obj)
 {
     return (uint32_t)rb_shape_get_shape_id(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_gc_set_shape(VALUE obj, uint32_t shape_id)
 {
     rb_shape_set_shape_id(obj, (uint32_t)shape_id);
+    RB_GC_GUARD(obj);
 }
 
 uint32_t
@@ -388,6 +394,7 @@ rb_gc_rebuild_shape(VALUE obj, size_t heap_id)
     if (!new_shape) return 0;
 
     return (uint32_t)rb_shape_id(new_shape);
+    RB_GC_GUARD(obj);
 }
 
 void rb_vm_update_references(void *ptr);
@@ -556,12 +563,14 @@ size_mul_or_raise(size_t x, size_t y, VALUE exc)
             " > %"PRIuSIZE,
             x, y, (size_t)SIZE_MAX);
     }
+            RB_GC_GUARD(exc);
 }
 
 size_t
 rb_size_mul_or_raise(size_t x, size_t y, VALUE exc)
 {
     return size_mul_or_raise(x, y, exc);
+    RB_GC_GUARD(exc);
 }
 
 static inline size_t
@@ -583,12 +592,14 @@ size_mul_add_or_raise(size_t x, size_t y, size_t z, VALUE exc)
             " > %"PRIuSIZE,
             x, y, z, (size_t)SIZE_MAX);
     }
+            RB_GC_GUARD(exc);
 }
 
 size_t
 rb_size_mul_add_or_raise(size_t x, size_t y, size_t z, VALUE exc)
 {
     return size_mul_add_or_raise(x, y, z, exc);
+    RB_GC_GUARD(exc);
 }
 
 static inline size_t
@@ -611,6 +622,7 @@ size_mul_add_mul_or_raise(size_t x, size_t y, size_t z, size_t w, VALUE exc)
             " > %"PRIdSIZE,
             x, y, z, w, (size_t)SIZE_MAX);
     }
+            RB_GC_GUARD(exc);
 }
 
 #if defined(HAVE_RB_GC_GUARDED_PTR_VAL) && HAVE_RB_GC_GUARDED_PTR_VAL
@@ -1015,6 +1027,7 @@ size_t
 rb_gc_obj_slot_size(VALUE obj)
 {
     return rb_gc_impl_obj_slot_size(obj);
+    RB_GC_GUARD(obj);
 }
 
 static inline void
@@ -1057,6 +1070,12 @@ newobj_of(rb_ractor_t *cr, VALUE klass, VALUE flags, VALUE v1, VALUE v2, VALUE v
     }
 
     return obj;
+    RB_GC_GUARD(v3);
+    RB_GC_GUARD(v2);
+    RB_GC_GUARD(v1);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1064,6 +1083,8 @@ rb_wb_unprotected_newobj_of(VALUE klass, VALUE flags, size_t size)
 {
     GC_ASSERT((flags & FL_WB_PROTECTED) == 0);
     return newobj_of(GET_RACTOR(), klass, flags, 0, 0, 0, FALSE, size);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1071,6 +1092,8 @@ rb_wb_protected_newobj_of(rb_execution_context_t *ec, VALUE klass, VALUE flags, 
 {
     GC_ASSERT((flags & FL_WB_PROTECTED) == 0);
     return newobj_of(rb_ec_ractor_ptr(ec), klass, flags, 0, 0, 0, TRUE, size);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(klass);
 }
 
 #define UNEXPECTED_NODE(func) \
@@ -1084,6 +1107,7 @@ rb_data_object_check(VALUE klass)
         rb_undef_alloc_func(klass);
         rb_warn("undefining the allocator of T_DATA class %"PRIsVALUE, klass);
     }
+        RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1092,6 +1116,7 @@ rb_data_object_wrap(VALUE klass, void *datap, RUBY_DATA_FUNC dmark, RUBY_DATA_FU
     RUBY_ASSERT_ALWAYS(dfree != (RUBY_DATA_FUNC)1);
     if (klass) rb_data_object_check(klass);
     return newobj_of(GET_RACTOR(), klass, T_DATA, (VALUE)dmark, (VALUE)dfree, (VALUE)datap, !dmark, sizeof(struct RTypedData));
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1100,6 +1125,8 @@ rb_data_object_zalloc(VALUE klass, size_t size, RUBY_DATA_FUNC dmark, RUBY_DATA_
     VALUE obj = rb_data_object_wrap(klass, 0, dmark, dfree);
     DATA_PTR(obj) = xcalloc(1, size);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1109,6 +1136,8 @@ typed_data_alloc(VALUE klass, VALUE typed_flag, void *datap, const rb_data_type_
     if (klass) rb_data_object_check(klass);
     bool wb_protected = (type->flags & RUBY_FL_WB_PROTECTED) || !type->function.dmark;
     return newobj_of(GET_RACTOR(), klass, T_DATA, (VALUE)type, 1 | typed_flag, (VALUE)datap, wb_protected, size);
+    RB_GC_GUARD(typed_flag);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1119,6 +1148,7 @@ rb_data_typed_object_wrap(VALUE klass, void *datap, const rb_data_type_t *type)
     }
 
     return typed_data_alloc(klass, 0, datap, type, sizeof(struct RTypedData));
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1134,12 +1164,15 @@ rb_data_typed_object_zalloc(VALUE klass, size_t size, const rb_data_type_t *type
             VALUE obj = typed_data_alloc(klass, TYPED_DATA_EMBEDDED, 0, type, embed_size);
             memset((char *)obj + offsetof(struct RTypedData, data), 0, size);
             return obj;
+    RB_GC_GUARD(obj);
         }
     }
 
     VALUE obj = typed_data_alloc(klass, 0, NULL, type, sizeof(struct RTypedData));
     DATA_PTR(obj) = xcalloc(1, size);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static size_t
@@ -1162,6 +1195,7 @@ rb_objspace_data_type_memsize(VALUE obj)
     }
 
     return size;
+    RB_GC_GUARD(obj);
 }
 
 const char *
@@ -1172,6 +1206,7 @@ rb_objspace_data_type_name(VALUE obj)
     }
     else {
         return 0;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -1180,6 +1215,7 @@ cvar_table_free_i(VALUE value, void *ctx)
 {
     xfree((void *)value);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static inline void
@@ -1187,6 +1223,7 @@ make_io_zombie(void *objspace, VALUE obj)
 {
     rb_io_t *fptr = RFILE(obj)->fptr;
     rb_gc_impl_make_zombie(objspace, obj, rb_io_fptr_finalize_internal, fptr);
+    RB_GC_GUARD(obj);
 }
 
 static bool
@@ -1232,6 +1269,7 @@ rb_data_free(void *objspace, VALUE obj)
     }
 
     return true;
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1270,6 +1308,7 @@ rb_gc_obj_free_vm_weak_references(VALUE obj)
       default:
         break;
     }
+        RB_GC_GUARD(obj);
 }
 
 bool
@@ -1489,6 +1528,7 @@ rb_gc_obj_free(void *objspace, VALUE obj)
     }
     else {
         return TRUE;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -1529,12 +1569,14 @@ internal_object_p(VALUE obj)
         rb_asan_poison_object(obj);
     }
     return 1;
+    RB_GC_GUARD(obj);
 }
 
 int
 rb_objspace_internal_object_p(VALUE obj)
 {
     return internal_object_p(obj);
+    RB_GC_GUARD(obj);
 }
 
 struct os_each_struct {
@@ -1560,6 +1602,7 @@ os_obj_of_i(void *vstart, void *vend, size_t stride, void *data)
     }
 
     return 0;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1571,6 +1614,7 @@ os_obj_of(VALUE of)
     oes.of = of;
     rb_objspace_each_objects(os_obj_of_i, &oes);
     return SIZET2NUM(oes.num);
+    RB_GC_GUARD(of);
 }
 
 /*
@@ -1617,6 +1661,8 @@ os_each_obj(int argc, VALUE *argv, VALUE os)
     of = (!rb_check_arity(argc, 0, 1) ? 0 : argv[0]);
     RETURN_ENUMERATOR(os, 1, &of);
     return os_obj_of(of);
+    RB_GC_GUARD(os);
+    RB_GC_GUARD(of);
 }
 
 /*
@@ -1631,6 +1677,8 @@ static VALUE
 undefine_final(VALUE os, VALUE obj)
 {
     return rb_undefine_finalizer(obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(os);
 }
 
 VALUE
@@ -1641,6 +1689,7 @@ rb_undefine_finalizer(VALUE obj)
     rb_gc_impl_undefine_finalizer(rb_gc_get_objspace(), obj);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1650,6 +1699,7 @@ should_be_callable(VALUE block)
         rb_raise(rb_eArgError, "wrong type argument %"PRIsVALUE" (should be callable)",
                  rb_obj_class(block));
     }
+                 RB_GC_GUARD(block);
 }
 
 static void
@@ -1660,12 +1710,15 @@ should_be_finalizable(VALUE obj)
                  rb_obj_classname(obj));
     }
     rb_check_frozen(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_gc_copy_finalizer(VALUE dest, VALUE obj)
 {
     rb_gc_impl_copy_finalizer(rb_gc_get_objspace(), dest, obj);
+    RB_GC_GUARD(dest);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1745,6 +1798,9 @@ define_final(int argc, VALUE *argv, VALUE os)
     }
 
     return rb_define_finalizer(obj, block);
+    RB_GC_GUARD(os);
+    RB_GC_GUARD(block);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1758,6 +1814,8 @@ rb_define_finalizer(VALUE obj, VALUE block)
     block = rb_ary_new3(2, INT2FIX(0), block);
     OBJ_FREEZE(block);
     return block;
+    RB_GC_GUARD(block);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1776,12 +1834,14 @@ int
 rb_objspace_garbage_object_p(VALUE obj)
 {
     return rb_gc_impl_garbage_object_p(rb_gc_get_objspace(), obj);
+    RB_GC_GUARD(obj);
 }
 
 bool
 rb_gc_pointer_to_heap_p(VALUE obj)
 {
     return rb_gc_impl_pointer_to_heap_p(rb_gc_get_objspace(), (void *)obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1828,6 +1888,7 @@ id2ref(VALUE objid)
             }
 
             rb_raise(rb_eRangeError, "%+"PRIsVALUE" is not id value", rb_int2str(objid, 10));
+    RB_GC_GUARD(ptr);
         }
     }
 
@@ -1838,6 +1899,8 @@ id2ref(VALUE objid)
     else {
         rb_raise(rb_eRangeError, "%+"PRIsVALUE" is id of the unshareable object on multi-ractor", rb_int2str(objid, 10));
     }
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(objid);
 }
 
 /* :nodoc: */
@@ -1845,6 +1908,8 @@ static VALUE
 os_id2ref(VALUE os, VALUE objid)
 {
     return id2ref(objid);
+    RB_GC_GUARD(objid);
+    RB_GC_GUARD(os);
 }
 
 static VALUE
@@ -1859,6 +1924,7 @@ rb_find_object_id(void *objspace, VALUE obj, VALUE (*get_heap_object_id)(void *,
     }
 
     return get_heap_object_id(objspace, obj);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1866,6 +1932,7 @@ nonspecial_obj_id(void *_objspace, VALUE obj)
 {
 #if SIZEOF_LONG == SIZEOF_VOIDP
     return (VALUE)((SIGNED_VALUE)(obj)|FIXNUM_FLAG);
+    RB_GC_GUARD(obj);
 #elif SIZEOF_LONG_LONG == SIZEOF_VOIDP
     return LL2NUM((SIGNED_VALUE)(obj) / 2);
 #else
@@ -1877,6 +1944,7 @@ VALUE
 rb_memory_id(VALUE obj)
 {
     return rb_find_object_id(NULL, obj, nonspecial_obj_id);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1914,6 +1982,7 @@ rb_obj_id(VALUE obj)
      * (RUBY_IMMEDIATE_MASK + 1) which guarantees that it does not collide with
      * any immediates. */
     return rb_find_object_id(rb_gc_get_objspace(), obj, rb_gc_impl_object_id);
+    RB_GC_GUARD(obj);
 }
 
 static enum rb_id_table_iterator_result
@@ -1924,6 +1993,7 @@ cc_table_memsize_i(VALUE ccs_ptr, void *data_ptr)
     *total_size += sizeof(*ccs);
     *total_size += sizeof(ccs->entries[0]) * ccs->capa;
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(ccs_ptr);
 }
 
 static size_t
@@ -2057,6 +2127,7 @@ rb_obj_memsize_of(VALUE obj)
     }
 
     return size + rb_gc_obj_slot_size(obj);
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -2066,6 +2137,8 @@ set_zero(st_data_t key, st_data_t val, st_data_t arg)
     VALUE hash = (VALUE)arg;
     rb_hash_aset(hash, k, INT2FIX(0));
     return ST_CONTINUE;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(k);
 }
 
 struct count_objects_data {
@@ -2087,6 +2160,7 @@ count_objects_i(VALUE obj, void *d)
     }
 
     data->total++;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2151,9 +2225,12 @@ count_objects(int argc, VALUE *argv, VALUE os)
         VALUE type = type_sym(i);
         if (data.counts[i])
             rb_hash_aset(hash, type, SIZET2NUM(data.counts[i]));
+    RB_GC_GUARD(type);
     }
 
     return hash;
+    RB_GC_GUARD(os);
+    RB_GC_GUARD(hash);
 }
 
 #define SET_STACK_END SET_MACHINE_STACK_END(&ec->machine.stack_end)
@@ -2256,12 +2333,14 @@ static inline void
 gc_mark_internal(VALUE obj)
 {
     RB_GC_MARK_OR_TRAVERSE(rb_gc_impl_mark, obj, obj, false);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_gc_mark_movable(VALUE obj)
 {
     gc_mark_internal(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -2274,24 +2353,28 @@ static inline void
 gc_mark_and_pin_internal(VALUE obj)
 {
     RB_GC_MARK_OR_TRAVERSE(rb_gc_impl_mark_and_pin, obj, obj, false);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_gc_mark(VALUE obj)
 {
     gc_mark_and_pin_internal(obj);
+    RB_GC_GUARD(obj);
 }
 
 static inline void
 gc_mark_maybe_internal(VALUE obj)
 {
     RB_GC_MARK_OR_TRAVERSE(rb_gc_impl_mark_maybe, obj, obj, true);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_gc_mark_maybe(VALUE obj)
 {
     gc_mark_maybe_internal(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -2315,6 +2398,7 @@ void
 rb_gc_remove_weak(VALUE parent_obj, VALUE *ptr)
 {
     rb_gc_impl_remove_weak(rb_gc_get_objspace(), parent_obj, ptr);
+    RB_GC_GUARD(parent_obj);
 }
 
 ATTRIBUTE_NO_ADDRESS_SAFETY_ANALYSIS(static void each_location(register const VALUE *x, register long n, void (*cb)(VALUE, void *), void *data));
@@ -2327,6 +2411,7 @@ each_location(register const VALUE *x, register long n, void (*cb)(VALUE, void *
         cb(v, data);
         x++;
     }
+        RB_GC_GUARD(v);
 }
 
 static void
@@ -2340,6 +2425,7 @@ static void
 gc_mark_maybe_each_location(VALUE obj, void *data)
 {
     gc_mark_maybe_internal(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -2418,6 +2504,7 @@ mark_hash(VALUE hash)
     }
 
     gc_mark_internal(RHASH(hash)->ifnone);
+    RB_GC_GUARD(hash);
 }
 
 void
@@ -2434,6 +2521,7 @@ mark_method_entry_i(VALUE me, void *objspace)
     gc_mark_internal(me);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(me);
 }
 
 static void
@@ -2472,6 +2560,7 @@ gc_mark_machine_stack_location_maybe(VALUE obj, void *data)
         each_location_ptr(fake_frame_start, fake_frame_end, gc_mark_maybe_each_location, NULL);
     }
 #endif
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -2484,12 +2573,14 @@ gc_location_internal(void *objspace, VALUE value)
     GC_ASSERT(rb_gc_impl_pointer_to_heap_p(objspace, (void *)value));
 
     return rb_gc_impl_location(objspace, value);
+    RB_GC_GUARD(value);
 }
 
 VALUE
 rb_gc_location(VALUE value)
 {
     return gc_location_internal(rb_gc_get_objspace(), value);
+    RB_GC_GUARD(value);
 }
 
 #if defined(__wasm__)
@@ -2617,6 +2708,7 @@ mark_cvc_tbl_i(VALUE cvc_entry, void *objspace)
     gc_mark_internal((VALUE)entry->cref);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(cvc_entry);
 }
 
 static void
@@ -2626,6 +2718,7 @@ mark_cvc_tbl(void *objspace, VALUE klass)
     if (tbl) {
         rb_id_table_foreach_values(tbl, mark_cvc_tbl_i, objspace);
     }
+        RB_GC_GUARD(klass);
 }
 
 static bool
@@ -2643,6 +2736,7 @@ mark_const_table_i(VALUE value, void *objspace)
     gc_mark_internal(ce->file);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 void
@@ -2769,6 +2863,7 @@ rb_gc_mark_children(void *objspace, VALUE obj)
         if (ARY_SHARED_P(obj)) {
             VALUE root = ARY_SHARED_ROOT(obj);
             gc_mark_internal(root);
+        RB_GC_GUARD(root);
         }
         else {
             long len = RARRAY_LEN(obj);
@@ -2842,6 +2937,7 @@ rb_gc_mark_children(void *objspace, VALUE obj)
             attr_index_t num_of_ivs = shape->next_iv_index;
             if (RCLASS_EXT(klass)->max_iv_count < num_of_ivs) {
                 RCLASS_EXT(klass)->max_iv_count = num_of_ivs;
+        RB_GC_GUARD(klass);
             }
         }
 
@@ -2901,6 +2997,7 @@ rb_gc_mark_children(void *objspace, VALUE obj)
                BUILTIN_TYPE(obj), (void *)obj,
                rb_gc_impl_pointer_to_heap_p(rb_gc_get_objspace(), (void *)obj) ? "corrupted object" : "non object");
     }
+               RB_GC_GUARD(obj);
 }
 
 size_t
@@ -2926,6 +3023,7 @@ rb_gc_obj_optimal_size(VALUE obj)
 
       default:
         return 0;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -2933,12 +3031,15 @@ void
 rb_gc_writebarrier(VALUE a, VALUE b)
 {
     rb_gc_impl_writebarrier(rb_gc_get_objspace(), a, b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(b);
 }
 
 void
 rb_gc_writebarrier_unprotect(VALUE obj)
 {
     rb_gc_impl_writebarrier_unprotect(rb_gc_get_objspace(), obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2948,12 +3049,15 @@ void
 rb_gc_writebarrier_remember(VALUE obj)
 {
     rb_gc_impl_writebarrier_remember(rb_gc_get_objspace(), obj);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_gc_copy_attributes(VALUE dest, VALUE obj)
 {
     rb_gc_impl_copy_attributes(rb_gc_get_objspace(), dest, obj);
+    RB_GC_GUARD(dest);
+    RB_GC_GUARD(obj);
 }
 
 int
@@ -2985,6 +3089,7 @@ size_t
 rb_obj_gc_flags(VALUE obj, ID* flags, size_t max)
 {
     return rb_gc_impl_obj_flags(rb_gc_get_objspace(), obj, flags, max);
+    RB_GC_GUARD(obj);
 }
 
 /* GC */
@@ -3008,6 +3113,7 @@ rb_gc_register_mark_object(VALUE obj)
         return;
 
     rb_vm_register_global_object(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -3032,6 +3138,7 @@ rb_gc_register_address(VALUE *addr)
                 rb_obj_class(obj));
         rb_print_backtrace(stderr);
     }
+        RB_GC_GUARD(obj);
 }
 
 void
@@ -3069,6 +3176,11 @@ gc_start_internal(rb_execution_context_t *ec, VALUE self, VALUE full_mark, VALUE
     rb_gc_impl_start(rb_gc_get_objspace(), RTEST(full_mark), RTEST(immediate_mark), RTEST(immediate_sweep), RTEST(compact));
 
     return Qnil;
+    RB_GC_GUARD(compact);
+    RB_GC_GUARD(immediate_sweep);
+    RB_GC_GUARD(immediate_mark);
+    RB_GC_GUARD(full_mark);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3129,6 +3241,8 @@ gc_ref_update_array(void *objspace, VALUE v)
             size_t offset = (size_t)(RARRAY(v)->as.heap.ptr - RARRAY(old_root)->as.ary);
             GC_ASSERT(RARRAY(v)->as.heap.ptr >= RARRAY(old_root)->as.ary);
             RARRAY(v)->as.heap.ptr = RARRAY(new_root)->as.ary + offset;
+    RB_GC_GUARD(old_root);
+    RB_GC_GUARD(new_root);
         }
     }
     else {
@@ -3147,6 +3261,7 @@ gc_ref_update_array(void *objspace, VALUE v)
             }
         }
     }
+                RB_GC_GUARD(v);
 }
 
 static void
@@ -3172,6 +3287,7 @@ gc_ref_update_object(void *objspace, VALUE v)
     for (uint32_t i = 0; i < ROBJECT_IV_COUNT(v); i++) {
         UPDATE_IF_MOVED(objspace, ptr[i]);
     }
+        RB_GC_GUARD(v);
 }
 
 void
@@ -3191,6 +3307,7 @@ static void
 gc_ref_update_hash(void *objspace, VALUE v)
 {
     rb_hash_stlike_foreach_with_replace(v, hash_foreach_replace, hash_replace_ref, (st_data_t)objspace);
+    RB_GC_GUARD(v);
 }
 
 static void
@@ -3217,6 +3334,7 @@ check_id_table_move(VALUE value, void *data)
     }
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 void
@@ -3231,6 +3349,7 @@ rb_gc_prepare_heap_process_object(VALUE obj)
       default:
         break;
     }
+        RB_GC_GUARD(obj);
 }
 
 void
@@ -3289,6 +3408,7 @@ update_cc_tbl_i(VALUE ccs_ptr, void *objspace)
 
     // do not replace
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(ccs_ptr);
 }
 
 static void
@@ -3298,6 +3418,7 @@ update_cc_tbl(void *objspace, VALUE klass)
     if (tbl) {
         rb_id_table_foreach_values(tbl, update_cc_tbl_i, objspace);
     }
+        RB_GC_GUARD(klass);
 }
 
 static enum rb_id_table_iterator_result
@@ -3314,6 +3435,7 @@ update_cvc_tbl_i(VALUE cvc_entry, void *objspace)
     entry->class_value = gc_location_internal(objspace, entry->class_value);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(cvc_entry);
 }
 
 static void
@@ -3323,6 +3445,7 @@ update_cvc_tbl(void *objspace, VALUE klass)
     if (tbl) {
         rb_id_table_foreach_values(tbl, update_cvc_tbl_i, objspace);
     }
+        RB_GC_GUARD(klass);
 }
 
 static enum rb_id_table_iterator_result
@@ -3339,6 +3462,7 @@ update_const_table(VALUE value, void *objspace)
     }
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static void
@@ -3374,6 +3498,7 @@ update_superclasses(void *objspace, VALUE obj)
             UPDATE_IF_MOVED(objspace, RCLASS_SUPERCLASSES(obj)[i]);
         }
     }
+            RB_GC_GUARD(obj);
 }
 
 extern rb_symbols_t ruby_global_symbols;
@@ -3705,6 +3830,7 @@ rb_gc_update_object_references(void *objspace, VALUE obj)
     }
 
     UPDATE_IF_MOVED(objspace, RBASIC(obj)->klass);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -3740,6 +3866,7 @@ static VALUE
 gc_count(rb_execution_context_t *ec, VALUE self)
 {
     return SIZET2NUM(rb_gc_count());
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -3756,6 +3883,8 @@ rb_gc_latest_gc_info(VALUE key)
     }
 
     return val;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -3777,6 +3906,9 @@ gc_stat(rb_execution_context_t *ec, VALUE self, VALUE arg) // arg is (nil || has
     }
 
     return ret;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 size_t
@@ -3799,6 +3931,8 @@ rb_gc_stat(VALUE arg)
     }
     else {
         return 0;
+        RB_GC_GUARD(ret);
+        RB_GC_GUARD(arg);
     }
 }
 
@@ -3832,6 +3966,10 @@ gc_stat_heap(rb_execution_context_t *ec, VALUE self, VALUE heap_name, VALUE arg)
     }
 
     return ret;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(heap_name);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -3841,6 +3979,8 @@ gc_config_get(rb_execution_context_t *ec, VALUE self)
     rb_hash_aset(cfg_hash, sym("implementation"), rb_fstring_cstr(rb_gc_impl_active_gc_name()));
 
     return cfg_hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(cfg_hash);
 }
 
 static VALUE
@@ -3851,12 +3991,15 @@ gc_config_set(rb_execution_context_t *ec, VALUE self, VALUE hash)
     rb_gc_impl_config_set(objspace, hash);
 
     return rb_gc_impl_config_get(objspace);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 gc_stress_get(rb_execution_context_t *ec, VALUE self)
 {
     return rb_gc_impl_stress_get(rb_gc_get_objspace());
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3865,12 +4008,15 @@ gc_stress_set_m(rb_execution_context_t *ec, VALUE self, VALUE flag)
     rb_gc_impl_stress_set(rb_gc_get_objspace(), flag);
 
     return flag;
+    RB_GC_GUARD(flag);
+    RB_GC_GUARD(self);
 }
 
 void
 rb_gc_initial_stress_set(VALUE flag)
 {
     initial_stress = flag;
+    RB_GC_GUARD(flag);
 }
 
 size_t *
@@ -3897,6 +4043,7 @@ static VALUE
 gc_enable(rb_execution_context_t *ec, VALUE _)
 {
     return rb_gc_enable();
+    RB_GC_GUARD(_);
 }
 
 static VALUE
@@ -3931,6 +4078,7 @@ static VALUE
 gc_disable(rb_execution_context_t *ec, VALUE _)
 {
     return rb_gc_disable();
+    RB_GC_GUARD(_);
 }
 
 // TODO: think about moving ruby_gc_set_params into Init_heap or Init_gc
@@ -3961,6 +4109,7 @@ rb_objspace_reachable_objects_from(VALUE obj, void (func)(VALUE, void *), void *
         }
     }
     RB_VM_LOCK_LEAVE();
+    RB_GC_GUARD(obj);
 }
 
 struct root_objects_data {
@@ -3974,6 +4123,7 @@ root_objects_from(VALUE obj, void *ptr)
 {
     const struct root_objects_data *data = (struct root_objects_data *)ptr;
     (*data->func)(data->category, obj, data->data);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4042,12 +4192,14 @@ type_name(int type, VALUE obj)
 #undef TYPE_NAME
     }
     return "unknown";
+    RB_GC_GUARD(obj);
 }
 
 static const char *
 obj_type_name(VALUE obj)
 {
     return type_name(TYPE(obj), obj);
+    RB_GC_GUARD(obj);
 }
 
 const char *
@@ -4079,6 +4231,7 @@ rb_raw_iseq_info(char *const buff, const size_t buff_size, const rb_iseq_t *iseq
         snprintf(buff, buff_size, " %s@%s:%d",
                  RSTRING_PTR(ISEQ_BODY(iseq)->location.label),
                  RSTRING_PTR(path), n);
+                 RB_GC_GUARD(path);
     }
 }
 
@@ -4089,6 +4242,7 @@ str_len_no_raise(VALUE str)
     if (len < 0) return 0;
     if (len > INT_MAX) return INT_MAX;
     return (int)len;
+    RB_GC_GUARD(str);
 }
 
 #define BUFF_ARGS buff + pos, buff_size - pos
@@ -4150,6 +4304,7 @@ rb_raw_obj_info_common(char *const buff, const size_t buff_size, const VALUE obj
             VALUE class_path = rb_class_path_cached(RBASIC(obj)->klass);
             if (!NIL_P(class_path)) {
                 APPEND_F("(%s)", RSTRING_PTR(class_path));
+  RB_GC_GUARD(class_path);
             }
         }
     }
@@ -4212,6 +4367,7 @@ rb_raw_obj_info_buitin_type(char *const buff, const size_t buff_size, const VALU
                 APPEND_F("(%p) id:%d", (void *)fstr, (unsigned int)id);
             }
             break;
+          RB_GC_GUARD(fstr);
           }
           case T_MOVED: {
             APPEND_F("-> %p", (void*)gc_location_internal(rb_gc_get_objspace(), obj));
@@ -4234,6 +4390,7 @@ rb_raw_obj_info_buitin_type(char *const buff, const size_t buff_size, const VALU
                     APPEND_S("(anon)");
                 }
                 break;
+          RB_GC_GUARD(class_path);
             }
           case T_ICLASS:
             {
@@ -4242,6 +4399,7 @@ rb_raw_obj_info_buitin_type(char *const buff, const size_t buff_size, const VALU
                     APPEND_F("src:%s", RSTRING_PTR(class_path));
                 }
                 break;
+          RB_GC_GUARD(class_path);
             }
           case T_OBJECT:
             {
@@ -4347,6 +4505,7 @@ rb_raw_obj_info_buitin_type(char *const buff, const size_t buff_size, const VALU
                              (void *)cme,
                              (void *)(uintptr_t)vm_cc_call(cc));
                     break;
+              RB_GC_GUARD(class_path);
                 }
               default:
                 break;
@@ -4368,6 +4527,7 @@ rb_asan_poison_object(VALUE obj)
 {
     MAYBE_UNUSED(struct RVALUE *) ptr = (void *)obj;
     asan_poison_memory_region(ptr, rb_gc_obj_slot_size(obj));
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4375,6 +4535,7 @@ rb_asan_unpoison_object(VALUE obj, bool newobj_p)
 {
     MAYBE_UNUSED(struct RVALUE *) ptr = (void *)obj;
     asan_unpoison_memory_region(ptr, rb_gc_obj_slot_size(obj), newobj_p);
+    RB_GC_GUARD(obj);
 }
 
 void *
@@ -4382,6 +4543,7 @@ rb_asan_poisoned_object_p(VALUE obj)
 {
     MAYBE_UNUSED(struct RVALUE *) ptr = (void *)obj;
     return __asan_region_is_poisoned(ptr, rb_gc_obj_slot_size(obj));
+    RB_GC_GUARD(obj);
 }
 
 #define asan_unpoisoning_object(obj) \
@@ -4400,6 +4562,7 @@ rb_raw_obj_info(char *const buff, const size_t buff_size, VALUE obj)
     }
 
     return buff;
+    RB_GC_GUARD(obj);
 }
 
 #undef APPEND_S
@@ -4438,6 +4601,7 @@ static const char *
 obj_info(VALUE obj)
 {
     return obj_type_name(obj);
+    RB_GC_GUARD(obj);
 }
 #endif
 
@@ -4484,6 +4648,7 @@ gc_raise(VALUE exc, const char *fmt, ...)
 
     va_end(ap);
     abort();
+    RB_GC_GUARD(exc);
 }
 
 NORETURN(static void negative_size_allocation_error(const char *));
@@ -4549,6 +4714,7 @@ rb_memerror(void)
     }
     ec->errinfo = exc;
     EC_JUMP_TAG(ec, TAG_RAISE);
+    RB_GC_GUARD(exc);
 }
 
 bool
@@ -4815,6 +4981,7 @@ const char *
 rb_obj_info(VALUE obj)
 {
     return obj_info(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4822,6 +4989,7 @@ rb_obj_info_dump(VALUE obj)
 {
     char buff[0x100];
     fprintf(stderr, "rb_obj_info_dump: %s\n", rb_raw_obj_info(buff, 0x100, obj));
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4829,6 +4997,7 @@ rb_obj_info_dump_loc(VALUE obj, const char *file, int line, const char *func)
 {
     char buff[0x100];
     fprintf(stderr, "<OBJ_INFO:%s@%s:%d> %s\n", func, file, line, rb_raw_obj_info(buff, 0x100, obj));
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4915,6 +5084,7 @@ Init_GC(void)
     rb_define_module_function(rb_mObjSpace, "count_objects", count_objects, -1);
 
     rb_gc_impl_init();
+    RB_GC_GUARD(rb_mObjSpace);
 }
 
 // Set a name for the anonymous virtual memory area. `addr` is the starting

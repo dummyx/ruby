@@ -69,6 +69,7 @@ check_numeric(VALUE obj, const char* field)
     if(!RTEST(rb_obj_is_kind_of(obj, rb_cNumeric))) {
         rb_raise(rb_eTypeError, "invalid %s (not numeric)", field);
     }
+        RB_GC_GUARD(obj);
 }
 
 inline static int
@@ -83,6 +84,8 @@ f_cmp(VALUE x, VALUE y)
 	return 0;
     }
     return rb_cmpint(rb_funcallv(x, id_cmp, 1, &y), x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -91,6 +94,8 @@ f_lt_p(VALUE x, VALUE y)
     if (FIXNUM_P(x) && FIXNUM_P(y))
 	return f_boolcast(FIX2LONG(x) < FIX2LONG(y));
     return rb_funcall(x, '<', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -99,6 +104,8 @@ f_gt_p(VALUE x, VALUE y)
     if (FIXNUM_P(x) && FIXNUM_P(y))
 	return f_boolcast(FIX2LONG(x) > FIX2LONG(y));
     return rb_funcall(x, '>', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -107,6 +114,8 @@ f_le_p(VALUE x, VALUE y)
     if (FIXNUM_P(x) && FIXNUM_P(y))
 	return f_boolcast(FIX2LONG(x) <= FIX2LONG(y));
     return rb_funcall(x, id_le_p, 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -115,6 +124,8 @@ f_ge_p(VALUE x, VALUE y)
     if (FIXNUM_P(x) && FIXNUM_P(y))
 	return f_boolcast(FIX2LONG(x) >= FIX2LONG(y));
     return rb_funcall(x, id_ge_p, 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -123,6 +134,8 @@ f_eqeq_p(VALUE x, VALUE y)
     if (FIXNUM_P(x) && FIXNUM_P(y))
 	return f_boolcast(FIX2LONG(x) == FIX2LONG(y));
     return rb_funcall(x, id_eqeq_p, 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -137,9 +150,11 @@ f_zero_p(VALUE x)
 	{
 	    VALUE num = rb_rational_num(x);
 	    return f_boolcast(FIXNUM_P(num) && FIX2LONG(num) == 0);
+    RB_GC_GUARD(num);
 	}
     }
     return rb_funcall(x, id_eqeq_p, 1, INT2FIX(0));
+    RB_GC_GUARD(x);
 }
 
 #define f_nonzero_p(x) (!f_zero_p(x))
@@ -150,6 +165,7 @@ f_negative_p(VALUE x)
     if (FIXNUM_P(x))
 	return f_boolcast(FIX2LONG(x) < 0);
     return rb_funcall(x, '<', 1, INT2FIX(0));
+    RB_GC_GUARD(x);
 }
 
 #define f_positive_p(x) (!f_negative_p(x))
@@ -331,8 +347,10 @@ canon(VALUE x)
 	VALUE den = rb_rational_den(x);
 	if (FIXNUM_P(den) && FIX2LONG(den) == 1)
 	    return rb_rational_num(x);
+    RB_GC_GUARD(den);
     }
     return x;
+    RB_GC_GUARD(x);
 }
 
 #ifndef USE_PACK
@@ -962,6 +980,7 @@ sec_to_day(VALUE s)
     if (FIXNUM_P(s))
 	return rb_rational_new2(s, INT2FIX(DAY_IN_SECONDS));
     return f_quo(s, INT2FIX(DAY_IN_SECONDS));
+    RB_GC_GUARD(s);
 }
 
 inline static VALUE
@@ -976,6 +995,7 @@ ns_to_day(VALUE n)
     if (FIXNUM_P(n))
 	return rb_rational_new2(n, day_in_nanoseconds);
     return f_quo(n, day_in_nanoseconds);
+    RB_GC_GUARD(n);
 }
 
 #ifndef NDEBUG
@@ -995,6 +1015,7 @@ ns_to_sec(VALUE n)
     if (FIXNUM_P(n))
 	return rb_rational_new2(n, INT2FIX(SECOND_IN_NANOSECONDS));
     return f_quo(n, INT2FIX(SECOND_IN_NANOSECONDS));
+    RB_GC_GUARD(n);
 }
 
 #ifndef NDEBUG
@@ -1023,6 +1044,7 @@ safe_mul_p(VALUE x, long m)
 	    return 0;
     }
     return 1;
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -1031,6 +1053,7 @@ day_to_sec(VALUE d)
     if (safe_mul_p(d, DAY_IN_SECONDS))
 	return LONG2FIX(FIX2LONG(d) * DAY_IN_SECONDS);
     return f_mul(d, INT2FIX(DAY_IN_SECONDS));
+    RB_GC_GUARD(d);
 }
 
 #ifndef NDEBUG
@@ -1048,6 +1071,7 @@ sec_to_ms(VALUE s)
     if (safe_mul_p(s, SECOND_IN_MILLISECONDS))
 	return LONG2FIX(FIX2LONG(s) * SECOND_IN_MILLISECONDS);
     return f_mul(s, INT2FIX(SECOND_IN_MILLISECONDS));
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -1056,6 +1080,7 @@ sec_to_ns(VALUE s)
     if (safe_mul_p(s, SECOND_IN_NANOSECONDS))
 	return LONG2FIX(FIX2LONG(s) * SECOND_IN_NANOSECONDS);
     return f_mul(s, INT2FIX(SECOND_IN_NANOSECONDS));
+    RB_GC_GUARD(s);
 }
 
 #ifndef NDEBUG
@@ -1073,6 +1098,7 @@ div_day(VALUE d, VALUE *f)
     if (f)
 	*f = f_mod(d, INT2FIX(1));
     return f_floor(d);
+    RB_GC_GUARD(d);
 }
 
 static VALUE
@@ -1083,6 +1109,8 @@ div_df(VALUE d, VALUE *f)
     if (f)
 	*f = f_mod(s, INT2FIX(1));
     return f_floor(s);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(s);
 }
 
 #ifndef NDEBUG
@@ -1106,6 +1134,8 @@ decode_day(VALUE d, VALUE *jd, VALUE *df, VALUE *sf)
     *jd = div_day(d, &f);
     *df = div_df(f, &f);
     *sf = sec_to_ns(f);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(d);
 }
 
 inline static double
@@ -1163,6 +1193,8 @@ canonicalize_s_jd(VALUE obj, union DateData *x)
     RB_OBJ_WRITE(obj, &x->s.nth, nth);
     if (x->s.jd != j)
 	x->flags &= ~HAVE_CIVIL;
+	RB_GC_GUARD(nth);
+	RB_GC_GUARD(obj);
 }
 
 inline static void
@@ -1259,6 +1291,8 @@ canonicalize_c_jd(VALUE obj, union DateData *x)
     RB_OBJ_WRITE(obj, &x->c.nth, nth);
     if (x->c.jd != j)
 	x->flags &= ~HAVE_CIVIL;
+	RB_GC_GUARD(nth);
+	RB_GC_GUARD(obj);
 }
 
 inline static void
@@ -1369,6 +1403,8 @@ decode_year(VALUE y, double style,
     if (f_nonzero_p(*nth))
 	t = f_mod(t, INT2FIX(period));
     *ry = FIX2INT(t) - 4712; /* unshift */
+    RB_GC_GUARD(t);
+    RB_GC_GUARD(y);
 }
 
 static void
@@ -1388,6 +1424,8 @@ encode_year(VALUE nth, int y, double style,
 	t = f_add(t, INT2FIX(y));
 	*ry = t;
     }
+	RB_GC_GUARD(t);
+	RB_GC_GUARD(nth);
 }
 
 static void
@@ -1399,6 +1437,7 @@ decode_jd(VALUE jd, VALUE *nth, int *rjd)
 	return;
     }
     *rjd = FIX2INT(f_mod(jd, INT2FIX(CM_PERIOD)));
+    RB_GC_GUARD(jd);
 }
 
 static void
@@ -1409,6 +1448,7 @@ encode_jd(VALUE nth, int jd, VALUE *rjd)
 	return;
     }
     *rjd = f_add(f_mul(INT2FIX(CM_PERIOD), nth), INT2FIX(jd));
+    RB_GC_GUARD(nth);
 }
 
 inline static double
@@ -1430,6 +1470,7 @@ guess_style(VALUE y, double sg) /* -/+oo or zero */
 	    style = negative_inf;
     }
     return style;
+    RB_GC_GUARD(y);
 }
 
 inline static void
@@ -1443,6 +1484,7 @@ m_canonicalize_jd(VALUE obj, union DateData *x)
 	get_c_jd(x);
 	canonicalize_c_jd(obj, x);
     }
+	RB_GC_GUARD(obj);
 }
 
 inline static VALUE
@@ -1480,6 +1522,8 @@ m_real_jd(union DateData *x)
 
     encode_jd(nth, jd, &rjd);
     return rjd;
+    RB_GC_GUARD(rjd);
+    RB_GC_GUARD(nth);
 }
 
 static int
@@ -1507,6 +1551,8 @@ m_real_local_jd(union DateData *x)
 
     encode_jd(nth, jd, &rjd);
     return rjd;
+    RB_GC_GUARD(rjd);
+    RB_GC_GUARD(nth);
 }
 
 inline static int
@@ -1586,6 +1632,8 @@ m_fr(union DateData *x)
 	if (f_nonzero_p(sf))
 	    fr = f_add(fr, ns_to_day(sf));
 	return fr;
+	RB_GC_GUARD(fr);
+	RB_GC_GUARD(sf);
     }
 }
 
@@ -1621,6 +1669,8 @@ m_ajd(union DateData *x)
 	r = f_add(r, ns_to_day(sf));
 
     return r;
+    RB_GC_GUARD(sf);
+    RB_GC_GUARD(r);
 }
 
 static VALUE
@@ -1650,6 +1700,8 @@ m_amjd(union DateData *x)
 	r = f_add(r, ns_to_day(sf));
 
     return r;
+    RB_GC_GUARD(sf);
+    RB_GC_GUARD(r);
 }
 
 inline static int
@@ -1758,6 +1810,8 @@ m_real_year(union DateData *x)
 		m_gregorian_p(x) ? -1 : +1,
 		&ry);
     return ry;
+    RB_GC_GUARD(ry);
+    RB_GC_GUARD(nth);
 }
 
 inline static int
@@ -1871,6 +1925,8 @@ m_real_cwyear(union DateData *x)
 		m_gregorian_p(x) ? -1 : +1,
 		&ry);
     return ry;
+    RB_GC_GUARD(ry);
+    RB_GC_GUARD(nth);
 }
 
 static int
@@ -1991,24 +2047,29 @@ inline static VALUE
 f_kind_of_p(VALUE x, VALUE c)
 {
     return rb_obj_is_kind_of(x, c);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
 k_date_p(VALUE x)
 {
     return f_kind_of_p(x, cDate);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
 k_numeric_p(VALUE x)
 {
     return f_kind_of_p(x, rb_cNumeric);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
 k_rational_p(VALUE x)
 {
     return f_kind_of_p(x, rb_cRational);
+    RB_GC_GUARD(x);
 }
 
 static inline void
@@ -2016,6 +2077,7 @@ expect_numeric(VALUE x)
 {
     if (!k_numeric_p(x))
 	rb_raise(rb_eTypeError, "expected numeric");
+	RB_GC_GUARD(x);
 }
 
 #ifndef NDEBUG
@@ -2217,6 +2279,7 @@ valid_ordinal_p(VALUE y, int d, double sg,
 	else {
 	    VALUE nth2;
 	    decode_year(y, *ns ? -1 : +1, &nth2, ry);
+    RB_GC_GUARD(nth2);
 	}
     }
     else {
@@ -2224,6 +2287,7 @@ valid_ordinal_p(VALUE y, int d, double sg,
 	r = c_valid_ordinal_p(*ry, d, style, rd, rjd, ns);
     }
     return r;
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2233,6 +2297,7 @@ valid_gregorian_p(VALUE y, int m, int d,
 {
     decode_year(y, -1, nth, ry);
     return c_valid_gregorian_p(*ry, m, d, rm, rd);
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2256,6 +2321,7 @@ valid_civil_p(VALUE y, int m, int d, double sg,
 	else {
 	    VALUE nth2;
 	    decode_year(y, *ns ? -1 : +1, &nth2, ry);
+    RB_GC_GUARD(nth2);
 	}
     }
     else {
@@ -2269,6 +2335,7 @@ valid_civil_p(VALUE y, int m, int d, double sg,
 	c_civil_to_jd(*ry, *rm, *rd, style, rjd, ns);
     }
     return r;
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2292,6 +2359,7 @@ valid_commercial_p(VALUE y, int w, int d, double sg,
 	else {
 	    VALUE nth2;
 	    decode_year(y, *ns ? -1 : +1, &nth2, ry);
+    RB_GC_GUARD(nth2);
 	}
     }
     else {
@@ -2299,6 +2367,7 @@ valid_commercial_p(VALUE y, int w, int d, double sg,
 	r = c_valid_commercial_p(*ry, w, d, style, rw, rd, rjd, ns);
     }
     return r;
+    RB_GC_GUARD(y);
 }
 
 static int
@@ -2322,6 +2391,7 @@ valid_weeknum_p(VALUE y, int w, int d, int f, double sg,
 	else {
 	    VALUE nth2;
 	    decode_year(y, *ns ? -1 : +1, &nth2, ry);
+    RB_GC_GUARD(nth2);
 	}
     }
     else {
@@ -2329,6 +2399,7 @@ valid_weeknum_p(VALUE y, int w, int d, int f, double sg,
 	r = c_valid_weeknum_p(*ry, w, d, f, style, rw, rd, rjd, ns);
     }
     return r;
+    RB_GC_GUARD(y);
 }
 
 #ifndef NDEBUG
@@ -2433,6 +2504,9 @@ offset_to_sec(VALUE vof, int *rof)
 	    }
 	    *rof = (int)n;
 	    return 1;
+      RB_GC_GUARD(vd);
+      RB_GC_GUARD(vn);
+      RB_GC_GUARD(vs);
 	}
       case T_STRING:
 	{
@@ -2446,9 +2520,11 @@ offset_to_sec(VALUE vof, int *rof)
 		return 0;
 	    *rof = (int)n;
 	    return 1;
+    RB_GC_GUARD(vs);
 	}
     }
     return 0;
+    RB_GC_GUARD(vof);
 }
 
 /* date */
@@ -2467,6 +2543,7 @@ valid_jd_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
     double sg = NUM2DBL(argv[1]);
     valid_sg(sg);
     return argv[0];
+    RB_GC_GUARD(klass);
 }
 
 #ifndef NDEBUG
@@ -2520,6 +2597,9 @@ date_s_valid_jd_p(int argc, VALUE *argv, VALUE klass)
     if (NIL_P(valid_jd_sub(2, argv2, klass, 0)))
 	return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vjd);
 }
 
 static VALUE
@@ -2556,6 +2636,10 @@ valid_civil_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 	    return INT2FIX(0); /* dummy */
 	encode_jd(nth, rjd, &rjd2);
 	return rjd2;
+	RB_GC_GUARD(rjd2);
+	RB_GC_GUARD(nth);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(y);
     }
 }
 
@@ -2618,6 +2702,11 @@ date_s_valid_civil_p(int argc, VALUE *argv, VALUE klass)
     if (NIL_P(valid_civil_sub(4, argv2, klass, 0)))
 	return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vm);
+    RB_GC_GUARD(vy);
 }
 
 static VALUE
@@ -2646,6 +2735,10 @@ valid_ordinal_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 	    return INT2FIX(0); /* dummy */
 	encode_jd(nth, rjd, &rjd2);
 	return rjd2;
+	RB_GC_GUARD(rjd2);
+	RB_GC_GUARD(nth);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(y);
     }
 }
 
@@ -2704,6 +2797,10 @@ date_s_valid_ordinal_p(int argc, VALUE *argv, VALUE klass)
     if (NIL_P(valid_ordinal_sub(3, argv2, klass, 0)))
 	return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vy);
 }
 
 static VALUE
@@ -2733,6 +2830,10 @@ valid_commercial_sub(int argc, VALUE *argv, VALUE klass, int need_jd)
 	    return INT2FIX(0); /* dummy */
 	encode_jd(nth, rjd, &rjd2);
 	return rjd2;
+	RB_GC_GUARD(rjd2);
+	RB_GC_GUARD(nth);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(y);
     }
 }
 
@@ -2796,6 +2897,11 @@ date_s_valid_commercial_p(int argc, VALUE *argv, VALUE klass)
     if (NIL_P(valid_commercial_sub(4, argv2, klass, 0)))
 	return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vw);
+    RB_GC_GUARD(vy);
 }
 
 #ifndef NDEBUG
@@ -2977,6 +3083,9 @@ date_s_julian_leap_p(VALUE klass, VALUE y)
     check_numeric(y, "year");
     decode_year(y, +1, &nth, &ry);
     return f_boolcast(c_julian_leap_p(ry));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(nth);
 }
 
 /*
@@ -3000,6 +3109,9 @@ date_s_gregorian_leap_p(VALUE klass, VALUE y)
     check_numeric(y, "year");
     decode_year(y, -1, &nth, &ry);
     return f_boolcast(c_gregorian_leap_p(ry));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(nth);
 }
 
 static void
@@ -3049,6 +3161,9 @@ d_simple_new_internal(VALUE klass,
     assert(have_jd_p(dat) || have_civil_p(dat));
 
     return obj;
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 inline static VALUE
@@ -3072,6 +3187,10 @@ d_complex_new_internal(VALUE klass,
     assert(have_df_p(dat) || have_time_p(dat));
 
     return obj;
+    RB_GC_GUARD(sf);
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3082,6 +3201,7 @@ d_lite_s_alloc_simple(VALUE klass)
 				 DEFAULT_SG,
 				 0, 0, 0,
 				 HAVE_JD);
+				 RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -3094,12 +3214,14 @@ d_lite_s_alloc_complex(VALUE klass)
 				  0, 0, 0,
 				  0, 0, 0,
 				  HAVE_JD | HAVE_DF);
+				  RB_GC_GUARD(klass);
 }
 
 static VALUE
 d_lite_s_alloc(VALUE klass)
 {
     return d_lite_s_alloc_complex(klass);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -3139,6 +3261,14 @@ old_to_new(VALUE ajd, VALUE of, VALUE sg,
 	*rsg = DEFAULT_SG;
 	rb_warning("invalid start is ignored");
     }
+	RB_GC_GUARD(jd);
+	RB_GC_GUARD(sg);
+	RB_GC_GUARD(of);
+	RB_GC_GUARD(ajd);
+	RB_GC_GUARD(t);
+	RB_GC_GUARD(of2);
+	RB_GC_GUARD(sf);
+	RB_GC_GUARD(df);
 }
 
 #ifndef NDEBUG
@@ -3199,10 +3329,12 @@ wholenum_p(VALUE x)
 	{
 	    VALUE den = rb_rational_den(x);
 	    return FIXNUM_P(den) && FIX2LONG(den) == 1;
+	RB_GC_GUARD(den);
 	}
 	break;
     }
     return 0;
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -3211,6 +3343,7 @@ to_integer(VALUE x)
     if (RB_INTEGER_TYPE_P(x))
 	return x;
     return f_to_i(x);
+    RB_GC_GUARD(x);
 }
 
 inline static VALUE
@@ -3227,6 +3360,8 @@ d_trunc(VALUE d, VALUE *fr)
 	*fr = f_mod(d, INT2FIX(1));
     }
     return rd;
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(rd);
 }
 
 #define jd_trunc d_trunc
@@ -3247,6 +3382,8 @@ h_trunc(VALUE h, VALUE *fr)
 	*fr = f_quo(*fr, INT2FIX(24));
     }
     return rh;
+    RB_GC_GUARD(h);
+    RB_GC_GUARD(rh);
 }
 
 inline static VALUE
@@ -3264,6 +3401,8 @@ min_trunc(VALUE min, VALUE *fr)
 	*fr = f_quo(*fr, INT2FIX(1440));
     }
     return rmin;
+    RB_GC_GUARD(min);
+    RB_GC_GUARD(rmin);
 }
 
 inline static VALUE
@@ -3281,6 +3420,8 @@ s_trunc(VALUE s, VALUE *fr)
 	*fr = f_quo(*fr, INT2FIX(86400));
     }
     return rs;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(rs);
 }
 
 #define num2num_with_frac(s,n) \
@@ -3384,9 +3525,17 @@ date_s_jd(int argc, VALUE *argv, VALUE klass)
 				    sg,
 				    0, 0, 0,
 				    HAVE_JD);
+    RB_GC_GUARD(nth);
     }
     add_frac();
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vjd);
 }
 
 /*
@@ -3459,9 +3608,18 @@ date_s_ordinal(int argc, VALUE *argv, VALUE klass)
 				     sg,
 				     0, 0, 0,
 				     HAVE_JD);
+    RB_GC_GUARD(nth);
     }
     add_frac();
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vy);
 }
 
 /*
@@ -3471,6 +3629,7 @@ static VALUE
 date_s_civil(int argc, VALUE *argv, VALUE klass)
 {
     return date_initialize(argc, argv, d_lite_s_alloc_simple(klass));
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3540,6 +3699,7 @@ date_initialize(int argc, VALUE *argv, VALUE self)
 	    rb_raise(eDateError, "invalid date");
 
 	set_to_simple(self, dat, nth, 0, sg, ry, rm, rd, HAVE_CIVIL);
+    RB_GC_GUARD(nth);
     }
     else {
 	VALUE nth;
@@ -3552,10 +3712,20 @@ date_initialize(int argc, VALUE *argv, VALUE self)
 	    rb_raise(eDateError, "invalid date");
 
 	set_to_simple(self, dat, nth, rjd, sg, ry, rm, rd, HAVE_JD | HAVE_CIVIL);
+    RB_GC_GUARD(nth);
     }
     ret = self;
     add_frac();
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vm);
+    RB_GC_GUARD(vy);
 }
 
 /*
@@ -3646,9 +3816,19 @@ date_s_commercial(int argc, VALUE *argv, VALUE klass)
 				    sg,
 				    0, 0, 0,
 				    HAVE_JD);
+    RB_GC_GUARD(nth);
     }
     add_frac();
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vw);
+    RB_GC_GUARD(vy);
 }
 
 #ifndef NDEBUG
@@ -3824,6 +4004,10 @@ date_s_today(int argc, VALUE *argv, VALUE klass)
 	set_sg(dat, sg);
     }
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(vsg);
 }
 
 #define set_hash0(k,v) rb_hash_aset(hash, k, v)
@@ -3866,8 +4050,16 @@ rt_rewrite_frags(VALUE hash)
 	set_hash("min", min);
 	set_hash("sec", s);
 	set_hash("sec_fraction", fr);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(min);
+    RB_GC_GUARD(h);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(offset);
     }
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(seconds);
 }
 
 static VALUE d_lite_year(VALUE);
@@ -3994,6 +4186,8 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		    eno = n;
 		    idx = i;
 		}
+	RB_GC_GUARD(x);
+	RB_GC_GUARD(a);
 	    }
 	}
 	if (eno == 0)
@@ -4029,6 +4223,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		if (NIL_P(d))
 		    d = date_s_today(0, (VALUE *)0, cDate);
 		set_hash0(e, rb_funcall(d, SYM2ID(e), 0));
+	    RB_GC_GUARD(e);
 	    }
 	    if (NIL_P(ref_hash("mon")))
 		set_hash("mon", INT2FIX(1));
@@ -4046,6 +4241,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		if (NIL_P(d))
 		    d = date_s_today(0, (VALUE *)0, cDate);
 		set_hash0(e, rb_funcall(d, SYM2ID(e), 0));
+	    RB_GC_GUARD(e);
 	    }
 	    if (NIL_P(ref_hash("cweek")))
 		set_hash("cweek", INT2FIX(1));
@@ -4070,6 +4266,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		if (NIL_P(d))
 		    d = date_s_today(0, (VALUE *)0, cDate);
 		set_hash0(e, rb_funcall(d, SYM2ID(e), 0));
+	    RB_GC_GUARD(e);
 	    }
 	    if (NIL_P(ref_hash("wnum0")))
 		set_hash("wnum0", INT2FIX(0));
@@ -4087,6 +4284,7 @@ rt_complete_frags(VALUE klass, VALUE hash)
 		if (NIL_P(d))
 		    d = date_s_today(0, (VALUE *)0, cDate);
 		set_hash0(e, rb_funcall(d, SYM2ID(e), 0));
+	    RB_GC_GUARD(e);
 	    }
 	    if (NIL_P(ref_hash("wnum1")))
 		set_hash("wnum1", INT2FIX(0));
@@ -4114,12 +4312,20 @@ rt_complete_frags(VALUE klass, VALUE hash)
 	set_hash("sec", INT2FIX(59));
 
     return hash;
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(k);
+    RB_GC_GUARD(tab);
 }
 
 static VALUE
 rt__valid_jd_p(VALUE jd, VALUE sg)
 {
     return jd;
+    RB_GC_GUARD(sg);
+    RB_GC_GUARD(jd);
 }
 
 static VALUE
@@ -4135,6 +4341,11 @@ rt__valid_ordinal_p(VALUE y, VALUE d, VALUE sg)
 	return Qnil;
     encode_jd(nth, rjd, &rjd2);
     return rjd2;
+    RB_GC_GUARD(sg);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(rjd2);
+    RB_GC_GUARD(nth);
 }
 
 static VALUE
@@ -4150,6 +4361,12 @@ rt__valid_civil_p(VALUE y, VALUE m, VALUE d, VALUE sg)
 	return Qnil;
     encode_jd(nth, rjd, &rjd2);
     return rjd2;
+    RB_GC_GUARD(sg);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(rjd2);
+    RB_GC_GUARD(nth);
 }
 
 static VALUE
@@ -4165,6 +4382,12 @@ rt__valid_commercial_p(VALUE y, VALUE w, VALUE d, VALUE sg)
 	return Qnil;
     encode_jd(nth, rjd, &rjd2);
     return rjd2;
+    RB_GC_GUARD(sg);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(w);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(rjd2);
+    RB_GC_GUARD(nth);
 }
 
 static VALUE
@@ -4180,6 +4403,13 @@ rt__valid_weeknum_p(VALUE y, VALUE w, VALUE d, VALUE f, VALUE sg)
 	return Qnil;
     encode_jd(nth, rjd, &rjd2);
     return rjd2;
+    RB_GC_GUARD(sg);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(w);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(rjd2);
+    RB_GC_GUARD(nth);
 }
 
 static VALUE
@@ -4192,6 +4422,8 @@ rt__valid_date_frags_p(VALUE hash, VALUE sg)
 	    VALUE jd = rt__valid_jd_p(vjd, sg);
 	    if (!NIL_P(jd))
 		return jd;
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(vjd);
 	}
     }
 
@@ -4203,6 +4435,9 @@ rt__valid_date_frags_p(VALUE hash, VALUE sg)
 	    VALUE jd = rt__valid_ordinal_p(year, yday, sg);
 	    if (!NIL_P(jd))
 		return jd;
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(yday);
 	}
     }
 
@@ -4215,6 +4450,10 @@ rt__valid_date_frags_p(VALUE hash, VALUE sg)
 	    VALUE jd = rt__valid_civil_p(year, mon, mday, sg);
 	    if (!NIL_P(jd))
 		return jd;
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(mday);
+    RB_GC_GUARD(mon);
 	}
     }
 
@@ -4235,6 +4474,10 @@ rt__valid_date_frags_p(VALUE hash, VALUE sg)
 	    VALUE jd = rt__valid_commercial_p(year, week, wday, sg);
 	    if (!NIL_P(jd))
 		return jd;
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(wday);
+    RB_GC_GUARD(week);
 	}
     }
 
@@ -4255,6 +4498,10 @@ rt__valid_date_frags_p(VALUE hash, VALUE sg)
 	    VALUE jd = rt__valid_weeknum_p(year, week, wday, INT2FIX(0), sg);
 	    if (!NIL_P(jd))
 		return jd;
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(wday);
+    RB_GC_GUARD(week);
 	}
     }
 
@@ -4274,9 +4521,15 @@ rt__valid_date_frags_p(VALUE hash, VALUE sg)
 	    VALUE jd = rt__valid_weeknum_p(year, week, wday, INT2FIX(1), sg);
 	    if (!NIL_P(jd))
 		return jd;
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(year);
+    RB_GC_GUARD(wday);
+    RB_GC_GUARD(week);
 	}
     }
     return Qnil;
+    RB_GC_GUARD(sg);
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -4318,6 +4571,11 @@ d_new_by_frags(VALUE klass, VALUE hash, VALUE sg)
 				     NUM2DBL(sg),
 				     0, 0, 0,
 				     HAVE_JD);
+				     RB_GC_GUARD(nth);
+				     RB_GC_GUARD(jd);
+				     RB_GC_GUARD(sg);
+				     RB_GC_GUARD(hash);
+				     RB_GC_GUARD(klass);
     }
 }
 
@@ -4367,10 +4625,16 @@ date_s__strptime_internal(int argc, VALUE *argv, VALUE klass,
 	if (!NIL_P(left)) {
 	    rb_enc_copy(left, vstr);
 	    set_hash("leftover", left);
+    RB_GC_GUARD(zone);
+    RB_GC_GUARD(left);
 	}
     }
 
     return hash;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(vfmt);
+    RB_GC_GUARD(vstr);
 }
 
 /*
@@ -4394,6 +4658,7 @@ static VALUE
 date_s__strptime(int argc, VALUE *argv, VALUE klass)
 {
     return date_s__strptime_internal(argc, argv, klass, "%F");
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -4444,6 +4709,11 @@ date_s_strptime(int argc, VALUE *argv, VALUE klass)
 	argv2[1] = fmt;
 	hash = date_s__strptime(2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(sg);
+	RB_GC_GUARD(fmt);
     }
 }
 
@@ -4456,8 +4726,10 @@ get_limit(VALUE opt)
         VALUE limit = rb_hash_aref(opt, ID2SYM(rb_intern("limit")));
         if (NIL_P(limit)) return SIZE_MAX;
         return NUM2SIZET(limit);
+    RB_GC_GUARD(limit);
     }
     return 128;
+    RB_GC_GUARD(opt);
 }
 
 #ifndef HAVE_RB_CATEGORY_WARN
@@ -4476,6 +4748,8 @@ check_limit(VALUE str, VALUE opt)
 	rb_raise(rb_eArgError,
 		 "string length (%"PRI_SIZE_PREFIX"u) exceeds the limit %"PRI_SIZE_PREFIX"u", slen, limit);
     }
+		 RB_GC_GUARD(str);
+		 RB_GC_GUARD(opt);
 }
 
 static VALUE
@@ -4495,6 +4769,11 @@ date_s__parse_internal(int argc, VALUE *argv, VALUE klass)
     hash = date__parse(vstr, vcomp);
 
     return hash;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(vcomp);
+    RB_GC_GUARD(vstr);
 }
 
 /*
@@ -4530,6 +4809,7 @@ static VALUE
 date_s__parse(int argc, VALUE *argv, VALUE klass)
 {
     return date_s__parse_internal(argc, argv, klass);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -4589,6 +4869,12 @@ date_s_parse(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__parse(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
+	RB_GC_GUARD(comp);
     }
 }
 
@@ -4623,6 +4909,9 @@ date_s__iso8601(int argc, VALUE *argv, VALUE klass)
     check_limit(str, opt);
 
     return date__iso8601(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4665,6 +4954,11 @@ date_s_iso8601(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__iso8601(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -4693,6 +4987,9 @@ date_s__rfc3339(int argc, VALUE *argv, VALUE klass)
     check_limit(str, opt);
 
     return date__rfc3339(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4735,6 +5032,11 @@ date_s_rfc3339(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__rfc3339(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -4762,6 +5064,9 @@ date_s__xmlschema(int argc, VALUE *argv, VALUE klass)
     check_limit(str, opt);
 
     return date__xmlschema(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4803,6 +5108,11 @@ date_s_xmlschema(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__xmlschema(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -4831,6 +5141,9 @@ date_s__rfc2822(int argc, VALUE *argv, VALUE klass)
     check_limit(str, opt);
 
     return date__rfc2822(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4873,6 +5186,11 @@ date_s_rfc2822(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__rfc2822(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -4899,6 +5217,9 @@ date_s__httpdate(int argc, VALUE *argv, VALUE klass)
     check_limit(str, opt);
 
     return date__httpdate(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -4941,6 +5262,11 @@ date_s_httpdate(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__httpdate(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -4968,6 +5294,9 @@ date_s__jisx0301(int argc, VALUE *argv, VALUE klass)
     check_limit(str, opt);
 
     return date__jisx0301(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -5013,6 +5342,11 @@ date_s_jisx0301(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argv2[argc2++] = opt;
 	hash = date_s__jisx0301(argc2, argv2, klass);
 	return d_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -5028,6 +5362,7 @@ dup_obj(VALUE self)
 	    bdat->s = adat->s;
 	    RB_OBJ_WRITTEN(new, Qundef, bdat->s.nth);
 	    return new;
+    RB_GC_GUARD(new);
 	}
     }
     else {
@@ -5038,7 +5373,9 @@ dup_obj(VALUE self)
 	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.nth);
 	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.sf);
 	    return new;
+	    RB_GC_GUARD(new);
 	}
+	    RB_GC_GUARD(self);
     }
 }
 
@@ -5054,6 +5391,7 @@ dup_obj_as_complex(VALUE self)
 	    copy_simple_to_complex(new, &bdat->c, &adat->s);
 	    bdat->c.flags |= HAVE_DF | COMPLEX_DAT;
 	    return new;
+    RB_GC_GUARD(new);
 	}
     }
     else {
@@ -5064,7 +5402,9 @@ dup_obj_as_complex(VALUE self)
 	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.nth);
 	    RB_OBJ_WRITTEN(new, Qundef, bdat->c.sf);
 	    return new;
+	    RB_GC_GUARD(new);
 	}
+	    RB_GC_GUARD(self);
     }
 }
 
@@ -5178,6 +5518,8 @@ d_lite_initialize_copy(VALUE copy, VALUE date)
 	}
     }
     return copy;
+    RB_GC_GUARD(date);
+    RB_GC_GUARD(copy);
 }
 
 #ifndef NDEBUG
@@ -5216,6 +5558,7 @@ d_lite_ajd(VALUE self)
 {
     get_d1(self);
     return m_ajd(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5233,6 +5576,7 @@ d_lite_amjd(VALUE self)
 {
     get_d1(self);
     return m_amjd(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5250,6 +5594,7 @@ d_lite_jd(VALUE self)
 {
     get_d1(self);
     return m_real_local_jd(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5267,6 +5612,7 @@ d_lite_mjd(VALUE self)
 {
     get_d1(self);
     return f_sub(m_real_local_jd(dat), INT2FIX(2400001));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5286,6 +5632,7 @@ d_lite_ld(VALUE self)
 {
     get_d1(self);
     return f_sub(m_real_local_jd(dat), INT2FIX(2299160));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5303,6 +5650,7 @@ d_lite_year(VALUE self)
 {
     get_d1(self);
     return m_real_year(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5319,6 +5667,7 @@ d_lite_yday(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_yday(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5335,6 +5684,7 @@ d_lite_mon(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_mon(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5351,6 +5701,7 @@ d_lite_mday(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_mday(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5369,6 +5720,7 @@ d_lite_day_fraction(VALUE self)
     if (simple_dat_p(dat))
 	return INT2FIX(0);
     return m_fr(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5387,6 +5739,7 @@ d_lite_cwyear(VALUE self)
 {
     get_d1(self);
     return m_real_cwyear(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5404,6 +5757,7 @@ d_lite_cweek(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_cweek(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5422,6 +5776,7 @@ d_lite_cwday(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_cwday(dat));
+    RB_GC_GUARD(self);
 }
 
 #ifndef NDEBUG
@@ -5456,6 +5811,7 @@ d_lite_wday(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_wday(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5469,6 +5825,7 @@ d_lite_sunday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 0);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5482,6 +5839,7 @@ d_lite_monday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 1);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5495,6 +5853,7 @@ d_lite_tuesday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 2);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5508,6 +5867,7 @@ d_lite_wednesday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 3);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5521,6 +5881,7 @@ d_lite_thursday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 4);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5534,6 +5895,7 @@ d_lite_friday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 5);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5547,6 +5909,7 @@ d_lite_saturday_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_wday(dat) == 6);
+    RB_GC_GUARD(self);
 }
 
 #ifndef NDEBUG
@@ -5584,6 +5947,7 @@ d_lite_hour(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_hour(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5600,6 +5964,7 @@ d_lite_min(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_min(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5616,6 +5981,7 @@ d_lite_sec(VALUE self)
 {
     get_d1(self);
     return INT2FIX(m_sec(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5633,6 +5999,7 @@ d_lite_sec_fraction(VALUE self)
 {
     get_d1(self);
     return m_sf_in_sec(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5648,6 +6015,7 @@ d_lite_offset(VALUE self)
 {
     get_d1(self);
     return m_of_in_day(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5663,6 +6031,7 @@ d_lite_zone(VALUE self)
 {
     get_d1(self);
     return m_zone(dat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5681,6 +6050,7 @@ d_lite_julian_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_julian_p(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5699,6 +6069,7 @@ d_lite_gregorian_p(VALUE self)
 {
     get_d1(self);
     return f_boolcast(m_gregorian_p(dat));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5724,6 +6095,7 @@ d_lite_leap_p(VALUE self)
 		  &rjd, &ns);
     c_jd_to_civil(rjd - 1, m_virtual_sg(dat), &ry, &rm, &rd);
     return f_boolcast(rd == 29);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5753,6 +6125,7 @@ d_lite_start(VALUE self)
 {
     get_d1(self);
     return DBL2NUM(m_sg(dat));
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -5807,6 +6180,7 @@ dup_obj_with_new_start(VALUE obj, double sg)
 	set_sg(dat, sg);
     }
     return dup;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5836,6 +6210,8 @@ d_lite_new_start(int argc, VALUE *argv, VALUE self)
 	val2sg(vsg, sg);
 
     return dup_obj_with_new_start(self, sg);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vsg);
 }
 
 /*
@@ -5849,6 +6225,7 @@ static VALUE
 d_lite_italy(VALUE self)
 {
     return dup_obj_with_new_start(self, ITALY);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5861,6 +6238,7 @@ static VALUE
 d_lite_england(VALUE self)
 {
     return dup_obj_with_new_start(self, ENGLAND);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5873,6 +6251,7 @@ static VALUE
 d_lite_julian(VALUE self)
 {
     return dup_obj_with_new_start(self, JULIAN);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -5885,6 +6264,7 @@ static VALUE
 d_lite_gregorian(VALUE self)
 {
     return dup_obj_with_new_start(self, GREGORIAN);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -5906,6 +6286,7 @@ dup_obj_with_new_offset(VALUE obj, int of)
 	set_of(dat, of);
     }
     return dup;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -5931,6 +6312,8 @@ d_lite_new_offset(int argc, VALUE *argv, VALUE self)
 	val2off(vof, rof);
 
     return dup_obj_with_new_offset(self, rof);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vof);
 }
 
 /*
@@ -5957,6 +6340,8 @@ d_lite_plus(VALUE self, VALUE other)
 
   again:
     switch (TYPE(other)) {
+      RB_GC_GUARD(other);
+      RB_GC_GUARD(self);
       case T_FIXNUM:
 	{
 	    VALUE nth;
@@ -6001,6 +6386,7 @@ d_lite_plus(VALUE self, VALUE other)
 #endif
 					      (dat->c.flags | HAVE_JD) &
 					      ~HAVE_CIVIL);
+	RB_GC_GUARD(nth);
 	}
 	break;
       case T_BIGNUM:
@@ -6059,6 +6445,7 @@ d_lite_plus(VALUE self, VALUE other)
 #endif
 					      (dat->c.flags | HAVE_JD) &
 					      ~HAVE_CIVIL);
+	RB_GC_GUARD(nth);
 	}
 	break;
       case T_FLOAT:
@@ -6160,6 +6547,8 @@ d_lite_plus(VALUE self, VALUE other)
 					      (dat->c.flags |
 					       HAVE_JD | HAVE_DF) &
 					      ~(HAVE_CIVIL | HAVE_TIME));
+	RB_GC_GUARD(sf);
+	RB_GC_GUARD(nth);
 	}
 	break;
       default:
@@ -6265,6 +6654,9 @@ d_lite_plus(VALUE self, VALUE other)
 					      (dat->c.flags |
 					       HAVE_JD | HAVE_DF) &
 					      ~(HAVE_CIVIL | HAVE_TIME));
+	RB_GC_GUARD(t);
+	RB_GC_GUARD(sf);
+	RB_GC_GUARD(nth);
 	}
 	break;
     }
@@ -6318,6 +6710,11 @@ minus_dd(VALUE self, VALUE other)
 	if (RB_TYPE_P(r, T_RATIONAL))
 	    return r;
 	return rb_rational_new1(r);
+	RB_GC_GUARD(r);
+	RB_GC_GUARD(sf);
+	RB_GC_GUARD(n);
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(other);
     }
 }
 
@@ -6357,6 +6754,8 @@ d_lite_minus(VALUE self, VALUE other)
       case T_BIGNUM:
       case T_RATIONAL:
 	return d_lite_plus(self, f_negate(other));
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(other);
     }
 }
 
@@ -6375,6 +6774,8 @@ d_lite_next_day(int argc, VALUE *argv, VALUE self)
     if (argc < 1)
 	n = INT2FIX(1);
     return d_lite_plus(self, n);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -6392,6 +6793,8 @@ d_lite_prev_day(int argc, VALUE *argv, VALUE self)
     if (argc < 1)
 	n = INT2FIX(1);
     return d_lite_minus(self, n);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -6409,6 +6812,7 @@ static VALUE
 d_lite_next(VALUE self)
 {
     return d_lite_next_day(0, (VALUE *)NULL, self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -6475,6 +6879,12 @@ d_lite_rshift(VALUE self, VALUE other)
     }
     encode_jd(nth, rjd, &rjd2);
     return d_lite_plus(self, f_sub(rjd2, m_real_local_jd(dat)));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rjd2);
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(t);
 }
 
 /*
@@ -6509,6 +6919,8 @@ d_lite_lshift(VALUE self, VALUE other)
 {
     expect_numeric(other);
     return d_lite_rshift(self, f_negate(other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -6526,6 +6938,8 @@ d_lite_next_month(int argc, VALUE *argv, VALUE self)
     if (argc < 1)
 	n = INT2FIX(1);
     return d_lite_rshift(self, n);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -6543,6 +6957,8 @@ d_lite_prev_month(int argc, VALUE *argv, VALUE self)
     if (argc < 1)
 	n = INT2FIX(1);
     return d_lite_lshift(self, n);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -6560,6 +6976,8 @@ d_lite_next_year(int argc, VALUE *argv, VALUE self)
     if (argc < 1)
 	n = INT2FIX(1);
     return d_lite_rshift(self, f_mul(n, INT2FIX(12)));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 /*
@@ -6577,6 +6995,8 @@ d_lite_prev_year(int argc, VALUE *argv, VALUE self)
     if (argc < 1)
 	n = INT2FIX(1);
     return d_lite_lshift(self, f_mul(n, INT2FIX(12)));
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(n);
 }
 
 static VALUE d_lite_cmp(VALUE, VALUE);
@@ -6648,6 +7068,10 @@ d_lite_step(int argc, VALUE *argv, VALUE self)
 	}
     }
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(date);
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(limit);
 }
 
 /*
@@ -6669,6 +7093,9 @@ d_lite_upto(VALUE self, VALUE max)
 	date = d_lite_plus(date, INT2FIX(1));
     }
     return self;
+    RB_GC_GUARD(max);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(date);
 }
 
 /*
@@ -6690,6 +7117,9 @@ d_lite_downto(VALUE self, VALUE min)
 	date = d_lite_plus(date, INT2FIX(-1));
     }
     return self;
+    RB_GC_GUARD(min);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(date);
 }
 
 static VALUE
@@ -6702,6 +7132,8 @@ cmp_gen(VALUE self, VALUE other)
     else if (k_date_p(other))
 	return INT2FIX(f_cmp(m_ajd(dat), f_ajd(other)));
     return rb_num_coerce_cmp(self, other, id_cmp);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -6757,7 +7189,13 @@ cmp_dd(VALUE self, VALUE other)
 	}
 	else {
 	    return INT2FIX(1);
+	    RB_GC_GUARD(a_nth);
+	    RB_GC_GUARD(b_sf);
+	    RB_GC_GUARD(a_sf);
+	    RB_GC_GUARD(b_nth);
 	}
+	    RB_GC_GUARD(self);
+	    RB_GC_GUARD(other);
     }
 }
 
@@ -6840,8 +7278,12 @@ d_lite_cmp(VALUE self, VALUE other)
 	    }
 	    else {
 		return INT2FIX(1);
+		RB_GC_GUARD(a_nth);
+		RB_GC_GUARD(b_nth);
 	    }
 	}
+		RB_GC_GUARD(self);
+		RB_GC_GUARD(other);
     }
 }
 
@@ -6855,6 +7297,8 @@ equal_gen(VALUE self, VALUE other)
     else if (k_date_p(other))
 	return f_eqeq_p(m_real_local_jd(dat), f_jd(other));
     return rb_num_coerce_cmp(self, other, id_eqeq_p);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -6919,7 +7363,11 @@ d_lite_equal(VALUE self, VALUE other)
 		a_jd == b_jd)
 		return Qtrue;
 	    return Qfalse;
+	    RB_GC_GUARD(b_nth);
+	    RB_GC_GUARD(a_nth);
 	}
+	    RB_GC_GUARD(self);
+	    RB_GC_GUARD(other);
     }
 }
 
@@ -6930,6 +7378,8 @@ d_lite_eql_p(VALUE self, VALUE other)
     if (!k_date_p(other))
 	return Qfalse;
     return f_zero_p(d_lite_cmp(self, other));
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -6956,6 +7406,8 @@ d_lite_hash(VALUE self)
 
     v = rb_memhash(h, sizeof(h));
     return ST2FIX(v);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(nth);
 }
 
 #include "date_tmx.h"
@@ -6978,6 +7430,7 @@ static VALUE
 d_lite_to_s(VALUE self)
 {
     return strftimev("%Y-%m-%d", self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 #ifndef NDEBUG
@@ -7049,6 +7502,8 @@ mk_inspect(union DateData *x, VALUE klass, VALUE to_s)
 			  klass, to_s,
 			  m_real_jd(x), m_df(x), m_sf(x),
 			  m_of(x), m_sg(x));
+			  RB_GC_GUARD(to_s);
+			  RB_GC_GUARD(klass);
 }
 
 /*
@@ -7066,6 +7521,7 @@ d_lite_inspect(VALUE self)
 {
     get_d1(self);
     return mk_inspect(dat, rb_obj_class(self), self);
+    RB_GC_GUARD(self);
 }
 
 #include <errno.h>
@@ -7124,6 +7580,7 @@ tmx_m_secs(union DateData *x)
     if (df)
 	s = f_add(s, INT2FIX(df));
     return s;
+    RB_GC_GUARD(s);
 }
 
 #define MILLISECOND_IN_NANOSECONDS 1000000
@@ -7140,6 +7597,8 @@ tmx_m_msecs(union DateData *x)
     if (f_nonzero_p(sf))
 	s = f_add(s, f_div(sf, INT2FIX(MILLISECOND_IN_NANOSECONDS)));
     return s;
+    RB_GC_GUARD(sf);
+    RB_GC_GUARD(s);
 }
 
 static int
@@ -7154,6 +7613,7 @@ tmx_m_zone(union DateData *x)
     VALUE zone = m_zone(x);
     /* TODO: fix potential dangling pointer */
     return RSTRING_PTR(zone);
+    RB_GC_GUARD(zone);
 }
 
 static const struct tmx_funcs tmx_funcs = {
@@ -7183,6 +7643,7 @@ set_tmx(VALUE self, struct tmx *tmx)
     get_d1(self);
     tmx->dat = (void *)dat;
     tmx->funcs = &tmx_funcs;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -7237,6 +7698,9 @@ date_strftime_internal(int argc, VALUE *argv, VALUE self,
     if (buf != buffer) xfree(buf);
     rb_enc_copy(str, vfmt);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(vfmt);
 }
 
 /*
@@ -7257,6 +7721,7 @@ d_lite_strftime(int argc, VALUE *argv, VALUE self)
 {
     return date_strftime_internal(argc, argv, self,
 				  "%Y-%m-%d", set_tmx);
+				  RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -7274,6 +7739,8 @@ strftimev(const char *fmt, VALUE self,
     str = rb_usascii_str_new(buf, len);
     if (buf != buffer) xfree(buf);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -7293,6 +7760,7 @@ static VALUE
 d_lite_asctime(VALUE self)
 {
     return strftimev("%a %b %e %H:%M:%S %Y", self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -7310,6 +7778,7 @@ static VALUE
 d_lite_iso8601(VALUE self)
 {
     return strftimev("%Y-%m-%d", self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -7326,6 +7795,7 @@ static VALUE
 d_lite_rfc3339(VALUE self)
 {
     return strftimev("%Y-%m-%dT%H:%M:%S%:z", self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -7342,6 +7812,7 @@ static VALUE
 d_lite_rfc2822(VALUE self)
 {
     return strftimev("%a, %-d %b %Y %T %z", self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -7359,6 +7830,7 @@ d_lite_httpdate(VALUE self)
 {
     volatile VALUE dup = dup_obj_with_new_offset(self, 0);
     return strftimev("%a, %d %b %Y %T GMT", dup, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 enum {
@@ -7399,6 +7871,8 @@ jisx0301_date_format(char *fmt, size_t size, VALUE jd, VALUE y)
 	return fmt;
     }
     return "%Y-%m-%d";
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(jd);
 }
 
 /*
@@ -7422,6 +7896,7 @@ d_lite_jisx0301(VALUE self)
 			       m_real_local_jd(dat),
 			       m_real_year(dat));
     return strftimev(fmt, self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -7469,9 +7944,13 @@ deconstruct_keys(VALUE self, VALUE keys, int is_datetime)
             if (sym_sec == key) rb_hash_aset(h, key, INT2FIX(m_sec(dat)));
             if (sym_sec_fraction == key) rb_hash_aset(h, key, m_sf_in_sec(dat));
             if (sym_zone == key) rb_hash_aset(h, key, m_zone(dat));
+    RB_GC_GUARD(key);
         }
     }
     return h;
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(h);
 }
 
 /*
@@ -7512,6 +7991,8 @@ static VALUE
 d_lite_deconstruct_keys(VALUE self, VALUE keys)
 {
     return deconstruct_keys(self, keys, /* is_datetime=false */ 0);
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(self);
 }
 
 #ifndef NDEBUG
@@ -7559,6 +8040,8 @@ d_lite_marshal_dump(VALUE self)
     }
 
     return a;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(a);
 }
 
 /* :nodoc: */
@@ -7597,6 +8080,9 @@ d_lite_marshal_load(VALUE self, VALUE a)
 
 	    old_to_new(ajd, vof, vsg,
 		       &nth, &jd, &df, &sf, &of, &sg);
+	RB_GC_GUARD(vsg);
+	RB_GC_GUARD(vof);
+	RB_GC_GUARD(ajd);
 	}
 	break;
       case 6:
@@ -7635,6 +8121,10 @@ d_lite_marshal_load(VALUE self, VALUE a)
     }
 
     return self;
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(sf);
+    RB_GC_GUARD(nth);
 }
 
 /* :nodoc: */
@@ -7646,6 +8136,10 @@ date_s__load(VALUE klass, VALUE s)
     a = rb_marshal_load(s);
     obj = d_lite_s_alloc(klass);
     return d_lite_marshal_load(obj, a);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(a);
 }
 
 /* datetime */
@@ -7717,9 +8211,21 @@ datetime_s_jd(int argc, VALUE *argv, VALUE klass)
 				     0, 0, 0,
 				     rh, rmin, rs,
 				     HAVE_JD | HAVE_TIME);
+    RB_GC_GUARD(nth);
     }
     add_frac();
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(jd);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vof);
+    RB_GC_GUARD(vs);
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(vh);
+    RB_GC_GUARD(vjd);
 }
 
 /*
@@ -7797,9 +8303,22 @@ datetime_s_ordinal(int argc, VALUE *argv, VALUE klass)
 				     0, 0, 0,
 				     rh, rmin, rs,
 				     HAVE_JD | HAVE_TIME);
+    RB_GC_GUARD(nth);
     }
     add_frac();
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vof);
+    RB_GC_GUARD(vs);
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(vh);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vy);
 }
 
 /*
@@ -7809,6 +8328,7 @@ static VALUE
 datetime_s_civil(int argc, VALUE *argv, VALUE klass)
 {
     return datetime_initialize(argc, argv, d_lite_s_alloc_complex(klass));
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -7878,6 +8398,7 @@ datetime_initialize(int argc, VALUE *argv, VALUE self)
 		       ry, rm, rd,
 		       rh, rmin, rs,
 		       HAVE_CIVIL | HAVE_TIME);
+    RB_GC_GUARD(nth);
     }
     else {
 	VALUE nth;
@@ -7903,10 +8424,24 @@ datetime_initialize(int argc, VALUE *argv, VALUE self)
 		       ry, rm, rd,
 		       rh, rmin, rs,
 		       HAVE_JD | HAVE_CIVIL | HAVE_TIME);
+    RB_GC_GUARD(nth);
     }
     ret = self;
     add_frac();
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vof);
+    RB_GC_GUARD(vs);
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(vh);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vm);
+    RB_GC_GUARD(vy);
 }
 
 /*
@@ -7987,9 +8522,23 @@ datetime_s_commercial(int argc, VALUE *argv, VALUE klass)
 				     0, 0, 0,
 				     rh, rmin, rs,
 				     HAVE_JD | HAVE_TIME);
+    RB_GC_GUARD(nth);
     }
     add_frac();
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(fr2);
+    RB_GC_GUARD(fr);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(vsg);
+    RB_GC_GUARD(vof);
+    RB_GC_GUARD(vs);
+    RB_GC_GUARD(vmin);
+    RB_GC_GUARD(vh);
+    RB_GC_GUARD(vd);
+    RB_GC_GUARD(vw);
+    RB_GC_GUARD(vy);
 }
 
 #ifndef NDEBUG
@@ -8244,6 +8793,10 @@ datetime_s_now(int argc, VALUE *argv, VALUE klass)
 	set_sg(dat, sg);
     }
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(vsg);
 }
 
 static VALUE
@@ -8330,6 +8883,13 @@ dt_new_by_frags(VALUE klass, VALUE hash, VALUE sg)
 				      0, 0, 0,
 				      0, 0, 0,
 				      HAVE_JD | HAVE_DF);
+				      RB_GC_GUARD(nth);
+				      RB_GC_GUARD(jd);
+				      RB_GC_GUARD(sg);
+				      RB_GC_GUARD(hash);
+				      RB_GC_GUARD(klass);
+				      RB_GC_GUARD(t);
+				      RB_GC_GUARD(sf);
     }
 }
 
@@ -8347,6 +8907,7 @@ static VALUE
 datetime_s__strptime(int argc, VALUE *argv, VALUE klass)
 {
     return date_s__strptime_internal(argc, argv, klass, "%FT%T%z");
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -8399,6 +8960,11 @@ datetime_s_strptime(int argc, VALUE *argv, VALUE klass)
 	argv2[1] = fmt;
 	hash = date_s__strptime(2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(sg);
+	RB_GC_GUARD(fmt);
     }
 }
 
@@ -8453,6 +9019,12 @@ datetime_s_parse(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__parse(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
+	RB_GC_GUARD(comp);
     }
 }
 
@@ -8496,6 +9068,11 @@ datetime_s_iso8601(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__iso8601(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -8535,6 +9112,11 @@ datetime_s_rfc3339(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__rfc3339(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -8574,6 +9156,11 @@ datetime_s_xmlschema(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__xmlschema(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -8614,6 +9201,11 @@ datetime_s_rfc2822(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__rfc2822(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -8653,6 +9245,11 @@ datetime_s_httpdate(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__httpdate(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -8697,6 +9294,11 @@ datetime_s_jisx0301(int argc, VALUE *argv, VALUE klass)
         if (!NIL_P(opt)) argc2++;
 	hash = date_s__jisx0301(argc2, argv2, klass);
 	return dt_new_by_frags(klass, hash, sg);
+	RB_GC_GUARD(hash);
+	RB_GC_GUARD(str);
+	RB_GC_GUARD(klass);
+	RB_GC_GUARD(opt);
+	RB_GC_GUARD(sg);
     }
 }
 
@@ -8714,6 +9316,7 @@ static VALUE
 dt_lite_to_s(VALUE self)
 {
     return strftimev("%Y-%m-%dT%H:%M:%S%:z", self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -8734,6 +9337,7 @@ dt_lite_strftime(int argc, VALUE *argv, VALUE self)
 {
     return date_strftime_internal(argc, argv, self,
 				  "%Y-%m-%dT%H:%M:%S%:z", set_tmx);
+				  RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -8750,6 +9354,7 @@ iso8601_timediv(VALUE self, long n)
     if (n > 0) p += snprintf(p, fmt+sizeof(fmt)-p, ".%%%ldN", n);
     memcpy(p, zone, sizeof(zone));
     return strftimev(fmt, self, set_tmx);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -8774,6 +9379,7 @@ dt_lite_iso8601(int argc, VALUE *argv, VALUE self)
 
     return rb_str_append(strftimev("%Y-%m-%d", self, set_tmx),
 			 iso8601_timediv(self, n));
+			 RB_GC_GUARD(self);
 }
 
 /*
@@ -8790,6 +9396,7 @@ static VALUE
 dt_lite_rfc3339(int argc, VALUE *argv, VALUE self)
 {
     return dt_lite_iso8601(argc, argv, self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -8813,6 +9420,7 @@ dt_lite_jisx0301(int argc, VALUE *argv, VALUE self)
 
     return rb_str_append(d_lite_jisx0301(self),
 			 iso8601_timediv(self, n));
+			 RB_GC_GUARD(self);
 }
 
 /*
@@ -8854,6 +9462,8 @@ static VALUE
 dt_lite_deconstruct_keys(VALUE self, VALUE keys)
 {
     return deconstruct_keys(self, keys, /* is_datetime=true */ 1);
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(self);
 }
 
 /* conversions */
@@ -8872,6 +9482,7 @@ static VALUE
 time_to_time(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -8902,6 +9513,10 @@ time_to_date(VALUE self)
 	set_sg(dat, DEFAULT_SG);
     }
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(y);
 }
 
 /*
@@ -8943,6 +9558,11 @@ time_to_datetime(VALUE self)
 	set_sg(dat, DEFAULT_SG);
     }
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(nth);
+    RB_GC_GUARD(sf);
+    RB_GC_GUARD(y);
 }
 
 /*
@@ -8969,6 +9589,7 @@ date_to_time(VALUE self)
         get_d1b(g);
         adat = bdat;
         self = g;
+    RB_GC_GUARD(g);
     }
 
     t = f_local3(rb_cTime,
@@ -8977,6 +9598,8 @@ date_to_time(VALUE self)
         INT2FIX(m_mday(adat)));
     RB_GC_GUARD(self); /* may be the converted gregorian */
     return t;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(t);
 }
 
 /*
@@ -8989,6 +9612,7 @@ static VALUE
 date_to_date(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -9011,6 +9635,7 @@ date_to_datetime(VALUE self)
 	    get_d1b(new);
 	    bdat->s = adat->s;
 	    return new;
+    RB_GC_GUARD(new);
 	}
     }
     else {
@@ -9030,7 +9655,9 @@ date_to_datetime(VALUE self)
 	    bdat->c.flags |= HAVE_DF | HAVE_TIME;
 #endif
 	    return new;
+	    RB_GC_GUARD(new);
 	}
+	    RB_GC_GUARD(self);
     }
 }
 
@@ -9050,6 +9677,7 @@ datetime_to_time(VALUE self)
 	get_d1a(g);
 	dat = adat;
 	self = g;
+    RB_GC_GUARD(g);
     }
 
     {
@@ -9068,6 +9696,8 @@ datetime_to_time(VALUE self)
 		   INT2FIX(m_of(dat)));
 	RB_GC_GUARD(self); /* may be the converted gregorian */
 	return t;
+	RB_GC_GUARD(t);
+	RB_GC_GUARD(self);
     }
 }
 
@@ -9089,6 +9719,7 @@ datetime_to_date(VALUE self)
 	    bdat->s = adat->s;
 	    bdat->s.jd = m_local_jd(adat);
 	    return new;
+    RB_GC_GUARD(new);
 	}
     }
     else {
@@ -9099,7 +9730,9 @@ datetime_to_date(VALUE self)
 	    bdat->s.jd = m_local_jd(adat);
 	    bdat->s.flags &= ~(HAVE_DF | HAVE_TIME | COMPLEX_DAT);
 	    return new;
+	    RB_GC_GUARD(new);
 	}
+	    RB_GC_GUARD(self);
     }
 }
 
@@ -9113,6 +9746,7 @@ static VALUE
 datetime_to_datetime(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 #ifndef NDEBUG
@@ -9470,9 +10104,11 @@ mk_ary_of_str(long len, const char *a[])
 	    rb_obj_freeze(e);
 	}
 	rb_ary_push(o, e);
+    RB_GC_GUARD(e);
     }
     rb_ary_freeze(o);
     return o;
+    RB_GC_GUARD(o);
 }
 
 /* :nodoc: */
@@ -9480,6 +10116,7 @@ static VALUE
 d_lite_zero(VALUE x)
 {
     return INT2FIX(0);
+    RB_GC_GUARD(x);
 }
 
 void

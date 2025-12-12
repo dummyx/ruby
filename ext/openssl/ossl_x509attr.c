@@ -65,6 +65,7 @@ ossl_x509attr_new(X509_ATTRIBUTE *attr)
     SetX509Attr(obj, new);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 X509_ATTRIBUTE *
@@ -75,6 +76,7 @@ GetX509AttrPtr(VALUE obj)
     GetX509Attr(obj, attr);
 
     return attr;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -92,6 +94,8 @@ ossl_x509attr_alloc(VALUE klass)
     SetX509Attr(obj, attr);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -121,6 +125,9 @@ ossl_x509attr_initialize(int argc, VALUE *argv, VALUE self)
     rb_funcall(self, rb_intern("value="), 1, value);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(oid);
 }
 
 static VALUE
@@ -140,6 +147,8 @@ ossl_x509attr_initialize_copy(VALUE self, VALUE other)
     X509_ATTRIBUTE_free(attr);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -164,6 +173,8 @@ ossl_x509attr_set_oid(VALUE self, VALUE oid)
     ASN1_OBJECT_free(obj);
 
     return oid;
+    RB_GC_GUARD(oid);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -191,6 +202,8 @@ ossl_x509attr_get_oid(VALUE self)
     }
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -233,6 +246,9 @@ ossl_x509attr_set_value(VALUE self, VALUE value)
     sk_ASN1_TYPE_pop_free(sk, ASN1_TYPE_free);
 
     return value;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(der);
 }
 
 /*
@@ -271,6 +287,8 @@ ossl_x509attr_get_value(VALUE self)
     sk_ASN1_TYPE_free(sk);
 
     return rb_funcall(mASN1, rb_intern("decode"), 1, str);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -295,6 +313,8 @@ ossl_x509attr_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*

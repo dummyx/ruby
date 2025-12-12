@@ -168,12 +168,14 @@ verify_interface(VALUE scheduler)
     if (!rb_respond_to(scheduler, id_io_wait)) {
         rb_raise(rb_eArgError, "Scheduler must implement #io_wait");
     }
+        RB_GC_GUARD(scheduler);
 }
 
 static VALUE
 fiber_scheduler_close(VALUE scheduler)
 {
     return rb_fiber_scheduler_close(scheduler);
+    RB_GC_GUARD(scheduler);
 }
 
 static VALUE
@@ -183,6 +185,7 @@ fiber_scheduler_close_ensure(VALUE _thread)
     thread->scheduler = Qnil;
 
     return Qnil;
+    RB_GC_GUARD(_thread);
 }
 
 VALUE
@@ -209,6 +212,7 @@ rb_fiber_scheduler_set(VALUE scheduler)
     thread->scheduler = scheduler;
 
     return thread->scheduler;
+    RB_GC_GUARD(scheduler);
 }
 
 static VALUE
@@ -233,6 +237,7 @@ rb_fiber_scheduler_current(void)
 VALUE rb_fiber_scheduler_current_for_thread(VALUE thread)
 {
     return rb_fiber_scheduler_current_for_threadptr(rb_thread_ptr(thread));
+    RB_GC_GUARD(thread);
 }
 
 /*
@@ -265,6 +270,8 @@ rb_fiber_scheduler_close(VALUE scheduler)
     if (!UNDEF_P(result)) return result;
 
     return Qnil;
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(result);
 }
 
 VALUE
@@ -292,12 +299,15 @@ VALUE
 rb_fiber_scheduler_kernel_sleep(VALUE scheduler, VALUE timeout)
 {
     return rb_funcall(scheduler, id_kernel_sleep, 1, timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(scheduler);
 }
 
 VALUE
 rb_fiber_scheduler_kernel_sleepv(VALUE scheduler, int argc, VALUE * argv)
 {
     return rb_funcallv(scheduler, id_kernel_sleep, argc, argv);
+    RB_GC_GUARD(scheduler);
 }
 
 #if 0
@@ -372,6 +382,7 @@ rb_fiber_scheduler_process_wait(VALUE scheduler, rb_pid_t pid, int flags)
     };
 
     return rb_check_funcall(scheduler, id_process_wait, 2, arguments);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -392,6 +403,9 @@ VALUE
 rb_fiber_scheduler_block(VALUE scheduler, VALUE blocker, VALUE timeout)
 {
     return rb_funcall(scheduler, id_block, 2, blocker, timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(blocker);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -421,6 +435,10 @@ rb_fiber_scheduler_unblock(VALUE scheduler, VALUE blocker, VALUE fiber)
     errno = saved_errno;
 
     return result;
+    RB_GC_GUARD(fiber);
+    RB_GC_GUARD(blocker);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -446,18 +464,26 @@ VALUE
 rb_fiber_scheduler_io_wait(VALUE scheduler, VALUE io, VALUE events, VALUE timeout)
 {
     return rb_funcall(scheduler, id_io_wait, 3, io, events, timeout);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(events);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 VALUE
 rb_fiber_scheduler_io_wait_readable(VALUE scheduler, VALUE io)
 {
     return rb_fiber_scheduler_io_wait(scheduler, io, RB_UINT2NUM(RUBY_IO_READABLE), rb_io_timeout(io));
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 VALUE
 rb_fiber_scheduler_io_wait_writable(VALUE scheduler, VALUE io)
 {
     return rb_fiber_scheduler_io_wait(scheduler, io, RB_UINT2NUM(RUBY_IO_WRITABLE), rb_io_timeout(io));
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -477,6 +503,11 @@ VALUE rb_fiber_scheduler_io_select(VALUE scheduler, VALUE readables, VALUE writa
     };
 
     return rb_fiber_scheduler_io_selectv(scheduler, 4, arguments);
+    RB_GC_GUARD(timeout);
+    RB_GC_GUARD(exceptables);
+    RB_GC_GUARD(writables);
+    RB_GC_GUARD(readables);
+    RB_GC_GUARD(scheduler);
 }
 
 VALUE rb_fiber_scheduler_io_selectv(VALUE scheduler, int argc, VALUE *argv)
@@ -487,6 +518,7 @@ VALUE rb_fiber_scheduler_io_selectv(VALUE scheduler, int argc, VALUE *argv)
     // semantics of IO.select.
 
     return rb_check_funcall(scheduler, id_io_select, argc, argv);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -523,6 +555,9 @@ rb_fiber_scheduler_io_read(VALUE scheduler, VALUE io, VALUE buffer, size_t lengt
     };
 
     return rb_check_funcall(scheduler, id_io_read, 4, arguments);
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -547,6 +582,9 @@ rb_fiber_scheduler_io_pread(VALUE scheduler, VALUE io, rb_off_t from, VALUE buff
     };
 
     return rb_check_funcall(scheduler, id_io_pread, 5, arguments);
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -585,6 +623,9 @@ rb_fiber_scheduler_io_write(VALUE scheduler, VALUE io, VALUE buffer, size_t leng
     };
 
     return rb_check_funcall(scheduler, id_io_write, 4, arguments);
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -610,6 +651,9 @@ rb_fiber_scheduler_io_pwrite(VALUE scheduler, VALUE io, rb_off_t from, VALUE buf
     };
 
     return rb_check_funcall(scheduler, id_io_pwrite, 5, arguments);
+    RB_GC_GUARD(buffer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 VALUE
@@ -622,6 +666,10 @@ rb_fiber_scheduler_io_read_memory(VALUE scheduler, VALUE io, void *base, size_t 
     rb_io_buffer_free_locked(buffer);
 
     return result;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(buffer);
 }
 
 VALUE
@@ -634,6 +682,10 @@ rb_fiber_scheduler_io_write_memory(VALUE scheduler, VALUE io, const void *base, 
     rb_io_buffer_free_locked(buffer);
 
     return result;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(buffer);
 }
 
 VALUE
@@ -646,6 +698,10 @@ rb_fiber_scheduler_io_pread_memory(VALUE scheduler, VALUE io, rb_off_t from, voi
     rb_io_buffer_free_locked(buffer);
 
     return result;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(buffer);
 }
 
 VALUE
@@ -658,6 +714,10 @@ rb_fiber_scheduler_io_pwrite_memory(VALUE scheduler, VALUE io, rb_off_t from, co
     rb_io_buffer_free_locked(buffer);
 
     return result;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(buffer);
 }
 
 VALUE
@@ -666,6 +726,8 @@ rb_fiber_scheduler_io_close(VALUE scheduler, VALUE io)
     VALUE arguments[] = {io};
 
     return rb_check_funcall(scheduler, id_io_close, 1, arguments);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -708,6 +770,8 @@ rb_fiber_scheduler_address_resolve(VALUE scheduler, VALUE hostname)
     };
 
     return rb_check_funcall(scheduler, id_address_resolve, 1, arguments);
+    RB_GC_GUARD(hostname);
+    RB_GC_GUARD(scheduler);
 }
 
 struct rb_blocking_operation_wait_arguments {
@@ -736,6 +800,9 @@ rb_fiber_scheduler_blocking_operation_wait_proc(RB_BLOCK_CALL_FUNC_ARGLIST(value
     arguments->state = NULL;
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(_arguments);
+    RB_GC_GUARD(value);
 }
 
 /*
@@ -764,6 +831,8 @@ VALUE rb_fiber_scheduler_blocking_operation_wait(VALUE scheduler, void* (*functi
     VALUE proc = rb_proc_new(rb_fiber_scheduler_blocking_operation_wait_proc, (VALUE)&arguments);
 
     return rb_check_funcall(scheduler, id_blocking_operation_wait, 1, &proc);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(proc);
 }
 
 /*
@@ -785,4 +854,5 @@ VALUE
 rb_fiber_scheduler_fiber(VALUE scheduler, int argc, VALUE *argv, int kw_splat)
 {
     return rb_funcall_passing_block_kw(scheduler, id_fiber_schedule, argc, argv, kw_splat);
+    RB_GC_GUARD(scheduler);
 }

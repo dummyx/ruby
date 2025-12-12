@@ -41,6 +41,8 @@ loop_dlsym(VALUE self, VALUE name)
                                ubf_for_loop_dlsym, &d);
 
     return self;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(self);
 }
 
 void

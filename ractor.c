@@ -296,6 +296,7 @@ rb_ractor_p(VALUE gv)
     }
     else {
         return false;
+        RB_GC_GUARD(gv);
     }
 }
 
@@ -305,6 +306,7 @@ RACTOR_PTR(VALUE self)
     VM_ASSERT(rb_ractor_p(self));
     rb_ractor_t *r = DATA_PTR(self);
     return r;
+    RB_GC_GUARD(self);
 }
 
 static rb_atomic_t ractor_last_id;
@@ -476,9 +478,12 @@ ractor_basket_accept(struct rb_ractor_basket *b)
         rb_ivar_set(err, rb_intern("@ractor"), b->sender);
         rb_ec_setup_exception(NULL, err, cause);
         rb_exc_raise(err);
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(cause);
     }
 
     return v;
+    RB_GC_GUARD(v);
 }
 
 // Ractor synchronizations
@@ -772,6 +777,7 @@ ractor_receive(rb_execution_context_t *ec, rb_ractor_t *cr)
     }
 
     return v;
+    RB_GC_GUARD(v);
 }
 
 #if 0
@@ -805,6 +811,7 @@ ractor_receive_if_lock(rb_ractor_t *cr)
         m = cr->receiving_mutex = rb_mutex_new();
     }
     rb_mutex_lock(m);
+    RB_GC_GUARD(m);
 }
 
 static VALUE
@@ -839,6 +846,8 @@ receive_if_body(VALUE ptr)
     }
     else {
         return Qundef;
+        RB_GC_GUARD(block_result);
+        RB_GC_GUARD(ptr);
     }
 }
 
@@ -861,6 +870,7 @@ receive_if_ensure(VALUE v)
 
     rb_mutex_unlock(cr->receiving_mutex);
     return Qnil;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -913,9 +923,13 @@ ractor_receive_if(rb_execution_context_t *ec, VALUE crv, VALUE b)
 
             if (!UNDEF_P(result)) return result;
             index++;
+        RB_GC_GUARD(result);
         }
 
         RUBY_VM_CHECK_INTS(ec);
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(crv);
+        RB_GC_GUARD(b);
     }
 }
 
@@ -967,6 +981,9 @@ ractor_basket_prepare_contents(VALUE obj, VALUE move, volatile VALUE *pobj, enum
 
     *pobj = v;
     *ptype = type;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(move);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -977,6 +994,7 @@ ractor_basket_fill_(rb_ractor_t *cr, struct rb_ractor_basket *basket, VALUE obj,
     basket->sender = cr->pub.self;
     basket->p.send.exception = exc;
     basket->p.send.v = obj;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -987,6 +1005,9 @@ ractor_basket_fill(rb_ractor_t *cr, struct rb_ractor_basket *basket, VALUE obj, 
     ractor_basket_prepare_contents(obj, move, &v, &type);
     ractor_basket_fill_(cr, basket, v, exc);
     basket->type.e = type;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(move);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -994,6 +1015,7 @@ ractor_basket_fill_will(rb_ractor_t *cr, struct rb_ractor_basket *basket, VALUE 
 {
     ractor_basket_fill_(cr, basket, obj, exc);
     basket->type.e = basket_type_will;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1004,6 +1026,8 @@ ractor_send(rb_execution_context_t *ec, rb_ractor_t *r, VALUE obj, VALUE move)
     ractor_basket_fill(rb_ec_ractor_ptr(ec), &basket, obj, move, false);
     ractor_send_basket(ec, r, &basket);
     return r->pub.self;
+    RB_GC_GUARD(move);
+    RB_GC_GUARD(obj);
 }
 
 // Ractor#take
@@ -1246,6 +1270,7 @@ ractor_take(rb_execution_context_t *ec, rb_ractor_t *r)
     VM_ASSERT(!ractor_check_specific_take_basket_lock(r, &take_basket));
 
     return v;
+    RB_GC_GUARD(v);
 }
 
 // Ractor.yield
@@ -1371,6 +1396,7 @@ ractor_try_yield(rb_execution_context_t *ec, rb_ractor_t *cr, struct rb_ractor_q
         RUBY_DEBUG_LOG("no take basket");
         return false;
     }
+        RB_GC_GUARD(move);
 }
 
 static void
@@ -1395,6 +1421,8 @@ ractor_yield(rb_execution_context_t *ec, rb_ractor_t *cr, VALUE obj, VALUE move)
     }
 
     return Qnil;
+    RB_GC_GUARD(move);
+    RB_GC_GUARD(obj);
 }
 
 // Ractor::Selector
@@ -1483,6 +1511,7 @@ RACTOR_SELECTOR_PTR(VALUE selv)
     VM_ASSERT(rb_typeddata_is_kind_of(selv, &ractor_selector_data_type));
 
     return (struct rb_ractor_selector *)DATA_PTR(selv);
+    RB_GC_GUARD(selv);
 }
 
 // Ractor::Selector.new
@@ -1495,6 +1524,8 @@ ractor_selector_create(VALUE klass)
     s->take_basket.type.e = basket_type_reserved;
     s->take_ractors = st_init_numtable(); // ractor (ptr) -> take_config
     return selv;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(selv);
 }
 
 // Ractor::Selector#add(r)
@@ -1530,6 +1561,8 @@ ractor_selector_add(VALUE selv, VALUE rv)
     }
 
     return rv;
+    RB_GC_GUARD(rv);
+    RB_GC_GUARD(selv);
 }
 
 // Ractor::Selector#remove(r)
@@ -1562,6 +1595,8 @@ ractor_selector_remove(VALUE selv, VALUE rv)
     free(config);
 
     return rv;
+    RB_GC_GUARD(rv);
+    RB_GC_GUARD(selv);
 }
 
 // Ractor::Selector#clear
@@ -1578,6 +1613,7 @@ ractor_selector_clear_i(st_data_t key, st_data_t val, st_data_t data)
     rb_ractor_t *r = (rb_ractor_t *)key;
     ractor_selector_remove(selv, r->pub.self);
     return ST_CONTINUE;
+    RB_GC_GUARD(selv);
 }
 
 /*
@@ -1594,6 +1630,7 @@ ractor_selector_clear(VALUE selv)
     st_foreach(s->take_ractors, ractor_selector_clear_i, (st_data_t)selv);
     st_clear(s->take_ractors);
     return selv;
+    RB_GC_GUARD(selv);
 }
 
 /*
@@ -1607,6 +1644,7 @@ ractor_selector_empty_p(VALUE selv)
 {
     struct rb_ractor_selector *s = RACTOR_SELECTOR_PTR(selv);
     return s->take_ractors->num_entries == 0 ? Qtrue : Qfalse;
+    RB_GC_GUARD(selv);
 }
 
 static int
@@ -1802,6 +1840,13 @@ ractor_selector__wait(VALUE selv, VALUE do_receivev, VALUE do_yieldv, VALUE yiel
     ret_r = taken_basket.sender;
   success:
     return rb_ary_new_from_args(2, ret_r, ret_v);
+    RB_GC_GUARD(move);
+    RB_GC_GUARD(yield_value);
+    RB_GC_GUARD(do_yieldv);
+    RB_GC_GUARD(do_receivev);
+    RB_GC_GUARD(selv);
+    RB_GC_GUARD(ret_r);
+    RB_GC_GUARD(ret_v);
 }
 
 /*
@@ -1826,6 +1871,8 @@ ractor_selector_wait(int argc, VALUE *argv, VALUE selector)
     return ractor_selector__wait(selector,
                                  values[0] == Qundef ? Qfalse : RTEST(values[0]),
                                  values[1] != Qundef, values[1], values[2]);
+                                 RB_GC_GUARD(selector);
+                                 RB_GC_GUARD(options);
 }
 
 static VALUE
@@ -1838,6 +1885,8 @@ ractor_selector_new(int argc, VALUE *ractors, VALUE klass)
     }
 
     return selector;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(selector);
 }
 
 static VALUE
@@ -1862,6 +1911,14 @@ ractor_select_internal(rb_execution_context_t *ec, VALUE self, VALUE ractors, VA
 
     RB_GC_GUARD(ractors);
     return result;
+    RB_GC_GUARD(move);
+    RB_GC_GUARD(yield_value);
+    RB_GC_GUARD(do_yield);
+    RB_GC_GUARD(do_receive);
+    RB_GC_GUARD(ractors);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(selector);
 }
 
 // Ractor#close_incoming
@@ -1887,6 +1944,7 @@ ractor_close_incoming(rb_execution_context_t *ec, rb_ractor_t *r)
     }
     RACTOR_UNLOCK(r);
     return prev;
+    RB_GC_GUARD(prev);
 }
 
 // Ractor#close_outgoing
@@ -1945,6 +2003,7 @@ ractor_close_outgoing(rb_execution_context_t *ec, rb_ractor_t *r)
     }
     RACTOR_UNLOCK(r);
     return prev;
+    RB_GC_GUARD(prev);
 }
 
 // creation/termination
@@ -1992,6 +2051,7 @@ cancel_single_ractor_mode(void)
 
     ruby_single_main_ractor = NULL;
     rb_funcall(rb_cRactor, rb_intern("_activated"), 0);
+    RB_GC_GUARD(was_disabled);
 }
 
 static void
@@ -2059,6 +2119,8 @@ ractor_alloc(VALUE klass)
     r->pub.self = rv;
     VM_ASSERT(ractor_status_p(r, ractor_created));
     return rv;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(rv);
 }
 
 rb_ractor_t *
@@ -2137,6 +2199,8 @@ ractor_init(rb_ractor_t *r, VALUE name, VALUE loc)
     }
     r->name = name;
     r->loc = loc;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(loc);
 }
 
 void
@@ -2170,6 +2234,12 @@ ractor_create(rb_execution_context_t *ec, VALUE self, VALUE loc, VALUE name, VAL
 
     RB_GC_GUARD(rv);
     return rv;
+    RB_GC_GUARD(block);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(loc);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rv);
 }
 
 static VALUE
@@ -2177,6 +2247,11 @@ ractor_create_func(VALUE klass, VALUE loc, VALUE name, VALUE args, rb_block_call
 {
     VALUE block = rb_proc_new(func, Qnil);
     return ractor_create(rb_current_ec_noinline(), klass, loc, name, args, block);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(loc);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(block);
 }
 
 static void
@@ -2212,6 +2287,7 @@ ractor_yield_atexit(rb_execution_context_t *ec, rb_ractor_t *cr, VALUE v, bool e
 
         if (retry) goto retry;
     }
+        RB_GC_GUARD(v);
 }
 
 void
@@ -2219,6 +2295,7 @@ rb_ractor_atexit(rb_execution_context_t *ec, VALUE result)
 {
     rb_ractor_t *cr = rb_ec_ractor_ptr(ec);
     ractor_yield_atexit(ec, cr, result, false);
+    RB_GC_GUARD(result);
 }
 
 void
@@ -2259,6 +2336,7 @@ rb_ractor_send_parameters(rb_execution_context_t *ec, rb_ractor_t *r, VALUE args
     for (int i=0; i<len; i++) {
         ractor_send(ec, r, RARRAY_AREF(args, i), false);
     }
+        RB_GC_GUARD(args);
 }
 
 bool
@@ -2275,6 +2353,7 @@ rb_obj_is_main_ractor(VALUE gv)
     if (!rb_ractor_p(gv)) return false;
     rb_ractor_t *r = DATA_PTR(gv);
     return r == GET_VM()->ractor.main_ractor;
+    RB_GC_GUARD(gv);
 }
 
 int
@@ -2303,6 +2382,7 @@ rb_ractor_thread_list(void)
     }
 
     return ary;
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -2562,6 +2642,7 @@ static VALUE
 ractor_moved_missing(int argc, VALUE *argv, VALUE self)
 {
     rb_raise(rb_eRactorMovedError, "can not send any methods to a moved object");
+    RB_GC_GUARD(self);
 }
 
 #ifndef USE_RACTOR_SELECTOR
@@ -2779,6 +2860,7 @@ rb_ractor_stdin_set(VALUE in)
         rb_ractor_t *cr = GET_RACTOR();
         RB_OBJ_WRITE(cr->pub.self, &cr->r_stdin, in);
     }
+        RB_GC_GUARD(in);
 }
 
 void
@@ -2791,6 +2873,7 @@ rb_ractor_stdout_set(VALUE out)
         rb_ractor_t *cr = GET_RACTOR();
         RB_OBJ_WRITE(cr->pub.self, &cr->r_stdout, out);
     }
+        RB_GC_GUARD(out);
 }
 
 void
@@ -2803,6 +2886,7 @@ rb_ractor_stderr_set(VALUE err)
         rb_ractor_t *cr = GET_RACTOR();
         RB_OBJ_WRITE(cr->pub.self, &cr->r_stderr, err);
     }
+        RB_GC_GUARD(err);
 }
 
 rb_hook_list_t *
@@ -2861,6 +2945,9 @@ obj_hash_traverse_i(VALUE key, VALUE val, VALUE ptr)
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(ptr);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static void
@@ -2871,6 +2958,7 @@ obj_traverse_reachable_i(VALUE obj, void *ptr)
     if (obj_traverse_i(obj, d->data)) {
         d->stop = true;
     }
+        RB_GC_GUARD(obj);
 }
 
 static struct st_table *
@@ -2894,6 +2982,7 @@ obj_traverse_ivar_foreach_i(ID key, VALUE val, st_data_t ptr)
     }
 
     return ST_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static int
@@ -2939,6 +3028,7 @@ obj_traverse_i(VALUE obj, struct obj_traverse_data *data)
             for (int i = 0; i < RARRAY_LENINT(obj); i++) {
                 VALUE e = rb_ary_entry(obj, i);
                 if (obj_traverse_i(e, data)) return 1;
+        RB_GC_GUARD(e);
             }
         }
         break;
@@ -3006,6 +3096,7 @@ obj_traverse_i(VALUE obj, struct obj_traverse_data *data)
     }
     else {
         return 0;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3046,6 +3137,7 @@ rb_obj_traverse(VALUE obj,
         return f.stopped;
     }
     return 0;
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -3069,6 +3161,7 @@ frozen_shareable_p(VALUE obj, bool *made_shareable)
     }
 
     return false;
+    RB_GC_GUARD(obj);
 }
 
 static enum obj_traverse_iterator_result
@@ -3102,6 +3195,7 @@ make_shareable_check_shareable(VALUE obj)
     }
 
     return traverse_cont;
+    RB_GC_GUARD(obj);
 }
 
 static enum obj_traverse_iterator_result
@@ -3109,6 +3203,7 @@ mark_shareable(VALUE obj)
 {
     FL_SET_RAW(obj, RUBY_FL_SHAREABLE);
     return traverse_cont;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -3118,6 +3213,7 @@ rb_ractor_make_shareable(VALUE obj)
                     make_shareable_check_shareable,
                     null_leave, mark_shareable);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -3125,6 +3221,8 @@ rb_ractor_make_shareable_copy(VALUE obj)
 {
     VALUE copy = ractor_copy(obj);
     return rb_ractor_make_shareable(copy);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(copy);
 }
 
 VALUE
@@ -3134,8 +3232,11 @@ rb_ractor_ensure_shareable(VALUE obj, VALUE name)
         VALUE message = rb_sprintf("cannot assign unshareable object to %"PRIsVALUE,
                                    name);
         rb_exc_raise(rb_exc_new_str(rb_eRactorIsolationError, message));
+    RB_GC_GUARD(message);
     }
     return obj;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -3165,6 +3266,7 @@ shareable_p_enter(VALUE obj)
     }
 
     return traverse_stop; // fail
+    RB_GC_GUARD(obj);
 }
 
 bool
@@ -3177,6 +3279,7 @@ rb_ractor_shareable_p_continue(VALUE obj)
     }
     else {
         return true;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3204,6 +3307,7 @@ static enum obj_traverse_iterator_result
 null_leave(VALUE obj)
 {
     return traverse_cont;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3213,6 +3317,7 @@ ractor_reset_belonging(VALUE obj)
     rb_obj_traverse(obj, reset_belonging_enter, null_leave, NULL);
 #endif
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 
@@ -3263,6 +3368,7 @@ obj_hash_traverse_replace_i(st_data_t *key, st_data_t *val, st_data_t ptr, int e
     else if (*key != data->replacement) {
         VALUE v = *key = data->replacement;
         RB_OBJ_WRITTEN(d->src, Qundef, v);
+    RB_GC_GUARD(v);
     }
 
     if (obj_traverse_replace_i(*val, data)) {
@@ -3272,6 +3378,7 @@ obj_hash_traverse_replace_i(st_data_t *key, st_data_t *val, st_data_t ptr, int e
     else if (*val != data->replacement) {
         VALUE v = *val = data->replacement;
         RB_OBJ_WRITTEN(d->src, Qundef, v);
+    RB_GC_GUARD(v);
     }
 
     return ST_CONTINUE;
@@ -3296,6 +3403,7 @@ obj_iv_hash_traverse_replace_i(st_data_t * _key, st_data_t * val, st_data_t ptr,
     else if (*(VALUE *)val != data->replacement) {
         VALUE v = *(VALUE *)val = data->replacement;
         RB_OBJ_WRITTEN(d->src, Qundef, v);
+    RB_GC_GUARD(v);
     }
 
     return ST_CONTINUE;
@@ -3319,6 +3427,7 @@ obj_refer_only_shareables_p_i(VALUE obj, void *ptr)
     if (!rb_ractor_shareable_p(obj)) {
         ++*pcnt;
     }
+        RB_GC_GUARD(obj);
 }
 
 static int
@@ -3331,6 +3440,7 @@ obj_refer_only_shareables_p(VALUE obj)
     }
     RB_VM_LOCK_LEAVE_NO_BARRIER();
     return cnt == 0;
+    RB_GC_GUARD(obj);
 }
 
 static int
@@ -3448,6 +3558,7 @@ obj_traverse_replace_i(VALUE obj, struct obj_traverse_replace_data *data)
                 }
                 else if (e != data->replacement) {
                     RARRAY_ASET(obj, i, data->replacement);
+            RB_GC_GUARD(e);
                 }
             }
             RB_GC_GUARD(obj);
@@ -3473,6 +3584,7 @@ obj_traverse_replace_i(VALUE obj, struct obj_traverse_replace_data *data)
             }
             else if (ifnone != data->replacement) {
                 RHASH_SET_IFNONE(obj, data->replacement);
+        RB_GC_GUARD(ifnone);
             }
         }
         break;
@@ -3526,6 +3638,7 @@ obj_traverse_replace_i(VALUE obj, struct obj_traverse_replace_data *data)
     }
     else {
         return 0;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3550,6 +3663,7 @@ rb_obj_traverse_replace(VALUE obj,
     }
     else {
         return data.replacement;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3582,6 +3696,7 @@ ractor_moved_bang(VALUE obj)
     if (BUILTIN_TYPE(obj) == T_OBJECT) ROBJECT_SET_SHAPE_ID(obj, ROOT_SHAPE_ID);
 
     // TODO: record moved location
+    RB_GC_GUARD(obj);
 }
 
 static enum obj_traverse_iterator_result
@@ -3596,6 +3711,8 @@ move_enter(VALUE obj, struct obj_traverse_replace_data *data)
         rb_shape_set_shape(moved, rb_shape_get_shape(obj));
         data->replacement = moved;
         return traverse_cont;
+        RB_GC_GUARD(moved);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3626,6 +3743,8 @@ move_leave(VALUE obj, struct obj_traverse_replace_data *data)
 
     ractor_moved_bang(obj);
     return traverse_cont;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -3638,6 +3757,8 @@ ractor_move(VALUE obj)
     else {
         rb_raise(rb_eRactorError, "can not move the object");
     }
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(obj);
 }
 
 static enum obj_traverse_iterator_result
@@ -3650,6 +3771,7 @@ copy_enter(VALUE obj, struct obj_traverse_replace_data *data)
     else {
         data->replacement = rb_obj_clone(obj);
         return traverse_cont;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -3657,6 +3779,7 @@ static enum obj_traverse_iterator_result
 copy_leave(VALUE obj, struct obj_traverse_replace_data *data)
 {
     return traverse_cont;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -3669,6 +3792,8 @@ ractor_copy(VALUE obj)
     else {
         rb_raise(rb_eRactorError, "can not copy the object");
     }
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(obj);
 }
 
 // Ractor local storage
@@ -3697,6 +3822,7 @@ idkey_local_storage_mark_i(VALUE val, void *dmy)
 {
     rb_gc_mark(val);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -3860,6 +3986,7 @@ void
 rb_ractor_local_storage_value_set(rb_ractor_local_key_t key, VALUE val)
 {
     ractor_local_set(key, (void *)val);
+    RB_GC_GUARD(val);
 }
 
 void *
@@ -3908,6 +4035,9 @@ ractor_local_value(rb_execution_context_t *ec, VALUE self, VALUE sym)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(val);
+        RB_GC_GUARD(sym);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -3923,6 +4053,9 @@ ractor_local_value_set(rb_execution_context_t *ec, VALUE self, VALUE sym, VALUE 
     }
     rb_id_table_insert(tbl, id, val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
 }
 
 struct ractor_local_storage_store_data {
@@ -3946,6 +4079,8 @@ ractor_local_value_store_i(VALUE ptr)
         ractor_local_value_set(data->ec, Qnil, data->sym, val);
     }
     return val;
+    RB_GC_GUARD(ptr);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -3973,6 +4108,9 @@ ractor_local_value_store_if_absent(rb_execution_context_t *ec, VALUE self, VALUE
     }
 
     return rb_mutex_synchronize(cr->local_storage_store_lock, ractor_local_value_store_i, (VALUE)&data);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
 }
 
 // Ractor::Channel (emulate with Ractor)
@@ -3992,6 +4130,7 @@ ractor_channel_func(RB_BLOCK_CALL_FUNC_ARGLIST(y, c))
         if ((state = EC_EXEC_TAG()) == TAG_NONE) {
             VALUE obj = ractor_receive(ec, cr);
             ractor_yield(ec, cr, obj, Qfalse);
+        RB_GC_GUARD(obj);
         }
         EC_POP_TAG();
 
@@ -4002,6 +4141,9 @@ ractor_channel_func(RB_BLOCK_CALL_FUNC_ARGLIST(y, c))
     }
 
     return Qnil;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(y);
 }
 
 static VALUE
@@ -4035,6 +4177,8 @@ rb_ractor_channel_yield(rb_execution_context_t *ec, VALUE vch, VALUE obj)
 
     ractor_send(ec, (rb_ractor_t *)ch, obj, Qfalse);
     return Qnil;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(vch);
 }
 
 static VALUE
@@ -4044,6 +4188,7 @@ rb_ractor_channel_take(rb_execution_context_t *ec, VALUE vch)
     rb_ractor_channel_t *ch = RACTOR_PTR(vch);
 
     return ractor_take(ec, (rb_ractor_t *)ch);
+    RB_GC_GUARD(vch);
 }
 
 static VALUE
@@ -4054,6 +4199,7 @@ rb_ractor_channel_close(rb_execution_context_t *ec, VALUE vch)
 
     ractor_close_incoming(ec, (rb_ractor_t *)ch);
     return ractor_close_outgoing(ec, (rb_ractor_t *)ch);
+    RB_GC_GUARD(vch);
 }
 
 // Ractor#require
@@ -4081,6 +4227,7 @@ require_body(VALUE data)
     crr->result = rb_funcallv(Qnil, require, 1, &crr->feature);
 
     return Qnil;
+    RB_GC_GUARD(data);
 }
 
 static VALUE
@@ -4089,6 +4236,8 @@ require_rescue(VALUE data, VALUE errinfo)
     struct cross_ractor_require *crr = (struct cross_ractor_require *)data;
     crr->exception = errinfo;
     return Qundef;
+    RB_GC_GUARD(errinfo);
+    RB_GC_GUARD(data);
 }
 
 static VALUE
@@ -4106,6 +4255,7 @@ require_result_copy_body(VALUE data)
     }
 
     return Qnil;
+    RB_GC_GUARD(data);
 }
 
 static VALUE
@@ -4114,6 +4264,8 @@ require_result_copy_resuce(VALUE data, VALUE errinfo)
     struct cross_ractor_require *crr = (struct cross_ractor_require *)data;
     crr->exception = errinfo; // ractor_move(crr->exception);
     return Qnil;
+    RB_GC_GUARD(errinfo);
+    RB_GC_GUARD(data);
 }
 
 static VALUE
@@ -4163,12 +4315,15 @@ rb_ractor_require(VALUE feature)
     else {
         return crr.result;
     }
+        RB_GC_GUARD(feature);
 }
 
 static VALUE
 ractor_require(rb_execution_context_t *ec, VALUE self, VALUE feature)
 {
     return rb_ractor_require(feature);
+    RB_GC_GUARD(feature);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -4177,6 +4332,7 @@ autoload_load_body(VALUE data)
     struct cross_ractor_require *crr = (struct cross_ractor_require *)data;
     crr->result = rb_autoload_load(crr->module, crr->name);
     return Qnil;
+    RB_GC_GUARD(data);
 }
 
 static VALUE
@@ -4211,6 +4367,7 @@ rb_ractor_autoload_load(VALUE module, ID name)
     else {
         return crr.result;
     }
+        RB_GC_GUARD(module);
 }
 
 #include "ractor.rbinc"

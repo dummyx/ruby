@@ -9,6 +9,7 @@ big(VALUE x)
         return x;
     rb_raise(rb_eTypeError, "can't convert %s to Bignum",
             rb_obj_classname(x));
+            RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -18,6 +19,9 @@ big2str_generic(VALUE klass, VALUE x, VALUE vbase)
     if (base < 2 || 36 < base)
         rb_raise(rb_eArgError, "invalid radix %d", base);
     return rb_big2str_generic(big(x), base);
+    RB_GC_GUARD(vbase);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 #define POW2_P(x) (((x)&((x)-1))==0)
@@ -29,6 +33,9 @@ big2str_poweroftwo(VALUE klass, VALUE x, VALUE vbase)
     if (base < 2 || 36 < base || !POW2_P(base))
         rb_raise(rb_eArgError, "invalid radix %d", base);
     return rb_big2str_poweroftwo(big(x), base);
+    RB_GC_GUARD(vbase);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 #if defined(HAVE_LIBGMP) && defined(HAVE_GMP_H)
@@ -39,6 +46,9 @@ big2str_gmp(VALUE klass, VALUE x, VALUE vbase)
     if (base < 2 || 36 < base)
         rb_raise(rb_eArgError, "invalid radix %d", base);
     return rb_big2str_gmp(big(x), base);
+    RB_GC_GUARD(vbase);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 #else
 #define big2str_gmp rb_f_notimplement

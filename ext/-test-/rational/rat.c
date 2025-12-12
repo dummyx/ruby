@@ -10,6 +10,7 @@ big(VALUE x)
         return x;
     rb_raise(rb_eTypeError, "can't convert %s to Bignum",
             rb_obj_classname(x));
+            RB_GC_GUARD(x);
 }
 #endif
 
@@ -17,6 +18,9 @@ static VALUE
 gcd_normal(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_gcd_normal(rb_to_int(x), rb_to_int(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 #if defined(HAVE_LIBGMP) && defined(HAVE_GMP_H)
@@ -24,6 +28,9 @@ static VALUE
 gcd_gmp(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_gcd_gmp(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 #else
 #define gcd_gmp rb_f_notimplement
@@ -33,6 +40,9 @@ static VALUE
 s_rational_raw(VALUE klass, VALUE x, VALUE y)
 {
     return rb_rational_raw(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -45,4 +55,6 @@ Init_rational(void)
     rb_define_singleton_method(klass, "gcd_gmp", gcd_gmp, 2);
 
     rb_define_singleton_method(klass, "raw", s_rational_raw, 2);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(klass);
 }

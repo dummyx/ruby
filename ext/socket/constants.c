@@ -36,6 +36,8 @@ constant_arg(VALUE arg, int (*str_to_int)(const char*, long, int*), const char *
         ret = NUM2INT(arg);
     }
     return ret;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(tmp);
 }
 
 int
@@ -43,6 +45,7 @@ rsock_family_arg(VALUE domain)
 {
     /* convert AF_INET, etc. */
     return constant_arg(domain, rsock_family_to_int, "unknown socket domain");
+    RB_GC_GUARD(domain);
 }
 
 int
@@ -50,6 +53,7 @@ rsock_socktype_arg(VALUE type)
 {
     /* convert SOCK_STREAM, etc. */
     return constant_arg(type, rsock_socktype_to_int, "unknown socket type");
+    RB_GC_GUARD(type);
 }
 
 int
@@ -61,6 +65,7 @@ rsock_level_arg(int family, VALUE level)
     }
     else {
         return constant_arg(level, rsock_unknown_level_to_int, "unknown protocol level");
+        RB_GC_GUARD(level);
     }
 }
 
@@ -92,6 +97,7 @@ rsock_optname_arg(int family, int level, VALUE optname)
           default:
             return NUM2INT(optname);
         }
+            RB_GC_GUARD(optname);
     }
 }
 
@@ -123,6 +129,7 @@ rsock_cmsg_type_arg(int family, int level, VALUE type)
           default:
             return NUM2INT(type);
         }
+            RB_GC_GUARD(type);
     }
 }
 
@@ -131,6 +138,7 @@ rsock_shutdown_how_arg(VALUE how)
 {
     /* convert SHUT_RD, SHUT_WR, SHUT_RDWR. */
     return constant_arg(how, rsock_shutdown_how_to_int, "unknown shutdown argument");
+    RB_GC_GUARD(how);
 }
 
 /*

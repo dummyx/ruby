@@ -22,6 +22,8 @@ static VALUE
 rb_cmp(VALUE x, VALUE y)
 {
     return rb_funcallv(x, idCmp, 1, &y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 void
@@ -37,6 +39,9 @@ rb_cmperr(VALUE x, VALUE y)
     }
     rb_raise(rb_eArgError, "comparison of %"PRIsVALUE" with %"PRIsVALUE" failed",
              rb_obj_class(x), classname);
+             RB_GC_GUARD(classname);
+             RB_GC_GUARD(y);
+             RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -44,6 +49,8 @@ invcmp_recursive(VALUE x, VALUE y, int recursive)
 {
     if (recursive) return Qnil;
     return rb_cmp(y, x);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -56,6 +63,9 @@ rb_invcmp(VALUE x, VALUE y)
     else {
         int result = -rb_cmpint(invcmp, x, y);
         return INT2FIX(result);
+        RB_GC_GUARD(invcmp);
+        RB_GC_GUARD(y);
+        RB_GC_GUARD(x);
     }
 }
 
@@ -64,6 +74,8 @@ cmp_eq_recursive(VALUE arg1, VALUE arg2, int recursive)
 {
     if (recursive) return Qnil;
     return rb_cmp(arg1, arg2);
+    RB_GC_GUARD(arg2);
+    RB_GC_GUARD(arg1);
 }
 
 /*
@@ -85,12 +97,17 @@ cmp_equal(VALUE x, VALUE y)
 
     if (NIL_P(c)) return Qfalse;
     return RBOOL(rb_cmpint(c, x, y) == 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(c);
 }
 
 static int
 cmpint(VALUE x, VALUE y)
 {
     return rb_cmpint(rb_cmp(x, y), x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -105,6 +122,8 @@ static VALUE
 cmp_gt(VALUE x, VALUE y)
 {
     return RBOOL(cmpint(x, y) > 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -119,6 +138,8 @@ static VALUE
 cmp_ge(VALUE x, VALUE y)
 {
     return RBOOL(cmpint(x, y) >= 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -133,6 +154,8 @@ static VALUE
 cmp_lt(VALUE x, VALUE y)
 {
     return RBOOL(cmpint(x, y) < 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -147,6 +170,8 @@ static VALUE
 cmp_le(VALUE x, VALUE y)
 {
     return RBOOL(cmpint(x, y) <= 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -168,6 +193,9 @@ static VALUE
 cmp_between(VALUE x, VALUE min, VALUE max)
 {
     return RBOOL((cmpint(x, min) >= 0 && cmpint(x, max) <= 0));
+    RB_GC_GUARD(max);
+    RB_GC_GUARD(min);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -232,6 +260,7 @@ cmp_clamp(int argc, VALUE *argv, VALUE x)
         }
         if (!NIL_P(max)) {
             if (excl) rb_raise(rb_eArgError, "cannot clamp with an exclusive range");
+    RB_GC_GUARD(range);
         }
     }
     if (!NIL_P(min) && !NIL_P(max) && cmpint(min, max) > 0) {
@@ -248,6 +277,9 @@ cmp_clamp(int argc, VALUE *argv, VALUE x)
         if (c > 0) return max;
     }
     return x;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(max);
+    RB_GC_GUARD(min);
 }
 
 /*

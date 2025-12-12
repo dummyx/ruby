@@ -5,6 +5,7 @@ bug_str_modify(VALUE str)
 {
     rb_str_modify(str);
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -12,6 +13,8 @@ bug_str_modify_expand(VALUE str, VALUE expand)
 {
     rb_str_modify_expand(str, NUM2LONG(expand));
     return str;
+    RB_GC_GUARD(expand);
+    RB_GC_GUARD(str);
 }
 
 void

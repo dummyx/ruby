@@ -26,6 +26,10 @@ static int writer(void *ctx, unsigned char *buffer, size_t size)
     VALUE str = rb_enc_str_new((const char *)buffer, (long)size, rb_utf8_encoding());
     VALUE wrote = rb_funcall(io, id_write, 1, str);
     return (int)NUM2INT(wrote);
+    RB_GC_GUARD(wrote);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(self);
 }
 
 static void dealloc(void * ptr)
@@ -65,6 +69,8 @@ static VALUE allocate(VALUE klass)
     yaml_emitter_set_indent(emitter, 2);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /* call-seq: Psych::Emitter.new(io, options = Psych::Emitter::OPTIONS)
@@ -95,6 +101,12 @@ static VALUE initialize(int argc, VALUE *argv, VALUE self)
     yaml_emitter_set_output(emitter, writer, (void *)self);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(canonical);
+    RB_GC_GUARD(indent);
+    RB_GC_GUARD(line_width);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(io);
 }
 
 /* call-seq: emitter.start_stream(encoding)
@@ -115,6 +127,8 @@ static VALUE start_stream(VALUE self, VALUE encoding)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.end_stream
@@ -134,6 +148,7 @@ static VALUE end_stream(VALUE self)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 struct start_document_data {
@@ -167,6 +182,8 @@ static VALUE start_document_try(VALUE d)
 
         version_directive.major = NUM2INT(major);
         version_directive.minor = NUM2INT(minor);
+    RB_GC_GUARD(minor);
+    RB_GC_GUARD(major);
     }
 
     if(RTEST(tags)) {
@@ -202,6 +219,9 @@ static VALUE start_document_try(VALUE d)
             tail->prefix = (yaml_char_t *)StringValueCStr(value);
 
             tail++;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(tuple);
         }
     }
 
@@ -216,6 +236,11 @@ static VALUE start_document_try(VALUE d)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(imp);
+    RB_GC_GUARD(tags);
+    RB_GC_GUARD(version);
+    RB_GC_GUARD(self);
 }
 
 static VALUE start_document_ensure(VALUE d)
@@ -225,6 +250,7 @@ static VALUE start_document_ensure(VALUE d)
     xfree(data->head);
 
     return Qnil;
+    RB_GC_GUARD(d);
 }
 
 /* call-seq: emitter.start_document(version, tags, implicit)
@@ -246,6 +272,10 @@ static VALUE start_document(VALUE self, VALUE version, VALUE tags, VALUE imp)
     };
 
     return rb_ensure(start_document_try, (VALUE)&data, start_document_ensure, (VALUE)&data);
+    RB_GC_GUARD(imp);
+    RB_GC_GUARD(tags);
+    RB_GC_GUARD(version);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.end_document(implicit)
@@ -265,6 +295,8 @@ static VALUE end_document(VALUE self, VALUE imp)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(imp);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.scalar(value, anchor, tag, plain, quoted, style)
@@ -319,6 +351,13 @@ static VALUE scalar(
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(style);
+    RB_GC_GUARD(quoted);
+    RB_GC_GUARD(plain);
+    RB_GC_GUARD(tag);
+    RB_GC_GUARD(anchor);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.start_sequence(anchor, tag, implicit, style)
@@ -363,6 +402,11 @@ static VALUE start_sequence(
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(style);
+    RB_GC_GUARD(implicit);
+    RB_GC_GUARD(tag);
+    RB_GC_GUARD(anchor);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.end_sequence
@@ -382,6 +426,7 @@ static VALUE end_sequence(VALUE self)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.start_mapping(anchor, tag, implicit, style)
@@ -427,6 +472,11 @@ static VALUE start_mapping(
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(style);
+    RB_GC_GUARD(implicit);
+    RB_GC_GUARD(tag);
+    RB_GC_GUARD(anchor);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.end_mapping
@@ -446,6 +496,7 @@ static VALUE end_mapping(VALUE self)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.alias(anchor)
@@ -473,6 +524,8 @@ static VALUE alias(VALUE self, VALUE anchor)
     emit(emitter, &event);
 
     return self;
+    RB_GC_GUARD(anchor);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.canonical = true
@@ -487,6 +540,8 @@ static VALUE set_canonical(VALUE self, VALUE style)
     yaml_emitter_set_canonical(emitter, Qtrue == style ? 1 : 0);
 
     return style;
+    RB_GC_GUARD(style);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.canonical
@@ -499,6 +554,7 @@ static VALUE canonical(VALUE self)
     TypedData_Get_Struct(self, yaml_emitter_t, &psych_emitter_type, emitter);
 
     return (emitter->canonical == 0) ? Qfalse : Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.indentation = level
@@ -514,6 +570,8 @@ static VALUE set_indentation(VALUE self, VALUE level)
     yaml_emitter_set_indent(emitter, NUM2INT(level));
 
     return level;
+    RB_GC_GUARD(level);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.indentation
@@ -526,6 +584,7 @@ static VALUE indentation(VALUE self)
     TypedData_Get_Struct(self, yaml_emitter_t, &psych_emitter_type, emitter);
 
     return INT2NUM(emitter->best_indent);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.line_width
@@ -538,6 +597,7 @@ static VALUE line_width(VALUE self)
     TypedData_Get_Struct(self, yaml_emitter_t, &psych_emitter_type, emitter);
 
     return INT2NUM(emitter->best_width);
+    RB_GC_GUARD(self);
 }
 
 /* call-seq: emitter.line_width = width
@@ -552,6 +612,8 @@ static VALUE set_line_width(VALUE self, VALUE width)
     yaml_emitter_set_width(emitter, NUM2INT(width));
 
     return width;
+    RB_GC_GUARD(width);
+    RB_GC_GUARD(self);
 }
 
 void Init_psych_emitter(void)
@@ -586,5 +648,7 @@ void Init_psych_emitter(void)
     id_line_width  = rb_intern("line_width");
     id_indentation = rb_intern("indentation");
     id_canonical   = rb_intern("canonical");
+    RB_GC_GUARD(psych);
+    RB_GC_GUARD(handler);
 }
 /* vim: set noet sws=4 sw=4: */

@@ -12,12 +12,18 @@ bug_proc_call_super(RB_BLOCK_CALL_FUNC_ARGLIST(yieldarg, procarg))
         ret = rb_proc_call(blockarg, ret);
     }
     return ret;
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(procarg);
+    RB_GC_GUARD(yieldarg);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
 bug_proc_make_call_super(VALUE self, VALUE procarg)
 {
     return rb_proc_new(bug_proc_call_super, procarg);
+    RB_GC_GUARD(procarg);
+    RB_GC_GUARD(self);
 }
 
 void

@@ -8,4 +8,6 @@ Init_hash(void)
     VALUE mBug = rb_define_module("Bug");
     VALUE klass = rb_define_class_under(mBug, "Hash", rb_cHash);
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(klass);
 }

@@ -17,6 +17,9 @@ arith_seq_s_extract(VALUE mod, VALUE obj)
   rb_ary_store(ret, 4, INT2FIX(r));
 
   return ret;
+  RB_GC_GUARD(obj);
+  RB_GC_GUARD(mod);
+  RB_GC_GUARD(ret);
 }
 
 void
@@ -24,4 +27,5 @@ Init_extract(void)
 {
     VALUE cArithSeq = rb_path2class("Enumerator::ArithmeticSequence");
     rb_define_singleton_method(cArithSeq, "__extract__", arith_seq_s_extract, 1);
+    RB_GC_GUARD(cArithSeq);
 }

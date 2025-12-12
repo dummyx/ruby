@@ -95,6 +95,7 @@ ossl_pkcs7_new(PKCS7 *p7)
     SetPKCS7(obj, new);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -162,6 +163,7 @@ ossl_pkcs7si_new(PKCS7_SIGNER_INFO *p7si)
     SetPKCS7si(obj, pkcs7);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -176,6 +178,7 @@ ossl_pkcs7ri_new(PKCS7_RECIP_INFO *p7ri)
     SetPKCS7ri(obj, pkcs7);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -207,6 +210,10 @@ ossl_pkcs7_s_read_smime(VALUE klass, VALUE arg)
     ossl_pkcs7_set_err_string(ret, Qnil);
 
     return ret;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -242,6 +249,11 @@ ossl_pkcs7_s_write_smime(int argc, VALUE *argv, VALUE klass)
     str = ossl_membio2str(out);
 
     return str;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(pkcs7);
 }
 
 /*
@@ -286,6 +298,13 @@ ossl_pkcs7_s_sign(int argc, VALUE *argv, VALUE klass)
     sk_X509_pop_free(x509s, X509_free);
 
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(certs);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(cert);
 }
 
 /*
@@ -336,6 +355,12 @@ ossl_pkcs7_s_encrypt(int argc, VALUE *argv, VALUE klass)
     sk_X509_pop_free(x509s, X509_free);
 
     return ret;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(cipher);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(certs);
 }
 
 static VALUE
@@ -351,6 +376,8 @@ ossl_pkcs7_alloc(VALUE klass)
     SetPKCS7(obj, pkcs7);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -390,6 +417,8 @@ ossl_pkcs7_initialize(int argc, VALUE *argv, VALUE self)
     ossl_pkcs7_set_err_string(self, Qnil);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -411,6 +440,8 @@ ossl_pkcs7_copy(VALUE self, VALUE other)
     PKCS7_free(a);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -447,6 +478,7 @@ ossl_pkcs7_sym2typeid(VALUE sym)
     }
 
     return ret;
+    RB_GC_GUARD(sym);
 }
 
 /*
@@ -463,6 +495,8 @@ ossl_pkcs7_set_type(VALUE self, VALUE type)
 	ossl_raise(ePKCS7Error, NULL);
 
     return type;
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -486,6 +520,7 @@ ossl_pkcs7_get_type(VALUE self)
     if(PKCS7_type_is_data(p7))
 	return ID2SYM(rb_intern("data"));
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -500,6 +535,8 @@ ossl_pkcs7_set_detached(VALUE self, VALUE flag)
 	ossl_raise(ePKCS7Error, NULL);
 
     return flag;
+    RB_GC_GUARD(flag);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -508,6 +545,7 @@ ossl_pkcs7_get_detached(VALUE self)
     PKCS7 *p7;
     GetPKCS7(self, p7);
     return PKCS7_get_detached(p7) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -516,6 +554,7 @@ ossl_pkcs7_detached_p(VALUE self)
     PKCS7 *p7;
     GetPKCS7(self, p7);
     return PKCS7_is_detached(p7) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -529,6 +568,8 @@ ossl_pkcs7_set_cipher(VALUE self, VALUE cipher)
     }
 
     return cipher;
+    RB_GC_GUARD(cipher);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -550,6 +591,8 @@ ossl_pkcs7_add_signer(VALUE self, VALUE signer)
     }
 
     return self;
+    RB_GC_GUARD(signer);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -576,6 +619,8 @@ ossl_pkcs7_get_signer(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -597,6 +642,8 @@ ossl_pkcs7_add_recipient(VALUE self, VALUE recip)
     }
 
     return self;
+    RB_GC_GUARD(recip);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -625,6 +672,8 @@ ossl_pkcs7_get_recipient(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -640,6 +689,8 @@ ossl_pkcs7_add_certificate(VALUE self, VALUE cert)
     }
 
     return self;
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(self);
 }
 
 static STACK_OF(X509) *
@@ -663,6 +714,7 @@ pkcs7_get_certs(VALUE self)
     }
 
     return certs;
+    RB_GC_GUARD(self);
 }
 
 static STACK_OF(X509_CRL) *
@@ -686,12 +738,16 @@ pkcs7_get_crls(VALUE self)
     }
 
     return crls;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 ossl_pkcs7_set_certs_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, arg))
 {
     return ossl_pkcs7_add_certificate(arg, i);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -705,12 +761,15 @@ ossl_pkcs7_set_certificates(VALUE self, VALUE ary)
     rb_block_call(ary, rb_intern("each"), 0, 0, ossl_pkcs7_set_certs_i, self);
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 ossl_pkcs7_get_certificates(VALUE self)
 {
     return ossl_x509_sk2ary(pkcs7_get_certs(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -726,12 +785,17 @@ ossl_pkcs7_add_crl(VALUE self, VALUE crl)
     }
 
     return self;
+    RB_GC_GUARD(crl);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 ossl_pkcs7_set_crls_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, arg))
 {
     return ossl_pkcs7_add_crl(arg, i);
+    RB_GC_GUARD(blockarg);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(i);
 }
 
 static VALUE
@@ -745,12 +809,15 @@ ossl_pkcs7_set_crls(VALUE self, VALUE ary)
     rb_block_call(ary, rb_intern("each"), 0, 0, ossl_pkcs7_set_crls_i, self);
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
 ossl_pkcs7_get_crls(VALUE self)
 {
     return ossl_x509crl_sk2ary(pkcs7_get_crls(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -795,6 +862,12 @@ ossl_pkcs7_verify(int argc, VALUE *argv, VALUE self)
     ossl_pkcs7_set_data(self, data);
 
     return (ok == 1) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(indata);
+    RB_GC_GUARD(store);
+    RB_GC_GUARD(certs);
 }
 
 static VALUE
@@ -822,6 +895,11 @@ ossl_pkcs7_decrypt(int argc, VALUE *argv, VALUE self)
     str = ossl_membio2str(out); /* out will be free */
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(pkey);
 }
 
 static VALUE
@@ -856,6 +934,8 @@ ossl_pkcs7_add_data(VALUE self, VALUE data)
     }
 
     return data;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -876,6 +956,8 @@ ossl_pkcs7_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -895,6 +977,8 @@ ossl_pkcs7_to_text(VALUE self)
     str = ossl_membio2str(out);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -915,6 +999,8 @@ ossl_pkcs7_to_pem(VALUE self)
     str = ossl_membio2str(out);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -933,6 +1019,8 @@ ossl_pkcs7si_alloc(VALUE klass)
     SetPKCS7si(obj, p7si);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -952,6 +1040,10 @@ ossl_pkcs7si_initialize(VALUE self, VALUE cert, VALUE key, VALUE digest)
     }
 
     return self;
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -962,6 +1054,7 @@ ossl_pkcs7si_get_issuer(VALUE self)
     GetPKCS7si(self, p7si);
 
     return ossl_x509name_new(p7si->issuer_and_serial->issuer);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -972,6 +1065,7 @@ ossl_pkcs7si_get_serial(VALUE self)
     GetPKCS7si(self, p7si);
 
     return asn1integer_to_num(p7si->issuer_and_serial->serial);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -995,6 +1089,7 @@ ossl_pkcs7si_get_signed_time(VALUE self)
      */
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1013,6 +1108,8 @@ ossl_pkcs7ri_alloc(VALUE klass)
     SetPKCS7ri(obj, p7ri);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1028,6 +1125,8 @@ ossl_pkcs7ri_initialize(VALUE self, VALUE cert)
     }
 
     return self;
+    RB_GC_GUARD(cert);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1038,6 +1137,7 @@ ossl_pkcs7ri_get_issuer(VALUE self)
     GetPKCS7ri(self, p7ri);
 
     return ossl_x509name_new(p7ri->issuer_and_serial->issuer);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1048,6 +1148,7 @@ ossl_pkcs7ri_get_serial(VALUE self)
     GetPKCS7ri(self, p7ri);
 
     return asn1integer_to_num(p7ri->issuer_and_serial->serial);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1058,6 +1159,7 @@ ossl_pkcs7ri_get_enc_key(VALUE self)
     GetPKCS7ri(self, p7ri);
 
     return asn1str_to_str(p7ri->enc_key);
+    RB_GC_GUARD(self);
 }
 
 /*

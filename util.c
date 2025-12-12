@@ -589,6 +589,7 @@ ruby_getcwd(void)
     free(cwd);
     RTYPEDDATA_DATA(RB_GC_GUARD(guard)) = NULL;
     return buf;
+    RB_GC_GUARD(guard);
 }
 
 # endif

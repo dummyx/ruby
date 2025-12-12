@@ -79,6 +79,9 @@ static void raise_generator_error_str(VALUE invalid_object, VALUE str)
     VALUE exc = rb_exc_new_str(eGeneratorError, str);
     rb_ivar_set(exc, rb_intern("@invalid_object"), invalid_object);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(invalid_object);
 }
 
 #ifdef RBIMPL_ATTR_NORETURN
@@ -94,6 +97,8 @@ static void raise_generator_error(VALUE invalid_object, const char *fmt, ...)
     VALUE str = rb_vsprintf(fmt, args);
     va_end(args);
     raise_generator_error_str(invalid_object, str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(invalid_object);
 }
 
 /* Converts in_string to a JSON string (without the wrapping '"'
@@ -479,6 +484,8 @@ static VALUE mHash_to_json(int argc, VALUE *argv, VALUE self)
     rb_check_arity(argc, 0, 1);
     VALUE Vstate = cState_from_state_s(cState, argc == 1 ? argv[0] : Qnil);
     return cState_partial_generate(Vstate, self, generate_json_object, Qfalse);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(Vstate);
 }
 
 /*
@@ -493,6 +500,8 @@ static VALUE mArray_to_json(int argc, VALUE *argv, VALUE self) {
     rb_check_arity(argc, 0, 1);
     VALUE Vstate = cState_from_state_s(cState, argc == 1 ? argv[0] : Qnil);
     return cState_partial_generate(Vstate, self, generate_json_array, Qfalse);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(Vstate);
 }
 
 #ifdef RUBY_INTEGER_UNIFICATION
@@ -506,6 +515,8 @@ static VALUE mInteger_to_json(int argc, VALUE *argv, VALUE self)
     rb_check_arity(argc, 0, 1);
     VALUE Vstate = cState_from_state_s(cState, argc == 1 ? argv[0] : Qnil);
     return cState_partial_generate(Vstate, self, generate_json_integer, Qfalse);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(Vstate);
 }
 
 #else
@@ -544,6 +555,8 @@ static VALUE mFloat_to_json(int argc, VALUE *argv, VALUE self)
     rb_check_arity(argc, 0, 1);
     VALUE Vstate = cState_from_state_s(cState, argc == 1 ? argv[0] : Qnil);
     return cState_partial_generate(Vstate, self, generate_json_float, Qfalse);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(Vstate);
 }
 
 /*
@@ -555,6 +568,9 @@ static VALUE mString_included_s(VALUE self, VALUE modul) {
     VALUE result = rb_funcall(modul, i_extend, 1, mString_Extend);
     rb_call_super(1, &modul);
     return result;
+    RB_GC_GUARD(modul);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -569,6 +585,8 @@ static VALUE mString_to_json(int argc, VALUE *argv, VALUE self)
     rb_check_arity(argc, 0, 1);
     VALUE Vstate = cState_from_state_s(cState, argc == 1 ? argv[0] : Qnil);
     return cState_partial_generate(Vstate, self, generate_json_string, Qfalse);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(Vstate);
 }
 
 /*
@@ -587,6 +605,9 @@ static VALUE mString_to_json_raw_object(VALUE self)
     ary = rb_funcall(self, i_unpack, 1, rb_str_new2("C*"));
     rb_hash_aset(result, rb_utf8_str_new_lit("raw"), ary);
     return result;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -600,6 +621,8 @@ static VALUE mString_to_json_raw(int argc, VALUE *argv, VALUE self)
     VALUE obj = mString_to_json_raw_object(self);
     Check_Type(obj, T_HASH);
     return mHash_to_json(argc, argv, obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -614,6 +637,9 @@ static VALUE mString_Extend_json_create(VALUE self, VALUE o)
     Check_Type(o, T_HASH);
     ary = rb_hash_aref(o, rb_str_new2("raw"));
     return rb_funcall(ary, i_pack, 1, rb_str_new2("C*"));
+    RB_GC_GUARD(o);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -625,6 +651,7 @@ static VALUE mTrueClass_to_json(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 1);
     return rb_utf8_str_new("true", 4);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -636,6 +663,7 @@ static VALUE mFalseClass_to_json(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 1);
     return rb_utf8_str_new("false", 5);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -647,6 +675,7 @@ static VALUE mNilClass_to_json(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 1);
     return rb_utf8_str_new("null", 4);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -664,6 +693,9 @@ static VALUE mObject_to_json(int argc, VALUE *argv, VALUE self)
     Check_Type(string, T_STRING);
     state = cState_from_state_s(cState, state);
     return cState_partial_generate(state, string, generate_json_string, Qfalse);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(state);
 }
 
 static void State_mark(void *ptr)
@@ -726,6 +758,8 @@ static VALUE cState_s_allocate(VALUE klass)
     VALUE obj = TypedData_Make_Struct(klass, JSON_Generator_State, &JSON_Generator_State_type, state);
     state_init(state);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static void vstate_spill(struct generate_json_data *data)
@@ -740,6 +774,7 @@ static void vstate_spill(struct generate_json_data *data)
     RB_OBJ_WRITTEN(vstate, Qundef, state->space_before);
     RB_OBJ_WRITTEN(vstate, Qundef, state->object_nl);
     RB_OBJ_WRITTEN(vstate, Qundef, state->array_nl);
+    RB_GC_GUARD(vstate);
 }
 
 static inline VALUE vstate_get(struct generate_json_data *data)
@@ -806,6 +841,10 @@ json_object_i(VALUE key, VALUE val, VALUE _arg)
 
     arg->iter++;
     return ST_CONTINUE;
+    RB_GC_GUARD(_arg);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(key_to_s);
 }
 
 static void generate_json_object(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
@@ -842,6 +881,7 @@ static void generate_json_object(FBuffer *buffer, struct generate_json_data *dat
         }
     }
     fbuffer_append_char(buffer, '}');
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json_array(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
@@ -883,6 +923,7 @@ static void generate_json_array(FBuffer *buffer, struct generate_json_data *data
         }
     }
     fbuffer_append_char(buffer, ']');
+    RB_GC_GUARD(obj);
 }
 
 static inline int enc_utf8_compatible_p(int enc_idx)
@@ -895,12 +936,15 @@ static inline int enc_utf8_compatible_p(int enc_idx)
 static VALUE encode_json_string_try(VALUE str)
 {
     return rb_funcall(str, i_encode, 1, Encoding_UTF_8);
+    RB_GC_GUARD(str);
 }
 
 static VALUE encode_json_string_rescue(VALUE str, VALUE exception)
 {
     raise_generator_error_str(str, rb_funcall(exception, rb_intern("message"), 0));
     return Qundef;
+    RB_GC_GUARD(exception);
+    RB_GC_GUARD(str);
 }
 
 static inline VALUE ensure_valid_encoding(VALUE str)
@@ -925,6 +969,8 @@ static inline VALUE ensure_valid_encoding(VALUE str)
         str = rb_rescue(encode_json_string_try, str, encode_json_string_rescue, str);
     }
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(utf8_string);
 }
 
 static void generate_json_string(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
@@ -949,32 +995,39 @@ static void generate_json_string(FBuffer *buffer, struct generate_json_data *dat
             break;
     }
     fbuffer_append_char(buffer, '"');
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json_null(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
 {
     fbuffer_append(buffer, "null", 4);
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json_false(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
 {
     fbuffer_append(buffer, "false", 5);
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json_true(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
 {
     fbuffer_append(buffer, "true", 4);
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json_fixnum(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
 {
     fbuffer_append_long(buffer, FIX2LONG(obj));
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json_bignum(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
 {
     VALUE tmp = rb_funcall(obj, i_to_s, 0);
     fbuffer_append_str(buffer, tmp);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(obj);
 }
 
 #ifdef RUBY_INTEGER_UNIFICATION
@@ -984,6 +1037,7 @@ static void generate_json_integer(FBuffer *buffer, struct generate_json_data *da
         generate_json_fixnum(buffer, data, state, obj);
     else
         generate_json_bignum(buffer, data, state, obj);
+        RB_GC_GUARD(obj);
 }
 #endif
 
@@ -998,6 +1052,8 @@ static void generate_json_float(FBuffer *buffer, struct generate_json_data *data
         }
     }
     fbuffer_append_str(buffer, tmp);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(obj);
 }
 
 static void generate_json(FBuffer *buffer, struct generate_json_data *data, JSON_Generator_State *state, VALUE obj)
@@ -1020,6 +1076,7 @@ static void generate_json(FBuffer *buffer, struct generate_json_data *data, JSON
     } else {
         VALUE klass = RBASIC_CLASS(obj);
         switch (RB_BUILTIN_TYPE(obj)) {
+            RB_GC_GUARD(klass);
             case T_BIGNUM:
                 generate_json_bignum(buffer, data, state, obj);
                 break;
@@ -1054,6 +1111,8 @@ static void generate_json(FBuffer *buffer, struct generate_json_data *data, JSON
                 }
         }
     }
+                    RB_GC_GUARD(tmp);
+                    RB_GC_GUARD(obj);
 }
 
 static VALUE generate_json_try(VALUE d)
@@ -1063,6 +1122,7 @@ static VALUE generate_json_try(VALUE d)
     data->func(data->buffer, data, data->state, data->obj);
 
     return Qnil;
+    RB_GC_GUARD(d);
 }
 
 static VALUE generate_json_rescue(VALUE d, VALUE exc)
@@ -1073,6 +1133,8 @@ static VALUE generate_json_rescue(VALUE d, VALUE exc)
     rb_exc_raise(exc);
 
     return Qundef;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(d);
 }
 
 static VALUE cState_partial_generate(VALUE self, VALUE obj, generator_func func, VALUE io)
@@ -1095,6 +1157,9 @@ static VALUE cState_partial_generate(VALUE self, VALUE obj, generator_func func,
     rb_rescue(generate_json_try, (VALUE)&data, generate_json_rescue, (VALUE)&data);
 
     return fbuffer_finalize(&buffer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE cState_generate(VALUE self, VALUE obj, VALUE io)
@@ -1103,12 +1168,17 @@ static VALUE cState_generate(VALUE self, VALUE obj, VALUE io)
     GET_STATE(self);
     (void)state;
     return result;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 static VALUE cState_initialize(int argc, VALUE *argv, VALUE self)
 {
     rb_warn("The json gem extension was loaded with the stdlib ruby code. You should upgrade rubygems with `gem update --system`");
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1133,6 +1203,8 @@ static VALUE cState_init_copy(VALUE obj, VALUE orig)
     objState->object_nl = origState->object_nl;
     objState->array_nl = origState->array_nl;
     return obj;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1150,6 +1222,8 @@ static VALUE cState_from_state_s(VALUE self, VALUE opts)
         return rb_funcall(self, i_new, 1, opts);
     } else {
         return rb_class_new_instance(0, NULL, cState);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(opts);
     }
 }
 
@@ -1162,6 +1236,7 @@ static VALUE cState_indent(VALUE self)
 {
     GET_STATE(self);
     return state->indent ? state->indent : rb_str_freeze(rb_utf8_str_new("", 0));
+    RB_GC_GUARD(self);
 }
 
 static VALUE string_config(VALUE config)
@@ -1173,6 +1248,7 @@ static VALUE string_config(VALUE config)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(config);
 }
 
 /*
@@ -1185,6 +1261,8 @@ static VALUE cState_indent_set(VALUE self, VALUE indent)
     GET_STATE(self);
     RB_OBJ_WRITE(self, &state->indent, string_config(indent));
     return Qnil;
+    RB_GC_GUARD(indent);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1197,6 +1275,7 @@ static VALUE cState_space(VALUE self)
 {
     GET_STATE(self);
     return state->space ? state->space : rb_str_freeze(rb_utf8_str_new("", 0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1210,6 +1289,8 @@ static VALUE cState_space_set(VALUE self, VALUE space)
     GET_STATE(self);
     RB_OBJ_WRITE(self, &state->space, string_config(space));
     return Qnil;
+    RB_GC_GUARD(space);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1221,6 +1302,7 @@ static VALUE cState_space_before(VALUE self)
 {
     GET_STATE(self);
     return state->space_before ? state->space_before : rb_str_freeze(rb_utf8_str_new("", 0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1233,6 +1315,8 @@ static VALUE cState_space_before_set(VALUE self, VALUE space_before)
     GET_STATE(self);
     RB_OBJ_WRITE(self, &state->space_before, string_config(space_before));
     return Qnil;
+    RB_GC_GUARD(space_before);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1245,6 +1329,7 @@ static VALUE cState_object_nl(VALUE self)
 {
     GET_STATE(self);
     return state->object_nl ? state->object_nl : rb_str_freeze(rb_utf8_str_new("", 0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1258,6 +1343,8 @@ static VALUE cState_object_nl_set(VALUE self, VALUE object_nl)
     GET_STATE(self);
     RB_OBJ_WRITE(self, &state->object_nl, string_config(object_nl));
     return Qnil;
+    RB_GC_GUARD(object_nl);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1269,6 +1356,7 @@ static VALUE cState_array_nl(VALUE self)
 {
     GET_STATE(self);
     return state->array_nl ? state->array_nl : rb_str_freeze(rb_utf8_str_new("", 0));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1281,6 +1369,8 @@ static VALUE cState_array_nl_set(VALUE self, VALUE array_nl)
     GET_STATE(self);
     RB_OBJ_WRITE(self, &state->array_nl, string_config(array_nl));
     return Qnil;
+    RB_GC_GUARD(array_nl);
+    RB_GC_GUARD(self);
 }
 
 
@@ -1294,6 +1384,7 @@ static VALUE cState_check_circular_p(VALUE self)
 {
     GET_STATE(self);
     return state->max_nesting ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1306,11 +1397,13 @@ static VALUE cState_max_nesting(VALUE self)
 {
     GET_STATE(self);
     return LONG2FIX(state->max_nesting);
+    RB_GC_GUARD(self);
 }
 
 static long long_config(VALUE num)
 {
     return RTEST(num) ? FIX2LONG(num) : 0;
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -1324,6 +1417,8 @@ static VALUE cState_max_nesting_set(VALUE self, VALUE depth)
     GET_STATE(self);
     state->max_nesting = long_config(depth);
     return Qnil;
+    RB_GC_GUARD(depth);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1336,6 +1431,7 @@ static VALUE cState_script_safe(VALUE self)
 {
     GET_STATE(self);
     return state->script_safe ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1349,6 +1445,8 @@ static VALUE cState_script_safe_set(VALUE self, VALUE enable)
     GET_STATE(self);
     state->script_safe = RTEST(enable);
     return Qnil;
+    RB_GC_GUARD(enable);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1363,6 +1461,7 @@ static VALUE cState_strict(VALUE self)
 {
     GET_STATE(self);
     return state->strict ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1380,6 +1479,8 @@ static VALUE cState_strict_set(VALUE self, VALUE enable)
     GET_STATE(self);
     state->strict = RTEST(enable);
     return Qnil;
+    RB_GC_GUARD(enable);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1392,6 +1493,7 @@ static VALUE cState_allow_nan_p(VALUE self)
 {
     GET_STATE(self);
     return state->allow_nan ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1404,6 +1506,8 @@ static VALUE cState_allow_nan_set(VALUE self, VALUE enable)
     GET_STATE(self);
     state->allow_nan = RTEST(enable);
     return Qnil;
+    RB_GC_GUARD(enable);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1416,6 +1520,7 @@ static VALUE cState_ascii_only_p(VALUE self)
 {
     GET_STATE(self);
     return state->ascii_only ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1428,6 +1533,8 @@ static VALUE cState_ascii_only_set(VALUE self, VALUE enable)
     GET_STATE(self);
     state->ascii_only = RTEST(enable);
     return Qnil;
+    RB_GC_GUARD(enable);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1439,6 +1546,7 @@ static VALUE cState_depth(VALUE self)
 {
     GET_STATE(self);
     return LONG2FIX(state->depth);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1452,6 +1560,8 @@ static VALUE cState_depth_set(VALUE self, VALUE depth)
     GET_STATE(self);
     state->depth = long_config(depth);
     return Qnil;
+    RB_GC_GUARD(depth);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1463,6 +1573,7 @@ static VALUE cState_buffer_initial_length(VALUE self)
 {
     GET_STATE(self);
     return LONG2FIX(state->buffer_initial_length);
+    RB_GC_GUARD(self);
 }
 
 static void buffer_initial_length_set(JSON_Generator_State *state, VALUE buffer_initial_length)
@@ -1472,6 +1583,7 @@ static void buffer_initial_length_set(JSON_Generator_State *state, VALUE buffer_
     if (initial_length > 0) {
         state->buffer_initial_length = initial_length;
     }
+        RB_GC_GUARD(buffer_initial_length);
 }
 
 /*
@@ -1485,6 +1597,8 @@ static VALUE cState_buffer_initial_length_set(VALUE self, VALUE buffer_initial_l
     GET_STATE(self);
     buffer_initial_length_set(state, buffer_initial_length);
     return Qnil;
+    RB_GC_GUARD(buffer_initial_length);
+    RB_GC_GUARD(self);
 }
 
 static int configure_state_i(VALUE key, VALUE val, VALUE _arg)
@@ -1505,6 +1619,9 @@ static int configure_state_i(VALUE key, VALUE val, VALUE _arg)
     else if (key == sym_escape_slash)          { state->script_safe = RTEST(val); }
     else if (key == sym_strict)                { state->strict = RTEST(val); }
     return ST_CONTINUE;
+    RB_GC_GUARD(_arg);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
 }
 
 static void configure_state(JSON_Generator_State *state, VALUE config)
@@ -1518,6 +1635,7 @@ static void configure_state(JSON_Generator_State *state, VALUE config)
     // We assume in most cases few keys are set so it's faster to go over
     // the provided keys than to check all possible keys.
     rb_hash_foreach(config, configure_state_i, (VALUE)state);
+    RB_GC_GUARD(config);
 }
 
 static VALUE cState_configure(VALUE self, VALUE opts)
@@ -1525,6 +1643,8 @@ static VALUE cState_configure(VALUE self, VALUE opts)
     GET_STATE(self);
     configure_state(state, opts);
     return self;
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(self);
 }
 
 static VALUE cState_m_generate(VALUE klass, VALUE obj, VALUE opts, VALUE io)
@@ -1549,6 +1669,10 @@ static VALUE cState_m_generate(VALUE klass, VALUE obj, VALUE opts, VALUE io)
     rb_rescue(generate_json_try, (VALUE)&data, generate_json_rescue, (VALUE)&data);
 
     return fbuffer_finalize(&buffer);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1688,4 +1812,16 @@ void Init_generator(void)
     binary_encindex = rb_ascii8bit_encindex();
 
     rb_require("json/ext/generator/state");
+    RB_GC_GUARD(mExt);
+    RB_GC_GUARD(mNilClass);
+    RB_GC_GUARD(mFalseClass);
+    RB_GC_GUARD(mTrueClass);
+    RB_GC_GUARD(mString);
+    RB_GC_GUARD(mFloat);
+    RB_GC_GUARD(mInteger);
+    RB_GC_GUARD(mArray);
+    RB_GC_GUARD(mHash);
+    RB_GC_GUARD(mObject);
+    RB_GC_GUARD(mGeneratorMethods);
+    RB_GC_GUARD(mGenerator);
 }

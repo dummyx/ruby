@@ -133,6 +133,7 @@ err_vcatf(VALUE str, const char *pre, const char *file, int line,
     if (pre) rb_str_cat2(str, pre);
     rb_str_vcatf(str, fmt, args);
     return str;
+    RB_GC_GUARD(str);
 }
 
 static VALUE syntax_error_with_path(VALUE, VALUE, VALUE*, rb_encoding*);
@@ -147,14 +148,18 @@ rb_syntax_error_append(VALUE exc, VALUE file, int line, int column,
         err_vcatf(mesg, NULL, fn, line, fmt, args);
         rb_str_cat2(mesg, "\n");
         rb_write_error_str(mesg);
+    RB_GC_GUARD(mesg);
     }
     else {
         VALUE mesg;
         exc = syntax_error_with_path(exc, file, &mesg, enc);
         err_vcatf(mesg, NULL, fn, line, fmt, args);
+    RB_GC_GUARD(mesg);
     }
 
     return exc;
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(exc);
 }
 
 static unsigned int warning_disabled_categories = (
@@ -165,6 +170,7 @@ static unsigned int
 rb_warning_category_mask(VALUE category)
 {
     return 1U << rb_warning_category_from_name(category);
+    RB_GC_GUARD(category);
 }
 
 rb_warning_category_t
@@ -178,6 +184,7 @@ rb_warning_category_from_name(VALUE category)
         rb_raise(rb_eArgError, "unknown category: %"PRIsVALUE, category);
     }
     return (rb_warning_category_t)cat_value;
+    RB_GC_GUARD(category);
 }
 
 static VALUE
@@ -229,6 +236,8 @@ rb_warning_s_aref(VALUE mod, VALUE category)
 {
     rb_warning_category_t cat = rb_warning_category_from_name(category);
     return RBOOL(rb_warning_category_enabled_p(cat));
+    RB_GC_GUARD(category);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -250,6 +259,9 @@ rb_warning_s_aset(VALUE mod, VALUE category, VALUE flag)
         disabled &= ~mask;
     warning_disabled_categories = disabled;
     return flag;
+    RB_GC_GUARD(flag);
+    RB_GC_GUARD(category);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -270,6 +282,8 @@ rb_warning_s_categories(VALUE mod)
         rb_ary_push(ary, ID2SYM(ids[i]));
     }
     return rb_ary_freeze(ary);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -301,6 +315,10 @@ rb_warning_s_warn(int argc, VALUE *argv, VALUE mod)
     }
     rb_write_error_str(str);
     return Qnil;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(category);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -341,6 +359,8 @@ static VALUE
 rb_warning_warn(VALUE mod, VALUE str)
 {
     return rb_funcallv(mod, id_warn, 1, &str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(mod);
 }
 
 
@@ -367,6 +387,8 @@ rb_warn_category(VALUE str, VALUE category)
         args[1] = rb_hash_new();
         rb_hash_aset(args[1], sym_category, category);
         return rb_funcallv_kw(rb_mWarning, id_warn, 2, args, RB_PASS_KEYWORDS);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(category);
     }
 }
 
@@ -374,6 +396,7 @@ static void
 rb_write_warning_str(VALUE str)
 {
     rb_warning_warn(rb_mWarning, str);
+    RB_GC_GUARD(str);
 }
 
 RBIMPL_ATTR_FORMAT(RBIMPL_PRINTF_FORMAT, 4, 0)
@@ -384,6 +407,7 @@ warn_vsprintf(rb_encoding *enc, const char *file, int line, const char *fmt, va_
 
     err_vcatf(str, "warning: ", file, line, fmt, args);
     return rb_str_cat2(str, "\n");
+    RB_GC_GUARD(str);
 }
 
 #define with_warn_vsprintf(enc, file, line, fmt) \
@@ -553,6 +577,7 @@ warn_deprecated(VALUE mesg, const char *removal, const char *suggest)
     if (suggest) rb_str_catf(mesg, "; use %s instead", suggest);
     rb_str_cat_cstr(mesg, "\n");
     rb_warn_category(mesg, ID2SYM(id_deprecated));
+    RB_GC_GUARD(mesg);
 }
 
 void
@@ -592,6 +617,7 @@ end_with_asciichar(VALUE str, int c)
 {
     return RB_TYPE_P(str, T_STRING) &&
         rb_str_end_with_asciichar(str, c);
+        RB_GC_GUARD(str);
 }
 
 /* :nodoc: */
@@ -602,6 +628,7 @@ warning_write(int argc, VALUE *argv, VALUE buf)
         rb_str_append(buf, *argv++);
     }
     return buf;
+    RB_GC_GUARD(buf);
 }
 
 VALUE rb_ec_backtrace_location_ary(const rb_execution_context_t *ec, long lev, long n, bool skip_internal);
@@ -642,6 +669,7 @@ rb_warn_m(rb_execution_context_t *ec, VALUE exc, VALUE msgs, VALUE uplevel, VALU
             RBASIC_SET_CLASS(str, rb_cWarningBuffer);
             rb_io_puts(argc, argv, str);
             RBASIC_SET_CLASS(str, rb_cString);
+        RB_GC_GUARD(path);
         }
 
         if (!NIL_P(category)) {
@@ -655,9 +683,15 @@ rb_warn_m(rb_execution_context_t *ec, VALUE exc, VALUE msgs, VALUE uplevel, VALU
         }
         else {
             rb_warn_category(str, category);
+    RB_GC_GUARD(str);
         }
     }
     return Qnil;
+    RB_GC_GUARD(category);
+    RB_GC_GUARD(uplevel);
+    RB_GC_GUARD(msgs);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(location);
 }
 
 #define MAX_BUG_REPORTERS 0x100
@@ -741,6 +775,7 @@ append_pathname(char *p, const char *pe, VALUE str)
     }
 
     return p;
+    RB_GC_GUARD(str);
 }
 
 static char *
@@ -774,6 +809,7 @@ append_basename(char *p, const char *pe, struct path_string *path, VALUE str)
     if (p + n > pe) n = pe - p;
     memcpy(p, path->ptr, n);
     return p + n;
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -1183,6 +1219,7 @@ void
 rb_report_bug_valist(VALUE file, int line, const char *fmt, va_list args)
 {
     report_bug_valist(RSTRING_PTR(file), line, fmt, NULL, args);
+    RB_GC_GUARD(file);
 }
 
 void
@@ -1269,6 +1306,7 @@ displaying_class_of(VALUE x)
       case Qnil:   return rb_fstring_cstr("nil");
       case Qtrue:  return rb_fstring_cstr("true");
       default:     return rb_obj_class(x);
+      RB_GC_GUARD(x);
     }
 }
 
@@ -1296,6 +1334,7 @@ builtin_class_name(VALUE x)
         etype = NULL;
     }
     return etype;
+    RB_GC_GUARD(x);
 }
 
 const char *
@@ -1307,6 +1346,7 @@ rb_builtin_class_name(VALUE x)
         etype = rb_obj_classname(x);
     }
     return etype;
+    RB_GC_GUARD(x);
 }
 
 COLDFUNC NORETURN(static void unexpected_type(VALUE, int, int));
@@ -1331,6 +1371,9 @@ unexpected_type(VALUE x, int xt, int t)
         mesg = rb_sprintf("unknown type 0x%x (0x%x given)", t, xt);
     }
     rb_exc_raise(rb_exc_new_str(exc, mesg));
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -1354,6 +1397,7 @@ rb_check_type(VALUE x, int t)
          */
         unexpected_type(x, xt, t);
     }
+        RB_GC_GUARD(x);
 }
 
 void
@@ -1364,6 +1408,7 @@ rb_unexpected_type(VALUE x, int t)
     }
 
     unexpected_type(x, TYPE(x), t);
+    RB_GC_GUARD(x);
 }
 
 int
@@ -1384,6 +1429,7 @@ rb_typeddata_is_kind_of(VALUE obj, const rb_data_type_t *data_type)
         return 0;
     }
     return 1;
+    RB_GC_GUARD(obj);
 }
 
 #undef rb_typeddata_is_instance_of
@@ -1391,6 +1437,7 @@ int
 rb_typeddata_is_instance_of(VALUE obj, const rb_data_type_t *data_type)
 {
     return rb_typeddata_is_instance_of_inline(obj, data_type);
+    RB_GC_GUARD(obj);
 }
 
 void *
@@ -1416,6 +1463,8 @@ rb_check_typeddata(VALUE obj, const rb_data_type_t *data_type)
     rb_raise(rb_eTypeError, "wrong argument type %"PRIsVALUE" (expected %s)",
              actual, expected);
     UNREACHABLE_RETURN(NULL);
+    RB_GC_GUARD(actual);
+    RB_GC_GUARD(obj);
 }
 
 /* exception classes */
@@ -1469,12 +1518,15 @@ rb_exc_new(VALUE etype, const char *ptr, long len)
 {
     VALUE mesg = rb_str_new(ptr, len);
     return rb_class_new_instance(1, &mesg, etype);
+    RB_GC_GUARD(etype);
+    RB_GC_GUARD(mesg);
 }
 
 VALUE
 rb_exc_new_cstr(VALUE etype, const char *s)
 {
     return rb_exc_new(etype, s, strlen(s));
+    RB_GC_GUARD(etype);
 }
 
 VALUE
@@ -1483,6 +1535,8 @@ rb_exc_new_str(VALUE etype, VALUE str)
     rb_yjit_lazy_push_frame(GET_EC()->cfp->pc);
     StringValue(str);
     return rb_class_new_instance(1, &str, etype);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(etype);
 }
 
 static VALUE
@@ -1492,6 +1546,8 @@ exc_init(VALUE exc, VALUE mesg)
     rb_ivar_set(exc, id_bt, Qnil);
 
     return exc;
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -1521,6 +1577,8 @@ exc_initialize(int argc, VALUE *argv, VALUE exc)
 
     arg = (!rb_check_arity(argc, 0, 1) ? Qnil : argv[0]);
     return exc_init(exc, arg);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -1559,6 +1617,8 @@ exc_exception(int argc, VALUE *argv, VALUE self)
     exc = rb_obj_clone(self);
     rb_ivar_set(exc, id_mesg, argv[0]);
     return exc;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -1581,6 +1641,8 @@ exc_to_s(VALUE exc)
 
     if (NIL_P(mesg)) return rb_class_name(CLASS_OF(exc));
     return rb_String(mesg);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
 }
 
 /* FIXME: Include eval_error.c */
@@ -1593,6 +1655,8 @@ rb_get_message(VALUE exc)
     if (UNDEF_P(e)) return Qnil;
     if (!RB_TYPE_P(e, T_STRING)) e = rb_check_string_type(e);
     return e;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(e);
 }
 
 VALUE
@@ -1608,6 +1672,9 @@ rb_get_detailed_message(VALUE exc, VALUE opt)
     if (UNDEF_P(e)) return Qnil;
     if (!RB_TYPE_P(e, T_STRING)) e = rb_check_string_type(e);
     return e;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(e);
 }
 
 /*
@@ -1620,6 +1687,7 @@ static VALUE
 exc_s_to_tty_p(VALUE self)
 {
     return RBOOL(rb_stderr_tty_p());
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1643,6 +1711,8 @@ check_highlight_keyword(VALUE opt, int auto_tty_detect)
     }
 
     return highlight;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(highlight);
 }
 
 static VALUE
@@ -1664,12 +1734,15 @@ check_order_keyword(VALUE opt)
                 rb_raise(rb_eArgError, "expected :top or :bottom as "
                         "order: %+"PRIsVALUE, order);
             }
+    RB_GC_GUARD(kw_order);
         }
     }
 
     if (NIL_P(order)) order = Qfalse;
 
     return order;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(order);
 }
 
 /*
@@ -1743,6 +1816,13 @@ exc_full_message(int argc, VALUE *argv, VALUE exc)
 
     rb_error_write(exc, emesg, errat, str, opt, highlight, order);
     return str;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(order);
+    RB_GC_GUARD(highlight);
+    RB_GC_GUARD(errat);
+    RB_GC_GUARD(emesg);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(opt);
 }
 
 /*
@@ -1758,6 +1838,7 @@ static VALUE
 exc_message(VALUE exc)
 {
     return rb_funcallv(exc, idTo_s, 0, 0);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -1817,6 +1898,9 @@ exc_detailed_message(int argc, VALUE *argv, VALUE exc)
     extern VALUE rb_decorate_message(const VALUE eclass, VALUE emesg, int highlight);
 
     return rb_decorate_message(CLASS_OF(exc), rb_get_message(exc), RTEST(highlight));
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(highlight);
+    RB_GC_GUARD(opt);
 }
 
 /*
@@ -1858,6 +1942,9 @@ exc_inspect(VALUE exc)
     rb_str_buf_cat(str, ">", 1);
 
     return str;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1906,6 +1993,8 @@ exc_backtrace(VALUE exc)
     }
 
     return obj;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE rb_check_backtrace(VALUE);
@@ -1923,12 +2012,15 @@ rb_get_backtrace(VALUE exc)
         EXEC_EVENT_HOOK(ec, RUBY_EVENT_C_CALL, exc, mid, mid, klass, Qundef);
         info = exc_backtrace(exc);
         EXEC_EVENT_HOOK(ec, RUBY_EVENT_C_RETURN, exc, mid, mid, klass, info);
+    RB_GC_GUARD(klass);
     }
     else {
         info = rb_funcallv(exc, mid, 0, 0);
     }
     if (NIL_P(info)) return Qnil;
     return rb_check_backtrace(info);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(info);
 }
 
 /*
@@ -1979,6 +2071,8 @@ exc_backtrace_locations(VALUE exc)
         obj = rb_backtrace_to_location_ary(obj);
     }
     return obj;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1997,10 +2091,12 @@ rb_check_backtrace(VALUE bt)
             VALUE e = RARRAY_AREF(bt, i);
             if (!RB_TYPE_P(e, T_STRING)) {
                 rb_raise(rb_eTypeError, err);
+    RB_GC_GUARD(e);
             }
         }
     }
     return bt;
+    RB_GC_GUARD(bt);
 }
 
 /*
@@ -2116,6 +2212,9 @@ exc_set_backtrace(VALUE exc, VALUE bt)
     }
     else {
         return rb_ivar_set(exc, id_bt, rb_check_backtrace(bt));
+        RB_GC_GUARD(btobj);
+        RB_GC_GUARD(bt);
+        RB_GC_GUARD(exc);
     }
 }
 
@@ -2123,6 +2222,8 @@ VALUE
 rb_exc_set_backtrace(VALUE exc, VALUE bt)
 {
     return exc_set_backtrace(exc, bt);
+    RB_GC_GUARD(bt);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -2161,12 +2262,14 @@ static VALUE
 exc_cause(VALUE exc)
 {
     return rb_attr_get(exc, id_cause);
+    RB_GC_GUARD(exc);
 }
 
 static VALUE
 try_convert_to_exception(VALUE obj)
 {
     return rb_check_funcall(obj, idException, 0, 0);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2207,6 +2310,10 @@ exc_equal(VALUE exc, VALUE obj)
     if (!rb_equal(rb_attr_get(exc, id_mesg), mesg))
         return Qfalse;
     return rb_equal(exc_backtrace(exc), backtrace);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(backtrace);
+    RB_GC_GUARD(mesg);
 }
 
 /*
@@ -2261,6 +2368,8 @@ exit_initialize(int argc, VALUE *argv, VALUE exc)
     rb_call_super(argc, argv);
     rb_ivar_set(exc, id_status, status);
     return exc;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(status);
 }
 
 
@@ -2275,6 +2384,7 @@ static VALUE
 exit_status(VALUE exc)
 {
     return rb_attr_get(exc, id_status);
+    RB_GC_GUARD(exc);
 }
 
 
@@ -2295,6 +2405,8 @@ exit_success_p(VALUE exc)
         return Qtrue;
     status = NUM2INT(status_val);
     return RBOOL(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(status_val);
 }
 
 static VALUE
@@ -2302,6 +2414,8 @@ err_init_recv(VALUE exc, VALUE recv)
 {
     if (!UNDEF_P(recv)) rb_ivar_set(exc, id_recv, recv);
     return exc;
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -2328,6 +2442,8 @@ frozen_err_initialize(int argc, VALUE *argv, VALUE self)
     rb_call_super(argc, argv);
     err_init_recv(self, values[0]);
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
 }
 
 /*
@@ -2353,6 +2469,7 @@ rb_name_error(ID id, const char *fmt, ...)
     argv[1] = ID2SYM(id);
     exc = rb_class_new_instance(2, argv, rb_eNameError);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -2368,6 +2485,8 @@ rb_name_error_str(VALUE str, const char *fmt, ...)
     argv[1] = str;
     exc = rb_class_new_instance(2, argv, rb_eNameError);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -2382,6 +2501,9 @@ name_err_init_attr(VALUE exc, VALUE recv, VALUE method)
         rb_ivar_set(exc, id_iseq, rb_iseqw_new(cfp->iseq));
     }
     return exc;
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -2410,6 +2532,9 @@ name_err_initialize(int argc, VALUE *argv, VALUE self)
     rb_call_super(argc, argv);
     name_err_init_attr(self, values[0], name);
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(name);
 }
 
 static VALUE rb_name_err_mesg_new(VALUE mesg, VALUE recv, VALUE method);
@@ -2419,6 +2544,10 @@ name_err_init(VALUE exc, VALUE mesg, VALUE recv, VALUE method)
 {
     exc_init(exc, rb_name_err_mesg_new(mesg, recv, method));
     return name_err_init_attr(exc, recv, method);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(exc);
 }
 
 VALUE
@@ -2426,6 +2555,10 @@ rb_name_err_new(VALUE mesg, VALUE recv, VALUE method)
 {
     VALUE exc = rb_obj_alloc(rb_eNameError);
     return name_err_init(exc, mesg, recv, method);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -2439,6 +2572,7 @@ static VALUE
 name_err_name(VALUE self)
 {
     return rb_attr_get(self, id_name);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2461,8 +2595,11 @@ name_err_local_variables(VALUE self)
         if (!NIL_P(iseqw)) vars = rb_iseqw_local_variables(iseqw);
         if (NIL_P(vars)) vars = rb_ary_new();
         rb_ivar_set(self, id_local_variables, vars);
+    RB_GC_GUARD(iseqw);
     }
     return vars;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(vars);
 }
 
 static VALUE
@@ -2471,6 +2608,8 @@ nometh_err_init_attr(VALUE exc, VALUE args, int priv)
     rb_ivar_set(exc, id_args, args);
     rb_ivar_set(exc, id_private_call_p, RBOOL(priv));
     return exc;
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -2500,6 +2639,9 @@ nometh_err_initialize(int argc, VALUE *argv, VALUE self)
     if (!NIL_P(options)) argv[argc++] = options;
     rb_call_super_kw(argc, argv, RB_PASS_CALLED_KEYWORDS);
     return nometh_err_init_attr(self, args, priv);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(args);
 }
 
 VALUE
@@ -2508,6 +2650,11 @@ rb_nomethod_err_new(VALUE mesg, VALUE recv, VALUE method, VALUE args, int priv)
     VALUE exc = rb_obj_alloc(rb_eNoMethodError);
     name_err_init(exc, mesg, recv, method);
     return nometh_err_init_attr(exc, args, priv);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(exc);
 }
 
 typedef struct name_error_message_struct {
@@ -2555,6 +2702,11 @@ rb_name_err_mesg_init(VALUE klass, VALUE mesg, VALUE recv, VALUE name)
     RB_OBJ_WRITE(result, &message->recv, recv);
     RB_OBJ_WRITE(result, &message->name, name);
     return result;
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(result);
 }
 
 /* :nodoc: */
@@ -2562,6 +2714,9 @@ static VALUE
 rb_name_err_mesg_new(VALUE mesg, VALUE recv, VALUE method)
 {
     return rb_name_err_mesg_init(rb_cNameErrorMesg, mesg, recv, method);
+    RB_GC_GUARD(method);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(mesg);
 }
 
 /* :nodoc: */
@@ -2569,6 +2724,7 @@ static VALUE
 name_err_mesg_alloc(VALUE klass)
 {
     return rb_name_err_mesg_init(klass, Qnil, Qnil, Qnil);
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -2586,6 +2742,8 @@ name_err_mesg_init_copy(VALUE obj1, VALUE obj2)
     RB_OBJ_WRITE(obj1, &ptr1->recv, ptr2->recv);
     RB_OBJ_WRITE(obj1, &ptr1->name, ptr2->name);
     return obj1;
+    RB_GC_GUARD(obj2);
+    RB_GC_GUARD(obj1);
 }
 
 /* :nodoc: */
@@ -2605,6 +2763,8 @@ name_err_mesg_equal(VALUE obj1, VALUE obj2)
     if (!rb_equal(ptr1->recv, ptr2->recv)) return Qfalse;
     if (!rb_equal(ptr1->name, ptr2->name)) return Qfalse;
     return Qtrue;
+    RB_GC_GUARD(obj2);
+    RB_GC_GUARD(obj1);
 }
 
 /* :nodoc: */
@@ -2616,6 +2776,7 @@ name_err_mesg_receiver_name(VALUE obj)
         return rb_check_funcall(obj, rb_intern("name"), 0, 0);
     }
     return Qundef;
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -2691,6 +2852,7 @@ name_err_mesg_to_str(VALUE obj)
                 else {
                     s = FAKE_CSTR(&s_str, "an instance of ");
                     c = rb_class_real(klass);
+            RB_GC_GUARD(klass);
                 }
             }
             c2 = rb_protect(name_err_mesg_receiver_name, c, &state);
@@ -2711,8 +2873,14 @@ name_err_mesg_to_str(VALUE obj)
         args[2] = s;
         args[3] = c;
         mesg = rb_str_format(4, args, mesg);
+    RB_GC_GUARD(c2);
+    RB_GC_GUARD(d);
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(c);
     }
     return mesg;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(mesg);
 }
 
 /* :nodoc: */
@@ -2720,6 +2888,8 @@ static VALUE
 name_err_mesg_dump(VALUE obj, VALUE limit)
 {
     return name_err_mesg_to_str(obj);
+    RB_GC_GUARD(limit);
+    RB_GC_GUARD(obj);
 }
 
 /* :nodoc: */
@@ -2727,6 +2897,8 @@ static VALUE
 name_err_mesg_load(VALUE klass, VALUE str)
 {
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2750,6 +2922,9 @@ name_err_receiver(VALUE self)
     name_error_message_t *ptr;
     TypedData_Get_Struct(mesg, name_error_message_t, &name_err_mesg_data_type, ptr);
     return ptr->recv;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(recv);
 }
 
 /*
@@ -2764,6 +2939,7 @@ static VALUE
 nometh_err_args(VALUE self)
 {
     return rb_attr_get(self, id_args);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2777,6 +2953,7 @@ static VALUE
 nometh_err_private_call_p(VALUE self)
 {
     return rb_attr_get(self, id_private_call_p);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -2785,6 +2962,7 @@ rb_invalid_str(const char *str, const char *type)
     VALUE s = rb_str_new2(str);
 
     rb_raise(rb_eArgError, "invalid value for %s: %+"PRIsVALUE, type, s);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -2802,6 +2980,8 @@ key_err_receiver(VALUE self)
     recv = rb_ivar_lookup(self, id_receiver, Qundef);
     if (!UNDEF_P(recv)) return recv;
     rb_raise(rb_eArgError, "no receiver is available");
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2819,6 +2999,8 @@ key_err_key(VALUE self)
     key = rb_ivar_lookup(self, id_key, Qundef);
     if (!UNDEF_P(key)) return key;
     rb_raise(rb_eArgError, "no key is available");
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -2830,6 +3012,10 @@ rb_key_err_new(VALUE mesg, VALUE recv, VALUE key)
     rb_ivar_set(exc, id_key, key);
     rb_ivar_set(exc, id_receiver, recv);
     return exc;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -2862,6 +3048,8 @@ key_err_initialize(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
 }
 
 /*
@@ -2879,6 +3067,8 @@ no_matching_pattern_key_err_matchee(VALUE self)
     matchee = rb_ivar_lookup(self, id_matchee, Qundef);
     if (!UNDEF_P(matchee)) return matchee;
     rb_raise(rb_eArgError, "no matchee is available");
+    RB_GC_GUARD(matchee);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2896,6 +3086,8 @@ no_matching_pattern_key_err_key(VALUE self)
     key = rb_ivar_lookup(self, id_key, Qundef);
     if (!UNDEF_P(key)) return key;
     rb_raise(rb_eArgError, "no key is available");
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2928,6 +3120,8 @@ no_matching_pattern_key_err_initialize(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
 }
 
 
@@ -2948,6 +3142,8 @@ syntax_error_initialize(int argc, VALUE *argv, VALUE self)
         argv = &mesg;
     }
     return rb_call_super(argc, argv);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mesg);
 }
 
 static VALUE
@@ -2975,8 +3171,12 @@ syntax_error_with_path(VALUE exc, VALUE path, VALUE *mesg, rb_encoding *enc)
         VALUE s = *mesg = rb_attr_get(exc, idMesg);
         if (RSTRING_LEN(s) > 0 && *(RSTRING_END(s)-1) != '\n')
             rb_str_cat_cstr(s, "\n");
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(old_path);
     }
     return exc;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(exc);
 }
 
 /*
@@ -3059,6 +3259,7 @@ setup_syserr(int n, const char *name)
     rb_define_const(error, "Errno", INT2NUM(n));
     st_add_direct(syserr_tbl, n, (st_data_t)error);
     return error;
+    RB_GC_GUARD(error);
 }
 
 static VALUE
@@ -3073,6 +3274,7 @@ set_syserr(int n, const char *name)
         VALUE errclass = (VALUE)error;
         rb_define_const(rb_mErrno, name, errclass);
         return errclass;
+        RB_GC_GUARD(errclass);
     }
 }
 
@@ -3135,12 +3337,19 @@ syserr_initialize(int argc, VALUE *argv, VALUE self)
 
         if (!NIL_P(func)) rb_str_catf(errmsg, " @ %"PRIsVALUE, func);
         rb_str_catf(errmsg, " - %"PRIsVALUE, str);
+    RB_GC_GUARD(str);
     }
     mesg = errmsg;
 
     rb_call_super(1, &mesg);
     rb_ivar_set(self, id_errno, error);
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(errmsg);
+    RB_GC_GUARD(func);
+    RB_GC_GUARD(error);
+    RB_GC_GUARD(mesg);
 }
 
 /*
@@ -3154,6 +3363,7 @@ static VALUE
 syserr_errno(VALUE self)
 {
     return rb_attr_get(self, id_errno);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3180,6 +3390,10 @@ syserr_eqq(VALUE self, VALUE exc)
     }
     e = rb_const_get(self, id_Errno);
     return RBOOL(FIXNUM_P(num) ? num == e : rb_equal(num, e));
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(num);
 }
 
 
@@ -3549,6 +3763,7 @@ static VALUE
 exception_alloc(VALUE klass)
 {
     return rb_class_allocate_instance(klass);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -3559,6 +3774,7 @@ exception_dumper(VALUE exc)
     // should have an Array of Thread::Backtrace::Locations.
 
     return exc;
+    RB_GC_GUARD(exc);
 }
 
 static int
@@ -3566,6 +3782,7 @@ ivar_copy_i(ID key, VALUE val, st_data_t exc)
 {
     rb_ivar_set((VALUE)exc, key, val);
     return ST_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 void rb_exc_check_circular_cause(VALUE exc);
@@ -3591,6 +3808,8 @@ exception_loader(VALUE exc, VALUE obj)
     }
 
     return exc;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -3752,12 +3971,15 @@ rb_enc_raise(rb_encoding *enc, VALUE exc, const char *fmt, ...)
     va_end(args);
 
     rb_exc_raise(rb_exc_new3(exc, mesg));
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(exc);
 }
 
 void
 rb_vraise(VALUE exc, const char *fmt, va_list ap)
 {
     rb_exc_raise(rb_exc_new3(exc, rb_vsprintf(fmt, ap)));
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -3768,6 +3990,8 @@ rb_raise(VALUE exc_class, const char *fmt, ...)
     VALUE exc = rb_exc_new3(exc_class, rb_vsprintf(fmt, args));
     va_end(args);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(exc_class);
 }
 
 NORETURN(static void raise_loaderror(VALUE path, VALUE mesg));
@@ -3778,6 +4002,9 @@ raise_loaderror(VALUE path, VALUE mesg)
     VALUE err = rb_exc_new3(rb_eLoadError, mesg);
     rb_ivar_set(err, id_i_path, path);
     rb_exc_raise(err);
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(path);
 }
 
 void
@@ -3790,6 +4017,7 @@ rb_loaderror(const char *fmt, ...)
     mesg = rb_enc_vsprintf(rb_locale_encoding(), fmt, args);
     va_end(args);
     raise_loaderror(Qnil, mesg);
+    RB_GC_GUARD(mesg);
 }
 
 void
@@ -3802,6 +4030,8 @@ rb_loaderror_with_path(VALUE path, const char *fmt, ...)
     mesg = rb_enc_vsprintf(rb_locale_encoding(), fmt, args);
     va_end(args);
     raise_loaderror(path, mesg);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(path);
 }
 
 void
@@ -3831,6 +4061,7 @@ rb_fatal(const char *fmt, ...)
     va_end(args);
 
     rb_exc_fatal(rb_exc_new3(rb_eFatal, mesg));
+    RB_GC_GUARD(mesg);
 }
 
 static VALUE
@@ -3857,6 +4088,7 @@ make_errno_exc_str(VALUE mesg)
         rb_bug("rb_sys_fail_str(%s) - errno == 0", s);
     }
     return rb_syserr_new_str(n, mesg);
+    RB_GC_GUARD(mesg);
 }
 
 VALUE
@@ -3865,12 +4097,14 @@ rb_syserr_new(int n, const char *mesg)
     VALUE arg;
     arg = mesg ? rb_str_new2(mesg) : Qnil;
     return rb_syserr_new_str(n, arg);
+    RB_GC_GUARD(arg);
 }
 
 VALUE
 rb_syserr_new_str(int n, VALUE arg)
 {
     return rb_class_new_instance(1, &arg, get_syserr(n));
+    RB_GC_GUARD(arg);
 }
 
 void
@@ -3883,6 +4117,7 @@ void
 rb_syserr_fail_str(int e, VALUE mesg)
 {
     rb_exc_raise(rb_syserr_new_str(e, mesg));
+    RB_GC_GUARD(mesg);
 }
 
 #undef rb_sys_fail
@@ -3897,6 +4132,7 @@ void
 rb_sys_fail_str(VALUE mesg)
 {
     rb_exc_raise(make_errno_exc_str(mesg));
+    RB_GC_GUARD(mesg);
 }
 
 #ifdef RUBY_FUNCTION_NAME_STRING
@@ -3907,12 +4143,14 @@ rb_sys_fail_path_in(const char *func_name, VALUE path)
 
     errno = 0;
     rb_syserr_fail_path_in(func_name, n, path);
+    RB_GC_GUARD(path);
 }
 
 void
 rb_syserr_fail_path_in(const char *func_name, int n, VALUE path)
 {
     rb_exc_raise(rb_syserr_new_path_in(func_name, n, path));
+    RB_GC_GUARD(path);
 }
 
 VALUE
@@ -3930,6 +4168,7 @@ rb_syserr_new_path_in(const char *func_name, int n, VALUE path)
     args[0] = path;
     args[1] = rb_str_new_cstr(func_name);
     return rb_class_new_instance(2, args, get_syserr(n));
+    RB_GC_GUARD(path);
 }
 #endif
 
@@ -3940,6 +4179,8 @@ rb_mod_exc_raise(VALUE exc, VALUE mod)
 {
     rb_extend_object(exc, mod);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mod);
 }
 
 void
@@ -3947,6 +4188,8 @@ rb_mod_sys_fail(VALUE mod, const char *mesg)
 {
     VALUE exc = make_errno_exc(mesg);
     rb_mod_exc_raise(exc, mod);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mod);
 }
 
 void
@@ -3954,6 +4197,9 @@ rb_mod_sys_fail_str(VALUE mod, VALUE mesg)
 {
     VALUE exc = make_errno_exc_str(mesg);
     rb_mod_exc_raise(exc, mod);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(mod);
 }
 
 void
@@ -3961,6 +4207,8 @@ rb_mod_syserr_fail(VALUE mod, int e, const char *mesg)
 {
     VALUE exc = rb_syserr_new(e, mesg);
     rb_mod_exc_raise(exc, mod);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mod);
 }
 
 void
@@ -3968,6 +4216,9 @@ rb_mod_syserr_fail_str(VALUE mod, int e, VALUE mesg)
 {
     VALUE exc = rb_syserr_new_str(e, mesg);
     rb_mod_exc_raise(exc, mod);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(mod);
 }
 
 static void
@@ -3976,6 +4227,7 @@ syserr_warning(VALUE mesg, int err)
     rb_str_set_len(mesg, RSTRING_LEN(mesg)-1);
     rb_str_catf(mesg, ": %s\n", strerror(err));
     rb_write_warning_str(mesg);
+    RB_GC_GUARD(mesg);
 }
 
 #if 0
@@ -4077,6 +4329,8 @@ rb_load_fail(VALUE path, const char *err)
     rb_str_cat2(mesg, " -- ");
     rb_str_append(mesg, path);	/* should be ASCII compatible */
     raise_loaderror(path, mesg);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(path);
 }
 
 void
@@ -4097,6 +4351,9 @@ rb_frozen_error_raise(VALUE frozen_obj, const char *fmt, ...)
     exc = rb_exc_new3(rb_eFrozenError, mesg);
     rb_ivar_set(exc, id_recv, frozen_obj);
     rb_exc_raise(exc);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(frozen_obj);
+    RB_GC_GUARD(mesg);
 }
 
 static VALUE
@@ -4109,6 +4366,8 @@ inspect_frozen_obj(VALUE obj, VALUE mesg, int recur)
         rb_str_append(mesg, rb_inspect(obj));
     }
     return mesg;
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -4123,6 +4382,10 @@ get_created_info(VALUE obj, int *pline)
     if (NIL_P(path)) return Qnil;
     *pline = NUM2INT(line);
     return StringValue(path);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(info);
 }
 
 void
@@ -4143,6 +4406,10 @@ rb_error_frozen_object(VALUE frozen_obj)
         rb_str_catf(mesg, ", created at %"PRIsVALUE":%d", created_path, created_line);
     }
     rb_exc_raise(exc);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(frozen_obj);
+    RB_GC_GUARD(created_path);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -4174,7 +4441,12 @@ rb_warn_unchilled_literal(VALUE obj)
             rb_str_cat2(mesg, ": info: the string was created here\n");
         }
         rb_warn_category(mesg, rb_warning_category_to_name(category));
+        RB_GC_GUARD(created);
+        RB_GC_GUARD(str);
+        RB_GC_GUARD(mesg);
+        RB_GC_GUARD(file);
     }
+        RB_GC_GUARD(obj);
 }
 
 void
@@ -4184,6 +4456,7 @@ rb_warn_unchilled_symbol_to_s(VALUE obj)
         RB_WARN_CATEGORY_DEPRECATED,
         "string returned by :%s.to_s will be frozen in the future", RSTRING_PTR(obj)
     );
+    RB_GC_GUARD(obj);
 }
 
 #undef rb_check_frozen
@@ -4191,6 +4464,7 @@ void
 rb_check_frozen(VALUE obj)
 {
     rb_check_frozen_inline(obj);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -4199,6 +4473,8 @@ rb_check_copyable(VALUE obj, VALUE orig)
     if (!FL_ABLE(obj)) return;
     rb_check_frozen(obj);
     if (!FL_ABLE(orig)) return;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(orig);
 }
 
 void

@@ -34,6 +34,7 @@ GetConfig(VALUE obj)
     if (!conf)
         rb_raise(rb_eRuntimeError, "CONF is not initialized");
     return conf;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -48,6 +49,8 @@ config_s_alloc(VALUE klass)
         ossl_raise(eConfigError, "NCONF_new");
     RTYPEDDATA_DATA(obj) = conf;
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -89,6 +92,9 @@ config_s_parse(VALUE klass, VALUE str)
     config_load_bio(conf, bio); /* Consumes BIO */
     rb_obj_freeze(obj);
     return obj;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE config_get_sections(VALUE self);
@@ -113,8 +119,14 @@ config_s_parse_config(VALUE klass, VALUE io)
     for (i = 0; i < RARRAY_LEN(sections); i++) {
         VALUE section = rb_ary_entry(sections, i);
         rb_hash_aset(ret, section, config_get_section(obj, section));
+    RB_GC_GUARD(section);
     }
     return ret;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(sections);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -147,6 +159,8 @@ config_initialize(int argc, VALUE *argv, VALUE self)
     }
     rb_obj_freeze(self);
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(filename);
 }
 
 static VALUE
@@ -162,6 +176,9 @@ config_initialize_copy(VALUE self, VALUE other)
     config_load_bio(conf, bio); /* Consumes BIO */
     rb_obj_freeze(self);
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -200,6 +217,9 @@ config_get_value(VALUE self, VALUE section, VALUE key)
         return Qnil;
     }
     return rb_str_new_cstr(str);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(section);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -244,6 +264,9 @@ config_get_section(VALUE self, VALUE section)
                      rb_str_new_cstr(entry->value));
     }
     return hash;
+    RB_GC_GUARD(section);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 static void
@@ -273,6 +296,8 @@ config_get_sections(VALUE self)
     lh_doall_arg((_LHASH *)conf->data, LHASH_DOALL_ARG_FN(get_conf_section),
                  &ary);
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static void
@@ -297,6 +322,7 @@ dump_conf_value_doall_arg(CONF_VALUE *cv, VALUE *strp)
         rb_str_cat_cstr(str, "\n");
     }
     rb_str_cat_cstr(str, "\n");
+    RB_GC_GUARD(str);
 }
 
 static IMPLEMENT_LHASH_DOALL_ARG_FN(dump_conf_value, CONF_VALUE, VALUE)
@@ -339,6 +365,8 @@ config_to_s(VALUE self)
     lh_doall_arg((_LHASH *)conf->data, LHASH_DOALL_ARG_FN(dump_conf_value),
                  &str);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 static void
@@ -358,7 +386,10 @@ each_conf_value_doall_arg(CONF_VALUE *cv, void *unused)
         VALUE name = v->name ? rb_str_new_cstr(v->name) : Qnil;
         VALUE value = v->value ? rb_str_new_cstr(v->value) : Qnil;
         rb_yield(rb_ary_new3(3, section, name, value));
+        RB_GC_GUARD(value);
+        RB_GC_GUARD(name);
     }
+        RB_GC_GUARD(section);
 }
 
 static IMPLEMENT_LHASH_DOALL_ARG_FN(each_conf_value, CONF_VALUE, void)
@@ -383,6 +414,7 @@ config_each(VALUE self)
     lh_doall_arg((_LHASH *)conf->data, LHASH_DOALL_ARG_FN(each_conf_value),
                  NULL);
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -405,6 +437,9 @@ config_inspect(VALUE self)
     rb_str_cat_cstr(str, ">");
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(str);
 }
 
 void
@@ -458,4 +493,5 @@ Init_ossl_config(void)
     path = CONF_get1_default_config_file();
     path_str = rb_obj_freeze(ossl_buf2str(path, rb_long2int(strlen(path))));
     rb_define_const(cConfig, "DEFAULT_CONFIG_FILE", path_str);
+    RB_GC_GUARD(path_str);
 }

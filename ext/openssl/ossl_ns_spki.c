@@ -66,6 +66,8 @@ ossl_spki_alloc(VALUE klass)
     SetSPKI(obj, spki);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -97,6 +99,8 @@ ossl_spki_initialize(int argc, VALUE *argv, VALUE self)
     SetSPKI(self, spki);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(buffer);
 }
 
 /*
@@ -123,6 +127,8 @@ ossl_spki_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -145,6 +151,8 @@ ossl_spki_to_pem(VALUE self)
     str = ossl_buf2str(data, rb_long2int(strlen(data)));
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -170,6 +178,7 @@ ossl_spki_print(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -191,6 +200,7 @@ ossl_spki_get_public_key(VALUE self)
     }
 
     return ossl_pkey_new(pkey); /* NO DUP - OK */
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -216,6 +226,8 @@ ossl_spki_set_public_key(VALUE self, VALUE key)
     if (!NETSCAPE_SPKI_set_pubkey(spki, pkey))
 	ossl_raise(eSPKIError, "NETSCAPE_SPKI_set_pubkey");
     return key;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -237,6 +249,7 @@ ossl_spki_get_challenge(VALUE self)
 
     return rb_str_new((const char *)spki->spkac->challenge->data,
 		      spki->spkac->challenge->length);
+		      RB_GC_GUARD(self);
 }
 
 /*
@@ -262,6 +275,8 @@ ossl_spki_set_challenge(VALUE self, VALUE str)
     }
 
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -292,6 +307,9 @@ ossl_spki_sign(VALUE self, VALUE key, VALUE digest)
     }
 
     return self;
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -322,6 +340,8 @@ ossl_spki_verify(VALUE self, VALUE key)
       default:
 	ossl_raise(eSPKIError, "NETSCAPE_SPKI_verify");
     }
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(key);
 }
 
 /* Document-class: OpenSSL::Netscape::SPKI

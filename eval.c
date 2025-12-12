@@ -240,6 +240,7 @@ rb_ec_cleanup(rb_execution_context_t *ec, enum ruby_tag_type ex)
         else if (!NIL_OR_UNDEF_P(err = save_error) ||
                  (ex != TAG_NONE && !((mode0|mode1) & EXITING_WITH_STATUS))) {
             sysex = error_handle(ec, err, ex);
+    RB_GC_GUARD(err);
         }
     }
     else {
@@ -267,6 +268,7 @@ rb_ec_cleanup(rb_execution_context_t *ec, enum ruby_tag_type ex)
     if (signaled) ruby_default_signal(signaled);
 
     return sysex;
+    RB_GC_GUARD(buf);
 }
 
 static int
@@ -305,6 +307,7 @@ ruby_executable_node(void *n, int *status)
     }
     if (status) *status = s;
     return FALSE;
+    RB_GC_GUARD(v);
 }
 
 int
@@ -353,8 +356,11 @@ rb_mod_nesting(VALUE _)
             rb_ary_push(ary, klass);
         }
         cref = CREF_NEXT(cref);
+    RB_GC_GUARD(klass);
     }
     return ary;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -407,6 +413,9 @@ rb_mod_s_constants(int argc, VALUE *argv, VALUE mod)
         data = rb_mod_const_of(cbase, data);
     }
     return rb_const_list(data);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(cbase);
+    RB_GC_GUARD(klass);
 }
 
 /**
@@ -460,6 +469,7 @@ rb_class_modify_check(VALUE klass)
         }
         rb_frozen_error_raise(klass, "can't modify frozen %s: %"PRIsVALUE, desc, klass);
     }
+        RB_GC_GUARD(klass);
 }
 
 NORETURN(static void rb_longjmp(rb_execution_context_t *, enum ruby_tag_type, volatile VALUE, VALUE));
@@ -490,6 +500,8 @@ exc_setup_cause(VALUE exc, VALUE cause)
         }
     }
     return exc;
+    RB_GC_GUARD(cause);
+    RB_GC_GUARD(exc);
 }
 
 static inline VALUE
@@ -533,10 +545,12 @@ exc_setup_message(const rb_execution_context_t *ec, VALUE mesg, VALUE *cause)
             if (c == mesg) {
                 rb_raise(rb_eArgError, "circular causes");
             }
+                RB_GC_GUARD(c);
         }
 #endif
     }
     return mesg;
+    RB_GC_GUARD(mesg);
 }
 
 static void
@@ -565,8 +579,10 @@ setup_exception(rb_execution_context_t *ec, enum ruby_tag_type tag, volatile VAL
                 VALUE at = rb_ec_backtrace_object(ec);
                 rb_ivar_set(mesg, idBt_locations, at);
                 set_backtrace(mesg, at);
+            RB_GC_GUARD(at);
             }
             rb_ec_reset_raised(ec);
+        RB_GC_GUARD(bt);
         }
         EC_POP_TAG();
         file = file0;
@@ -625,6 +641,8 @@ setup_exception(rb_execution_context_t *ec, enum ruby_tag_type tag, volatile VAL
     ec->errinfo = exception_error;
     rb_ec_reset_raised(ec);
     EC_JUMP_TAG(ec, TAG_FATAL);
+    RB_GC_GUARD(e);
+    RB_GC_GUARD(cause);
 }
 
 /*! \private */
@@ -641,6 +659,8 @@ rb_ec_setup_exception(const rb_execution_context_t *ec, VALUE mesg, VALUE cause)
 
         rb_ivar_set(mesg, id_cause, cause);
     }
+        RB_GC_GUARD(mesg);
+        RB_GC_GUARD(cause);
 }
 
 static void
@@ -650,6 +670,7 @@ rb_longjmp(rb_execution_context_t *ec, enum ruby_tag_type tag, volatile VALUE me
     setup_exception(ec, tag, mesg, cause);
     rb_ec_raised_clear(ec);
     EC_JUMP_TAG(ec, tag);
+    RB_GC_GUARD(cause);
 }
 
 static VALUE make_exception(int argc, const VALUE *argv, int isstr);
@@ -663,6 +684,8 @@ rb_exc_exception(VALUE mesg, enum ruby_tag_type tag, VALUE cause)
         mesg = make_exception(1, &mesg, FALSE);
     }
     rb_longjmp(GET_EC(), tag, mesg, cause);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(cause);
 }
 
 /**
@@ -676,6 +699,7 @@ void
 rb_exc_raise(VALUE mesg)
 {
     rb_exc_exception(mesg, TAG_RAISE, Qundef);
+    RB_GC_GUARD(mesg);
 }
 
 /*!
@@ -689,6 +713,7 @@ void
 rb_exc_fatal(VALUE mesg)
 {
     rb_exc_exception(mesg, TAG_FATAL, Qnil);
+    RB_GC_GUARD(mesg);
 }
 
 void
@@ -714,6 +739,7 @@ extract_raise_opts(int argc, VALUE *argv, VALUE *opts)
                 if (!RHASH_EMPTY_P(opt)) argv[argc++] = opt;
                 return argc;
             }
+    RB_GC_GUARD(opt);
         }
     }
     for (i = 0; i < raise_max_opt; ++i) {
@@ -742,6 +768,7 @@ rb_f_raise(int argc, VALUE *argv)
     rb_raise_jump(rb_make_exception(argc, argv), *cause);
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(err);
 }
 
 /*
@@ -858,6 +885,7 @@ static VALUE
 f_raise(int c, VALUE *v, VALUE _)
 {
     return rb_f_raise(c, v);
+    RB_GC_GUARD(_);
 }
 
 static VALUE
@@ -898,6 +926,8 @@ make_exception(int argc, const VALUE *argv, int isstr)
     }
 
     return mesg;
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(mesg);
 }
 
 VALUE
@@ -922,6 +952,10 @@ rb_raise_jump(VALUE mesg, VALUE cause)
     EXEC_EVENT_HOOK(ec, RUBY_EVENT_C_RETURN, self, me->def->original_id, mid, klass, Qnil);
 
     rb_longjmp(ec, TAG_RAISE, mesg, cause);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(cause);
+    RB_GC_GUARD(mesg);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -971,6 +1005,9 @@ rb_rescue2(VALUE (* b_proc) (VALUE), VALUE data1,
     VALUE ret = rb_vrescue2(b_proc, data1, r_proc, data2, ap);
     va_end(ap);
     return ret;
+    RB_GC_GUARD(data2);
+    RB_GC_GUARD(data1);
+    RB_GC_GUARD(ret);
 }
 
 VALUE
@@ -1023,6 +1060,7 @@ rb_vrescue2(VALUE (* b_proc) (VALUE), VALUE data1,
                     result = (*r_proc) (data2, ec->errinfo);
                 }
                 ec->errinfo = e_info;
+    RB_GC_GUARD(eclass);
             }
         }
     }
@@ -1031,6 +1069,8 @@ rb_vrescue2(VALUE (* b_proc) (VALUE), VALUE data1,
         EC_JUMP_TAG(ec, state);
 
     return result;
+    RB_GC_GUARD(data2);
+    RB_GC_GUARD(data1);
 }
 
 VALUE
@@ -1039,6 +1079,8 @@ rb_rescue(VALUE (* b_proc)(VALUE), VALUE data1,
 {
     return rb_rescue2(b_proc, data1, r_proc, data2, rb_eStandardError,
                       (VALUE)0);
+                      RB_GC_GUARD(data2);
+                      RB_GC_GUARD(data1);
 }
 
 VALUE
@@ -1060,6 +1102,7 @@ rb_protect(VALUE (* proc) (VALUE), VALUE data, int *pstate)
 
     if (pstate != NULL) *pstate = state;
     return result;
+    RB_GC_GUARD(data);
 }
 
 VALUE
@@ -1083,6 +1126,9 @@ rb_ensure(VALUE (*b_proc)(VALUE), VALUE data1, VALUE (*e_proc)(VALUE), VALUE dat
     if (state)
         EC_JUMP_TAG(ec, state);
     return result;
+    RB_GC_GUARD(data2);
+    RB_GC_GUARD(data1);
+    RB_GC_GUARD(errinfo);
 }
 
 static ID
@@ -1190,6 +1236,8 @@ rb_mod_append_features(VALUE module, VALUE include)
     rb_include_module(include, module);
 
     return module;
+    RB_GC_GUARD(include);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -1224,6 +1272,7 @@ rb_mod_include(int argc, VALUE *argv, VALUE module)
         rb_funcall(argv[argc], id_included, 1, module);
     }
     return module;
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -1247,6 +1296,8 @@ rb_mod_prepend_features(VALUE module, VALUE prepend)
     rb_prepend_module(prepend, module);
 
     return module;
+    RB_GC_GUARD(prepend);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -1281,6 +1332,7 @@ rb_mod_prepend(int argc, VALUE *argv, VALUE module)
         rb_funcall(argv[argc], id_prepended, 1, module);
     }
     return module;
+    RB_GC_GUARD(module);
 }
 
 static void
@@ -1291,6 +1343,7 @@ ensure_class_or_module(VALUE obj)
                  "wrong argument type %"PRIsVALUE" (expected Class or Module)",
                  rb_obj_class(obj));
     }
+                 RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1300,6 +1353,7 @@ hidden_identity_hash_new(void)
 
     RBASIC_CLEAR_CLASS(hash); /* hide from ObjectSpace */
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -1311,6 +1365,7 @@ refinement_superclass(VALUE superclass)
     }
     else {
         return superclass;
+        RB_GC_GUARD(superclass);
     }
 }
 
@@ -1350,6 +1405,11 @@ rb_using_refinement(rb_cref_t *cref, VALUE klass, VALUE module)
     RCLASS_M_TBL(c) = RCLASS_M_TBL(module);
 
     rb_hash_aset(CREF_REFINEMENTS(cref), klass, iclass);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(superclass);
+    RB_GC_GUARD(c);
 }
 
 static int
@@ -1359,6 +1419,9 @@ using_refinement(VALUE klass, VALUE module, VALUE arg)
 
     rb_using_refinement(cref, klass, module);
     return ST_CONTINUE;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -1389,6 +1452,10 @@ using_module_recursive(const rb_cref_t *cref, VALUE klass)
     refinements = rb_attr_get(module, id_refinements);
     if (NIL_P(refinements)) return;
     rb_hash_foreach(refinements, using_refinement, (VALUE) cref);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(refinements);
+    RB_GC_GUARD(module);
 }
 
 /*!
@@ -1400,6 +1467,7 @@ rb_using_module(const rb_cref_t *cref, VALUE module)
     Check_Type(module, T_MODULE);
     using_module_recursive(cref, module);
     rb_clear_all_refinement_method_cache();
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -1422,6 +1490,7 @@ rb_refinement_module_get_refined_class(VALUE module)
 
     CONST_ID(id_refined_class, "__refined_class__");
     return rb_attr_get(module, id_refined_class);
+    RB_GC_GUARD(module);
 }
 
 static void
@@ -1450,6 +1519,12 @@ add_activated_refinement(VALUE activated_refinements,
         refinement = RCLASS_SUPER(refinement);
     }
     rb_hash_aset(activated_refinements, klass, iclass);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(refinement);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(activated_refinements);
+    RB_GC_GUARD(superclass);
+    RB_GC_GUARD(c);
 }
 
 /*
@@ -1505,9 +1580,16 @@ rb_mod_refine(VALUE module, VALUE klass)
         rb_ivar_set(refinement, id_defined_at, module);
         rb_hash_aset(refinements, klass, refinement);
         add_activated_refinement(activated_refinements, klass, refinement);
+    RB_GC_GUARD(superclass);
     }
     rb_yield_refine_block(refinement, activated_refinements);
     return refinement;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(block_handler);
+    RB_GC_GUARD(activated_refinements);
+    RB_GC_GUARD(refinements);
+    RB_GC_GUARD(refinement);
 }
 
 static void
@@ -1519,6 +1601,7 @@ ignored_block(VALUE module, const char *klass)
         anon = ", maybe for Module.new";
     }
     rb_warn("%s""using doesn't call the given block""%s.", klass, anon);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -1546,6 +1629,8 @@ mod_using(VALUE self, VALUE module)
     }
     rb_using_module(rb_vm_cref_replace_with_duplicated_cref(), module);
     return self;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(self);
 }
 
 
@@ -1581,6 +1666,8 @@ mod_refinements(VALUE self)
         return rb_ary_new();
     }
     return rb_hash_values(refinements);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(refinements);
 }
 
 static int
@@ -1593,6 +1680,9 @@ used_modules_i(VALUE _, VALUE mod, VALUE ary)
         mod = RCLASS_SUPER(mod);
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -1634,6 +1724,8 @@ rb_mod_s_used_modules(VALUE _)
     }
 
     return rb_funcall(ary, rb_intern("uniq"), 0);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -1644,6 +1736,9 @@ used_refinements_i(VALUE _, VALUE mod, VALUE ary)
         mod = RCLASS_SUPER(mod);
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -1685,6 +1780,8 @@ rb_mod_s_used_refinements(VALUE _)
     }
 
     return ary;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(ary);
 }
 
 struct refinement_import_methods_arg {
@@ -1709,6 +1806,7 @@ refinement_import_methods_i(ID key, VALUE value, void *data)
     CREF_REFINEMENTS_SET(new_cref, CREF_REFINEMENTS(arg->cref));
     rb_add_method_iseq(arg->refinement, key, me->def->body.iseq.iseqptr, new_cref, METHOD_ENTRY_VISI(me));
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 /*
@@ -1737,12 +1835,14 @@ refinement_import_methods(int argc, VALUE *argv, VALUE refinement)
         rb_id_table_foreach(m_tbl, refinement_import_methods_i, &arg);
     }
     return refinement;
+    RB_GC_GUARD(refinement);
 }
 
 void
 rb_obj_call_init(VALUE obj, int argc, const VALUE *argv)
 {
     rb_obj_call_init_kw(obj, argc, argv, RB_NO_KEYWORDS);
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -1750,12 +1850,15 @@ rb_obj_call_init_kw(VALUE obj, int argc, const VALUE *argv, int kw_splat)
 {
     PASS_PASSED_BLOCK_HANDLER();
     rb_funcallv_kw(obj, idInitialize, argc, argv, kw_splat);
+    RB_GC_GUARD(obj);
 }
 
 void
 rb_extend_object(VALUE obj, VALUE module)
 {
     rb_include_module(rb_singleton_class(obj), module);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -1790,6 +1893,8 @@ rb_mod_extend_object(VALUE mod, VALUE obj)
 {
     rb_extend_object(obj, mod);
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -1838,6 +1943,7 @@ rb_obj_extend(int argc, VALUE *argv, VALUE obj)
         rb_funcall(argv[argc], id_extended, 1, obj);
     }
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1848,6 +1954,7 @@ rb_top_main_class(const char *method)
     if (!klass) return rb_cObject;
     rb_warning("main.%s in the wrapped load is effective only in wrapper module", method);
     return klass;
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1863,6 +1970,7 @@ static VALUE
 top_include(int argc, VALUE *argv, VALUE self)
 {
     return rb_mod_include(argc, argv, rb_top_main_class("include"));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1889,6 +1997,8 @@ top_using(VALUE self, VALUE module)
     }
     rb_using_module(rb_vm_cref_replace_with_duplicated_cref(), module);
     return self;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(self);
 }
 
 static const VALUE *
@@ -1950,6 +2060,7 @@ rb_set_errinfo(VALUE err)
         rb_raise(rb_eTypeError, "assigning non-exception to $!");
     }
     GET_EC()->errinfo = err;
+    RB_GC_GUARD(err);
 }
 
 static VALUE
@@ -1961,6 +2072,7 @@ errat_getter(ID id, VALUE *_)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(err);
     }
 }
 
@@ -1972,6 +2084,8 @@ errat_setter(VALUE val, ID id, VALUE *var)
         rb_raise(rb_eArgError, "$! not set");
     }
     set_backtrace(err, val);
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -1994,6 +2108,7 @@ rb_f_method_name(VALUE _)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(_);
     }
 }
 
@@ -2016,6 +2131,7 @@ rb_f_callee_name(VALUE _)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(_);
     }
 }
 
@@ -2038,6 +2154,8 @@ f_current_dirname(VALUE _)
     }
     base = rb_file_dirname(base);
     return base;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(base);
 }
 
 /*
@@ -2056,6 +2174,7 @@ static VALUE
 f_global_variables(VALUE _)
 {
     return rb_f_global_variables();
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -2085,6 +2204,7 @@ static VALUE
 f_trace_var(int c, const VALUE *a, VALUE _)
 {
     return rb_f_trace_var(c, a);
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -2101,6 +2221,7 @@ static VALUE
 f_untrace_var(int c, const VALUE *a, VALUE _)
 {
     return rb_f_untrace_var(c, a);
+    RB_GC_GUARD(_);
 }
 
 void

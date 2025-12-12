@@ -7,6 +7,8 @@ bug_rb_str_dup(VALUE self, VALUE str)
 {
     rb_check_type(str, T_STRING);
     return rb_str_dup(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -14,6 +16,8 @@ bug_shared_string_p(VALUE self, VALUE str)
 {
     rb_check_type(str, T_STRING);
     return RB_FL_TEST(str, RUBY_ELTS_SHARED) && RB_FL_TEST(str, RSTRING_NOEMBED) ? Qtrue : Qfalse;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -24,6 +28,8 @@ bug_sharing_with_shared_p(VALUE self, VALUE str)
         return bug_shared_string_p(self, RSTRING(str)->as.heap.aux.shared);
     }
     return Qfalse;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 void

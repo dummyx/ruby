@@ -130,6 +130,7 @@ int
 rb_data_is_encoding(VALUE obj)
 {
     return is_data_encoding(obj);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -139,6 +140,7 @@ enc_new(rb_encoding *encoding)
     rb_obj_freeze(enc);
     FL_SET_RAW(enc, RUBY_FL_SHAREABLE);
     return enc;
+    RB_GC_GUARD(enc);
 }
 
 static void
@@ -151,6 +153,7 @@ enc_list_update(int index, rb_raw_encoding *encoding)
         /* initialize encoding data */
         rb_ary_store(list, index, enc_new(encoding));
     }
+        RB_GC_GUARD(list);
 }
 
 static VALUE
@@ -170,6 +173,8 @@ enc_list_lookup(int idx)
     else {
         return enc;
     }
+        RB_GC_GUARD(list);
+        RB_GC_GUARD(enc);
 }
 
 static VALUE
@@ -218,6 +223,7 @@ enc_check_encoding(VALUE obj)
         return -1;
     }
     return check_encoding(RDATA(obj)->data);
+    RB_GC_GUARD(obj);
 }
 
 NORETURN(static void not_encoding(VALUE enc));
@@ -226,6 +232,7 @@ not_encoding(VALUE enc)
 {
     rb_raise(rb_eTypeError, "wrong argument type %"PRIsVALUE" (expected Encoding)",
              rb_obj_class(enc));
+             RB_GC_GUARD(enc);
 }
 
 static rb_encoding *
@@ -236,6 +243,7 @@ must_encoding(VALUE enc)
         not_encoding(enc);
     }
     return DATA_PTR(enc);
+    RB_GC_GUARD(enc);
 }
 
 static rb_encoding *
@@ -277,6 +285,7 @@ rb_to_encoding_index(VALUE enc)
         return -1;
     }
     return rb_enc_find_index(name);
+    RB_GC_GUARD(enc);
 }
 
 static const char *
@@ -292,6 +301,7 @@ name_for_encoding(volatile VALUE *enc)
         rb_raise(rb_eArgError, "invalid encoding name (NUL byte)");
     }
     return n;
+    RB_GC_GUARD(name);
 }
 
 /* Returns encoding index or UNSPECIFIED_ENCODING */
@@ -301,6 +311,7 @@ str_find_encindex(VALUE enc)
     int idx = rb_enc_find_index(name_for_encoding(&enc));
     RB_GC_GUARD(enc);
     return idx;
+    RB_GC_GUARD(enc);
 }
 
 static int
@@ -311,12 +322,14 @@ str_to_encindex(VALUE enc)
         rb_raise(rb_eArgError, "unknown encoding name - %"PRIsVALUE, enc);
     }
     return idx;
+    RB_GC_GUARD(enc);
 }
 
 static rb_encoding *
 str_to_encoding(VALUE enc)
 {
     return rb_enc_from_index(str_to_encindex(enc));
+    RB_GC_GUARD(enc);
 }
 
 rb_encoding *
@@ -324,6 +337,7 @@ rb_to_encoding(VALUE enc)
 {
     if (enc_check_encoding(enc) >= 0) return RDATA(enc)->data;
     return str_to_encoding(enc);
+    RB_GC_GUARD(enc);
 }
 
 rb_encoding *
@@ -334,6 +348,7 @@ rb_find_encoding(VALUE enc)
     idx = str_find_encindex(enc);
     if (idx < 0) return NULL;
     return rb_enc_from_index(idx);
+    RB_GC_GUARD(enc);
 }
 
 static int
@@ -613,6 +628,7 @@ static VALUE
 enc_dummy_p(VALUE enc)
 {
     return RBOOL(ENC_DUMMY_P(must_encoding(enc)));
+    RB_GC_GUARD(enc);
 }
 
 /*
@@ -629,6 +645,7 @@ static VALUE
 enc_ascii_compatible_p(VALUE enc)
 {
     return RBOOL(rb_enc_asciicompat(must_encoding(enc)));
+    RB_GC_GUARD(enc);
 }
 
 /*
@@ -782,6 +799,9 @@ load_encoding(const char *name)
     GLOBAL_ENC_TABLE_LEAVE();
 
     return idx;
+    RB_GC_GUARD(errinfo);
+    RB_GC_GUARD(debug);
+    RB_GC_GUARD(enclib);
 }
 
 static int
@@ -877,6 +897,7 @@ enc_capable(VALUE obj)
         if (is_data_encoding(obj)) return TRUE;
       default:
         return FALSE;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -884,6 +905,7 @@ int
 rb_enc_capable(VALUE obj)
 {
     return enc_capable(obj);
+    RB_GC_GUARD(obj);
 }
 
 ID
@@ -911,9 +933,11 @@ enc_get_index_str(VALUE str)
          */
         iv = rb_attr_get(str, rb_id_encoding());
         i = NIL_P(iv) ? ENCINDEX_ASCII_8BIT : NUM2INT(iv);
+        RB_GC_GUARD(iv);
 #endif
     }
     return i;
+    RB_GC_GUARD(str);
 }
 
 int
@@ -950,6 +974,8 @@ rb_enc_get_index(VALUE obj)
         break;
     }
     return i;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
 }
 
 static void
@@ -965,6 +991,7 @@ enc_set_index(VALUE obj, int idx)
     }
     ENCODING_SET_INLINED(obj, ENCODING_INLINE_MAX);
     rb_ivar_set(obj, rb_id_encoding(), INT2NUM(idx));
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -980,6 +1007,7 @@ rb_enc_raw_set(VALUE obj, rb_encoding *enc)
     }
     ENCODING_SET_INLINED(obj, ENCODING_INLINE_MAX);
     rb_ivar_set(obj, rb_id_encoding(), INT2NUM(idx));
+    RB_GC_GUARD(obj);
 }
 
 void
@@ -988,6 +1016,7 @@ rb_enc_set_index(VALUE obj, int idx)
     rb_check_frozen(obj);
     must_encindex(idx);
     enc_set_index(obj, idx);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1016,18 +1045,21 @@ rb_enc_associate_index(VALUE obj, int idx)
     }
     enc_set_index(obj, idx);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_enc_associate(VALUE obj, rb_encoding *enc)
 {
     return rb_enc_associate_index(obj, rb_enc_to_index(enc));
+    RB_GC_GUARD(obj);
 }
 
 rb_encoding*
 rb_enc_get(VALUE obj)
 {
     return rb_enc_from_index(rb_enc_get_index(obj));
+    RB_GC_GUARD(obj);
 }
 
 const char *
@@ -1047,6 +1079,8 @@ rb_encoding_check(rb_encoding* enc, VALUE str1, VALUE str2)
                  rb_enc_inspect_name(rb_enc_get(str1)),
                  rb_enc_inspect_name(rb_enc_get(str2)));
     return enc;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 static rb_encoding* enc_compatible_str(VALUE str1, VALUE str2);
@@ -1056,6 +1090,8 @@ rb_enc_check_str(VALUE str1, VALUE str2)
 {
     rb_encoding *enc = enc_compatible_str(MUST_STRING(str1), MUST_STRING(str2));
     return rb_encoding_check(enc, str1, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 rb_encoding*
@@ -1063,6 +1099,8 @@ rb_enc_check(VALUE str1, VALUE str2)
 {
     rb_encoding *enc = rb_enc_compatible(str1, str2);
     return rb_encoding_check(enc, str1, str2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 static rb_encoding*
@@ -1105,6 +1143,7 @@ enc_compatible_latter(VALUE str1, VALUE str2, int idx1, int idx2)
         idx0 = isstr1;
         isstr1 = isstr2;
         isstr2 = idx0;
+    RB_GC_GUARD(tmp);
     }
     if (isstr1) {
         int cr1, cr2;
@@ -1125,6 +1164,8 @@ enc_compatible_latter(VALUE str1, VALUE str2, int idx1, int idx2)
             return enc2;
     }
     return 0;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 static rb_encoding*
@@ -1134,6 +1175,8 @@ enc_compatible_str(VALUE str1, VALUE str2)
     int idx2 = enc_get_index_str(str2);
 
     return enc_compatible_latter(str1, str2, idx1, idx2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 rb_encoding*
@@ -1143,12 +1186,16 @@ rb_enc_compatible(VALUE str1, VALUE str2)
     int idx2 = rb_enc_get_index(str2);
 
     return enc_compatible_latter(str1, str2, idx1, idx2);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 void
 rb_enc_copy(VALUE obj1, VALUE obj2)
 {
     rb_enc_associate_index(obj1, rb_enc_get_index(obj2));
+    RB_GC_GUARD(obj1);
+    RB_GC_GUARD(obj2);
 }
 
 
@@ -1167,6 +1214,7 @@ rb_obj_encoding(VALUE obj)
         rb_raise(rb_eTypeError, "unknown encoding");
     }
     return rb_enc_from_encoding_index(idx & ENC_INDEX_MASK);
+    RB_GC_GUARD(obj);
 }
 
 int
@@ -1285,6 +1333,7 @@ enc_inspect(VALUE self)
                           rb_enc_inspect_name(enc),
                           (ENC_DUMMY_P(enc) ? " (dummy)" : ""),
                           rb_enc_autoload_p(enc) ? " (autoload)" : "");
+                          RB_GC_GUARD(self);
 }
 
 /*
@@ -1300,6 +1349,7 @@ static VALUE
 enc_name(VALUE self)
 {
     return rb_fstring_cstr(rb_enc_name((rb_encoding*)DATA_PTR(self)));
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -1310,6 +1360,7 @@ enc_names_i(st_data_t name, st_data_t idx, st_data_t args)
     if ((int)idx == (int)arg[0]) {
         VALUE str = rb_interned_str_cstr((char *)name);
         rb_ary_push(arg[1], str);
+    RB_GC_GUARD(str);
     }
     return ST_CONTINUE;
 }
@@ -1331,6 +1382,7 @@ enc_names(VALUE self)
     args[1] = rb_ary_new2(0);
     st_foreach(global_enc_table.names, enc_names_i, (st_data_t)args);
     return args[1];
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1357,6 +1409,8 @@ enc_list(VALUE klass)
     VALUE ary = rb_ary_new2(0);
     rb_ary_replace(ary, rb_encoding_list);
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1390,6 +1444,8 @@ enc_find(VALUE klass, VALUE enc)
     idx = str_to_encindex(enc);
     if (idx == UNSPECIFIED_ENCODING) return Qnil;
     return rb_enc_from_encoding_index(idx);
+    RB_GC_GUARD(enc);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1426,6 +1482,9 @@ enc_compatible_p(VALUE klass, VALUE str1, VALUE str2)
     enc = rb_enc_compatible(str1, str2);
     if (!enc) return Qnil;
     return rb_enc_from_encoding(enc);
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
+    RB_GC_GUARD(klass);
 }
 
 NORETURN(static VALUE enc_s_alloc(VALUE klass));
@@ -1435,6 +1494,7 @@ enc_s_alloc(VALUE klass)
 {
     rb_undefined_alloc(klass);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -1443,6 +1503,7 @@ enc_dump(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 1);
     return enc_name(self);
+    RB_GC_GUARD(self);
 }
 
 /* :nodoc: */
@@ -1450,6 +1511,8 @@ static VALUE
 enc_load(VALUE klass, VALUE str)
 {
     return str;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 /* :nodoc: */
@@ -1457,6 +1520,8 @@ static VALUE
 enc_m_loader(VALUE klass, VALUE str)
 {
     return enc_find(klass, str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(klass);
 }
 
 rb_encoding *
@@ -1583,6 +1648,7 @@ enc_set_default_encoding(struct default_encoding *def, VALUE encoding, const cha
     GLOBAL_ENC_TABLE_LEAVE();
 
     return overridden;
+    RB_GC_GUARD(encoding);
 }
 
 rb_encoding *
@@ -1637,6 +1703,7 @@ static VALUE
 get_default_external(VALUE klass)
 {
     return rb_enc_default_external();
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -1647,6 +1714,7 @@ rb_enc_set_default_external(VALUE encoding)
     }
     enc_set_default_encoding(&default_external, encoding,
                             "external");
+                            RB_GC_GUARD(encoding);
 }
 
 /*
@@ -1668,6 +1736,8 @@ set_default_external(VALUE klass, VALUE encoding)
     rb_warning("setting Encoding.default_external");
     rb_enc_set_default_external(encoding);
     return encoding;
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(klass);
 }
 
 static struct default_encoding default_internal = {-2};
@@ -1720,6 +1790,7 @@ static VALUE
 get_default_internal(VALUE klass)
 {
     return rb_enc_default_internal();
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -1727,6 +1798,7 @@ rb_enc_set_default_internal(VALUE encoding)
 {
     enc_set_default_encoding(&default_internal, encoding,
                             "internal");
+                            RB_GC_GUARD(encoding);
 }
 
 /*
@@ -1748,6 +1820,8 @@ set_default_internal(VALUE klass, VALUE encoding)
     rb_warning("setting Encoding.default_internal");
     rb_enc_set_default_internal(encoding);
     return encoding;
+    RB_GC_GUARD(encoding);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -1799,6 +1873,7 @@ set_encoding_const(const char *name, rb_encoding *enc)
             rb_define_const(rb_cEncoding, name, encoding);
         }
     }
+            RB_GC_GUARD(encoding);
 }
 
 static int
@@ -1808,6 +1883,8 @@ rb_enc_name_list_i(st_data_t name, st_data_t idx, st_data_t arg)
     VALUE str = rb_interned_str_cstr((char *)name);
     rb_ary_push(ary, str);
     return ST_CONTINUE;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1830,6 +1907,8 @@ rb_enc_name_list(VALUE klass)
     VALUE ary = rb_ary_new2(global_enc_table.names->num_entries);
     st_foreach(global_enc_table.names, rb_enc_name_list_i, (st_data_t)ary);
     return ary;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 static int
@@ -1853,6 +1932,10 @@ rb_enc_aliases_enc_i(st_data_t name, st_data_t orig, st_data_t arg)
     key = rb_interned_str_cstr((char *)name);
     rb_hash_aset(aliases, key, str);
     return ST_CONTINUE;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(aliases);
 }
 
 /*
@@ -1877,6 +1960,7 @@ rb_enc_aliases(VALUE klass)
     st_foreach(global_enc_table.names, rb_enc_aliases_enc_i, (st_data_t)aliases);
 
     return aliases[0];
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1951,6 +2035,7 @@ Init_Encoding(void)
     }
 
     rb_marshal_define_compat(rb_cEncoding, Qnil, 0, enc_m_loader);
+    RB_GC_GUARD(list);
 }
 
 void

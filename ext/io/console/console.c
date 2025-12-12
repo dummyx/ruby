@@ -159,6 +159,8 @@ rb_f_send(int argc, VALUE *argv, VALUE recv)
 	vid = id___send__;
     }
     return rb_funcallv_kw(recv, vid, argc, argv, RB_PASS_CALLED_KEYWORDS);
+    RB_GC_GUARD(recv);
+    RB_GC_GUARD(sym);
 }
 #endif
 
@@ -222,8 +224,12 @@ rawmode_opt(int *argcp, VALUE *argv, int min_argc, int max_argc, rawmode_arg_t *
 	    vtime = rb_funcall3(vtime, '*', 1, &v10);
 	    opts->vtime = NUM2INT(vtime);
 	    optp = opts;
+	RB_GC_GUARD(v10);
 	}
 	switch (intr) {
+	  RB_GC_GUARD(intr);
+	  RB_GC_GUARD(vtime);
+	  RB_GC_GUARD(vmin);
 	  case Qtrue:
 	    opts->intr = 1;
 	    optp = opts;
@@ -241,6 +247,7 @@ rawmode_opt(int *argcp, VALUE *argv, int min_argc, int max_argc, rawmode_arg_t *
 	}
     }
     return optp;
+    RB_GC_GUARD(vopts);
 }
 
 static void
@@ -399,6 +406,9 @@ ttymode(VALUE io, VALUE (*func)(VALUE), VALUE farg, void (*setter)(conmode *, vo
 	rb_jump_tag(status);
     }
     return result;
+    RB_GC_GUARD(farg);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(result);
 }
 
 #if !defined _WIN32
@@ -413,6 +423,7 @@ ttymode_callback(VALUE args)
 {
     struct ttymode_callback_args *argp = (struct ttymode_callback_args *)args;
     return argp->func(argp->io, argp->farg);
+    RB_GC_GUARD(args);
 }
 
 static VALUE
@@ -423,6 +434,8 @@ ttymode_with_io(VALUE io, VALUE (*func)(VALUE, VALUE), VALUE farg, void (*setter
     cargs.io = io;
     cargs.farg = farg;
     return ttymode(io, ttymode_callback, (VALUE)&cargs, setter, arg);
+    RB_GC_GUARD(farg);
+    RB_GC_GUARD(io);
 }
 #endif
 
@@ -454,6 +467,7 @@ console_raw(int argc, VALUE *argv, VALUE io)
 {
     rawmode_arg_t opts, *optp = rawmode_opt(&argc, argv, 0, 0, &opts);
     return ttymode(io, rb_yield, io, set_rawmode, optp);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -478,6 +492,7 @@ console_set_raw(int argc, VALUE *argv, VALUE io)
     set_rawmode(&t, optp);
     if (!setattr(fd, &t)) sys_fail(io);
     return io;
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -496,6 +511,7 @@ static VALUE
 console_cooked(VALUE io)
 {
     return ttymode(io, rb_yield, io, set_cookedmode, NULL);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -517,6 +533,7 @@ console_set_cooked(VALUE io)
     set_cookedmode(&t, NULL);
     if (!setattr(fd, &t)) sys_fail(io);
     return io;
+    RB_GC_GUARD(io);
 }
 
 #ifndef _WIN32
@@ -524,6 +541,7 @@ static VALUE
 getc_call(VALUE io)
 {
     return rb_funcallv(io, id_getc, 0, 0);
+    RB_GC_GUARD(io);
 }
 #else
 static void *
@@ -564,6 +582,7 @@ console_getch(int argc, VALUE *argv, VALUE io)
     rawmode_arg_t opts, *optp = rawmode_opt(&argc, argv, 0, 0, &opts);
 #ifndef _WIN32
     return ttymode(io, getc_call, io, set_rawmode, optp);
+    RB_GC_GUARD(io);
 #else
     rb_io_t *fptr;
     VALUE str;
@@ -651,6 +670,7 @@ static VALUE
 console_noecho(VALUE io)
 {
     return ttymode(io, rb_yield, io, set_noecho, NULL);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -679,6 +699,8 @@ console_set_echo(VALUE io, VALUE f)
     if (!setattr(fd, &t)) sys_fail(io);
 
     return io;
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -697,6 +719,7 @@ console_echo_p(VALUE io)
 
     if (!getattr(fd, &t)) sys_fail(io);
     return echo_p(&t) ? Qtrue : Qfalse;
+    RB_GC_GUARD(io);
 }
 
 static const rb_data_type_t conmode_type = {
@@ -711,6 +734,7 @@ static VALUE
 conmode_alloc(VALUE klass)
 {
     return rb_data_typed_object_zalloc(klass, sizeof(conmode), &conmode_type);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -719,6 +743,8 @@ conmode_new(VALUE klass, const conmode *t)
     VALUE obj = conmode_alloc(klass);
     *(conmode *)DATA_PTR(obj) = *t;
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -728,6 +754,8 @@ conmode_init_copy(VALUE obj, VALUE obj2)
     conmode *t2 = rb_check_typeddata(obj2, &conmode_type);
     *t = *t2;
     return obj;
+    RB_GC_GUARD(obj2);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -739,6 +767,8 @@ conmode_set_echo(VALUE obj, VALUE f)
     else
 	set_noecho(t, NULL);
     return obj;
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -749,6 +779,7 @@ conmode_set_raw(int argc, VALUE *argv, VALUE obj)
 
     set_rawmode(t, optp);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -760,6 +791,7 @@ conmode_raw_new(int argc, VALUE *argv, VALUE obj)
 
     set_rawmode(&t, optp);
     return conmode_new(rb_obj_class(obj), &t);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -779,6 +811,7 @@ console_conmode_get(VALUE io)
     if (!getattr(fd, &t)) sys_fail(io);
 
     return conmode_new(cConmode, &t);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -801,6 +834,8 @@ console_conmode_set(VALUE io, VALUE mode)
     if (!setattr(fd, &r)) sys_fail(io);
 
     return mode;
+    RB_GC_GUARD(mode);
+    RB_GC_GUARD(io);
 }
 
 #if defined TIOCGWINSZ
@@ -838,6 +873,7 @@ console_winsize(VALUE io)
     int fd = GetWriteFD(io);
     if (!getwinsize(fd, &ws)) sys_fail(io);
     return rb_assoc_new(INT2NUM(winsize_row(&ws)), INT2NUM(winsize_col(&ws)));
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -910,6 +946,12 @@ console_set_winsize(VALUE io, VALUE size)
     }
 #endif
     return io;
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(ypixel);
+    RB_GC_GUARD(xpixel);
+    RB_GC_GUARD(col);
+    RB_GC_GUARD(row);
 }
 #endif
 
@@ -962,6 +1004,7 @@ console_iflush(VALUE io)
 #endif
 
     return io;
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -981,6 +1024,7 @@ console_oflush(VALUE io)
 #endif
     (void)fd;
     return io;
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1008,6 +1052,7 @@ console_ioflush(VALUE io)
 #endif
 
     return io;
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1028,6 +1073,7 @@ console_beep(VALUE io)
     if (write(fd, "\a", 1) < 0) sys_fail(io);
 #endif
     return io;
+    RB_GC_GUARD(io);
 }
 
 static int
@@ -1043,6 +1089,7 @@ mode_in_range(VALUE val, int high, const char *modename)
 	goto wrong_value;
     }
     return mode;
+    RB_GC_GUARD(val);
 }
 
 #if defined _WIN32
@@ -1139,8 +1186,11 @@ direct_query(VALUE io, const struct query_args *query)
         rb_io_write(wio, s);
         rb_io_flush(wio);
         return 1;
+    RB_GC_GUARD(s);
+    RB_GC_GUARD(wio);
     }
     return 0;
+    RB_GC_GUARD(io);
 }
 
 static VALUE
@@ -1177,6 +1227,10 @@ read_vt_response(VALUE io, VALUE query)
 	}
     }
     return rb_ary_push(result, b);
+    RB_GC_GUARD(query);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(result);
 }
 
 static VALUE
@@ -1186,6 +1240,9 @@ console_vt_response(int argc, VALUE *argv, VALUE io, const struct query_args *qa
     VALUE query = (VALUE)qargs;
     VALUE ret = ttymode_with_io(io, read_vt_response, query, set_rawmode, optp);
     return ret;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(query);
 }
 
 static VALUE
@@ -1195,8 +1252,10 @@ console_scroll(VALUE io, int line)
 	VALUE s = rb_sprintf(CSI "%d%c", line < 0 ? -line : line,
 			     line < 0 ? 'T' : 'S');
 	rb_io_write(io, s);
+    RB_GC_GUARD(s);
     }
     return io;
+    RB_GC_GUARD(io);
 }
 
 # define console_key_pressed_p rb_f_notimplement
@@ -1239,6 +1298,11 @@ console_cursor_pos(VALUE io)
     RARRAY_ASET(resp, 0, INT2NUM(r));
     RARRAY_ASET(resp, 1, INT2NUM(c));
     return resp;
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(term);
+    RB_GC_GUARD(column);
+    RB_GC_GUARD(row);
+    RB_GC_GUARD(resp);
 #endif
 }
 
@@ -1265,6 +1329,9 @@ console_goto(VALUE io, VALUE y, VALUE x)
     rb_io_write(io, rb_sprintf(CSI "%d;%dH", NUM2UINT(y)+1, NUM2UINT(x)+1));
 #endif
     return io;
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
@@ -1291,9 +1358,11 @@ console_move(VALUE io, int y, int x)
 	if (x) rb_str_catf(s, CSI "%d%c", x < 0 ? -x : x, x < 0 ? 'D' : 'C');
 	rb_io_write(io, s);
 	rb_io_flush(io);
+	RB_GC_GUARD(s);
     }
 #endif
     return io;
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1325,6 +1394,8 @@ console_goto_column(VALUE io, VALUE val)
     rb_io_write(io, rb_sprintf(CSI "%dG", NUM2UINT(val)+1));
 #endif
     return io;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1372,6 +1443,8 @@ console_erase_line(VALUE io, VALUE val)
     rb_io_write(io, rb_sprintf(CSI "%dK", mode));
 #endif
     return io;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1426,6 +1499,8 @@ console_erase_screen(VALUE io, VALUE val)
     rb_io_write(io, rb_sprintf(CSI "%dJ", mode));
 #endif
     return io;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1444,6 +1519,8 @@ console_cursor_set(VALUE io, VALUE cpos)
     cpos = rb_convert_type(cpos, T_ARRAY, "Array", "to_ary");
     if (RARRAY_LEN(cpos) != 2) rb_raise(rb_eArgError, "expected 2D coordinate");
     return console_goto(io, RARRAY_AREF(cpos, 0), RARRAY_AREF(cpos, 1));
+    RB_GC_GUARD(cpos);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1458,6 +1535,8 @@ static VALUE
 console_cursor_up(VALUE io, VALUE val)
 {
     return console_move(io, -NUM2INT(val), 0);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1472,6 +1551,8 @@ static VALUE
 console_cursor_down(VALUE io, VALUE val)
 {
     return console_move(io, +NUM2INT(val), 0);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1486,6 +1567,8 @@ static VALUE
 console_cursor_left(VALUE io, VALUE val)
 {
     return console_move(io, 0, -NUM2INT(val));
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1500,6 +1583,8 @@ static VALUE
 console_cursor_right(VALUE io, VALUE val)
 {
     return console_move(io, 0, +NUM2INT(val));
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1514,6 +1599,8 @@ static VALUE
 console_scroll_forward(VALUE io, VALUE val)
 {
     return console_scroll(io, +NUM2INT(val));
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1528,6 +1615,8 @@ static VALUE
 console_scroll_backward(VALUE io, VALUE val)
 {
     return console_scroll(io, -NUM2INT(val));
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(io);
 }
 
 /*
@@ -1544,6 +1633,7 @@ console_clear_screen(VALUE io)
     console_erase_screen(io, INT2FIX(2));
     console_goto(io, INT2FIX(0), INT2FIX(0));
     return io;
+    RB_GC_GUARD(io);
 }
 
 #ifndef HAVE_RB_IO_OPEN_DESCRIPTOR
@@ -1590,18 +1680,22 @@ static bool
 console_dev_get(VALUE klass, VALUE *dev)
 {
     return rb_ractor_local_storage_value_lookup(key_console_dev, dev);
+    RB_GC_GUARD(klass);
 }
 
 static void
 console_dev_set(VALUE klass, VALUE value)
 {
     rb_ractor_local_storage_value_set(key_console_dev, value);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(value);
 }
 
 static void
 console_dev_remove(VALUE klass)
 {
     console_dev_set(klass, Qnil);
+    RB_GC_GUARD(klass);
 }
 
 #else
@@ -1713,6 +1807,7 @@ console_dev(int argc, VALUE *argv, VALUE klass)
         rb_io_set_write_io(con, out);
 #endif
         console_dev_set(klass, con);
+    RB_GC_GUARD(path);
     }
 
     if (sym) {
@@ -1720,6 +1815,9 @@ console_dev(int argc, VALUE *argv, VALUE klass)
     }
 
     return con;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(con);
 }
 
 /*
@@ -1732,24 +1830,28 @@ static VALUE
 io_getch(int argc, VALUE *argv, VALUE io)
 {
     return rb_funcallv(io, id_getc, argc, argv);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
 puts_call(VALUE io)
 {
     return rb_io_write(io, rb_default_rs);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
 gets_call(VALUE io)
 {
     return rb_funcallv(io, id_gets, 0, 0);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
 getpass_call(VALUE io)
 {
     return ttymode(io, rb_io_gets, io, set_noecho, NULL);
+    RB_GC_GUARD(io);
 }
 
 static void
@@ -1759,7 +1861,9 @@ prompt(int argc, VALUE *argv, VALUE io)
 	VALUE str = argv[0];
 	StringValueCStr(str);
 	rb_io_write(io, str);
+	RB_GC_GUARD(str);
     }
+	RB_GC_GUARD(io);
 }
 
 static VALUE
@@ -1770,6 +1874,7 @@ str_chomp(VALUE str)
 	rb_funcallv(str, id_chomp_bang, 1, &rs);
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1803,6 +1908,9 @@ console_getpass(int argc, VALUE *argv, VALUE io)
     rb_io_flush(wio);
     str = rb_ensure(getpass_call, io, puts_call, wio);
     return str_chomp(str);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(wio);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1821,6 +1929,8 @@ io_getpass(int argc, VALUE *argv, VALUE io)
     rb_check_funcall(io, id_flush, 0, 0);
     str = rb_ensure(gets_call, io, puts_call, io);
     return str_chomp(str);
+    RB_GC_GUARD(io);
+    RB_GC_GUARD(str);
 }
 
 #if defined(_WIN32) || defined(HAVE_TTYNAME_R) || defined(HAVE_TTYNAME)
@@ -1848,6 +1958,7 @@ console_ttyname(VALUE io)
 	if ((e = errno) == ERANGE) {
 	    VALUE s = rb_str_new(0, size);
 	    while (1) {
+		RB_GC_GUARD(s);
 		tn = RSTRING_PTR(s);
 		size = rb_str_capacity(s);
 		if (ttyname_r(fd, tn, size) == 0) {
@@ -1873,6 +1984,7 @@ console_ttyname(VALUE io)
 # else
 #   error No ttyname function
 # endif
+    RB_GC_GUARD(io);
 }
 #else
 # define console_ttyname rb_f_notimplement
@@ -1953,6 +2065,7 @@ InitVM_console(void)
 	/* :startdoc: */
 	rb_define_method(mReadable, "getch", io_getch, -1);
 	rb_define_method(mReadable, "getpass", io_getpass, -1);
+    RB_GC_GUARD(mReadable);
     }
     {
 	/* :stopdoc: */

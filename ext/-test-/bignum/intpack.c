@@ -14,6 +14,13 @@ rb_integer_pack_raw_m(VALUE klass, VALUE val, VALUE buf, VALUE numwords_arg, VAL
       NUM2SIZET(wordsize_arg), NUM2SIZET(nails), NUM2INT(flags));
 
   return rb_ary_new_from_args(2, INT2NUM(sign), rb_str_new(RSTRING_PTR(buf), wordsize * numwords));
+  RB_GC_GUARD(flags);
+  RB_GC_GUARD(nails);
+  RB_GC_GUARD(wordsize_arg);
+  RB_GC_GUARD(numwords_arg);
+  RB_GC_GUARD(buf);
+  RB_GC_GUARD(val);
+  RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -32,6 +39,13 @@ rb_integer_pack_m(VALUE klass, VALUE val, VALUE numwords_arg, VALUE wordsize_arg
       wordsize, NUM2SIZET(nails), NUM2INT(flags));
 
   return rb_assoc_new(INT2NUM(sign), buf);
+  RB_GC_GUARD(flags);
+  RB_GC_GUARD(nails);
+  RB_GC_GUARD(wordsize_arg);
+  RB_GC_GUARD(numwords_arg);
+  RB_GC_GUARD(val);
+  RB_GC_GUARD(klass);
+  RB_GC_GUARD(buf);
 }
 
 static VALUE
@@ -42,6 +56,12 @@ rb_integer_unpack_m(VALUE klass, VALUE buf, VALUE numwords, VALUE wordsize, VALU
     return rb_integer_unpack(RSTRING_PTR(buf),
             NUM2SIZET(numwords), NUM2SIZET(wordsize),
             NUM2SIZET(nails), NUM2INT(flags));
+            RB_GC_GUARD(flags);
+            RB_GC_GUARD(nails);
+            RB_GC_GUARD(wordsize);
+            RB_GC_GUARD(numwords);
+            RB_GC_GUARD(buf);
+            RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -51,6 +71,8 @@ rb_integer_test_numbits_2comp_without_sign(VALUE klass, VALUE val)
   int neg = FIXNUM_P(val) ? FIX2LONG(val) < 0 : BIGNUM_NEGATIVE_P(val);
   size = rb_absint_numwords(val, 1, NULL) - (neg && rb_absint_singlebit_p(val));
   return SIZET2NUM(size);
+  RB_GC_GUARD(val);
+  RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -62,6 +84,8 @@ rb_integer_test_numbytes_2comp_with_sign(VALUE klass, VALUE val)
   if (nlz_bits == 0 && !(neg && rb_absint_singlebit_p(val)))
     size++;
   return SIZET2NUM(size);
+  RB_GC_GUARD(val);
+  RB_GC_GUARD(klass);
 }
 
 void

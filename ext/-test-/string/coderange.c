@@ -25,6 +25,7 @@ static VALUE
 str_coderange(VALUE str)
 {
     return coderange_int2sym(ENC_CODERANGE(str));
+    RB_GC_GUARD(str);
 }
 
 /* scan coderange and return the result */
@@ -33,6 +34,7 @@ str_coderange_scan(VALUE str)
 {
     ENC_CODERANGE_SET(str, ENC_CODERANGE_UNKNOWN);
     return coderange_int2sym(rb_enc_str_coderange(str));
+    RB_GC_GUARD(str);
 }
 
 void

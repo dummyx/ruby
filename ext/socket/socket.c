@@ -20,6 +20,8 @@ void
 rsock_sys_fail_host_port(const char *mesg, VALUE host, VALUE port)
 {
     rsock_syserr_fail_host_port(errno, mesg, host, port);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(port);
 }
 
 void
@@ -35,12 +37,16 @@ rsock_syserr_fail_host_port(int err, const char *mesg, VALUE host, VALUE port)
     }
 
     rb_syserr_fail_str(err, message);
+    RB_GC_GUARD(message);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
 }
 
 void
 rsock_sys_fail_path(const char *mesg, VALUE path)
 {
     rsock_syserr_fail_path(errno, mesg, path);
+    RB_GC_GUARD(path);
 }
 
 void
@@ -55,6 +61,8 @@ rsock_syserr_fail_path(int err, const char *mesg, VALUE path)
     else {
         rb_syserr_fail(err, mesg);
     }
+        RB_GC_GUARD(message);
+        RB_GC_GUARD(path);
 }
 
 void
@@ -71,12 +79,14 @@ rsock_syserr_fail_sockaddr(int err, const char *mesg, struct sockaddr *addr, soc
     rai = rsock_addrinfo_new(addr, len, PF_UNSPEC, 0, 0, Qnil, Qnil);
 
     rsock_syserr_fail_raddrinfo(err, mesg, rai);
+    RB_GC_GUARD(rai);
 }
 
 void
 rsock_sys_fail_raddrinfo(const char *mesg, VALUE rai)
 {
     rsock_syserr_fail_raddrinfo(errno, mesg, rai);
+    RB_GC_GUARD(rai);
 }
 
 void
@@ -88,12 +98,17 @@ rsock_syserr_fail_raddrinfo(int err, const char *mesg, VALUE rai)
     message = rb_sprintf("%s for %"PRIsVALUE"", mesg, str);
 
     rb_syserr_fail_str(err, message);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(rai);
+    RB_GC_GUARD(message);
 }
 
 void
 rsock_sys_fail_raddrinfo_or_sockaddr(const char *mesg, VALUE addr, VALUE rai)
 {
     rsock_syserr_fail_raddrinfo_or_sockaddr(errno, mesg, addr, rai);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(rai);
 }
 
 void
@@ -108,6 +123,8 @@ rsock_syserr_fail_raddrinfo_or_sockaddr(int err, const char *mesg, VALUE addr, V
     }
     else
         rsock_syserr_fail_raddrinfo(err, mesg, rai);
+        RB_GC_GUARD(addr);
+        RB_GC_GUARD(rai);
 }
 
 static void
@@ -115,6 +132,8 @@ setup_domain_and_type(VALUE domain, int *dv, VALUE type, int *tv)
 {
     *dv = rsock_family_arg(domain);
     *tv = rsock_socktype_arg(type);
+    RB_GC_GUARD(domain);
+    RB_GC_GUARD(type);
 }
 
 /*
@@ -151,6 +170,10 @@ sock_initialize(int argc, VALUE *argv, VALUE sock)
     if (fd < 0) rb_sys_fail("socket(2)");
 
     return rsock_init_sock(sock, fd);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(domain);
 }
 
 #if defined HAVE_SOCKETPAIR
@@ -158,18 +181,21 @@ static VALUE
 io_call_close(VALUE io)
 {
     return rb_funcallv(io, rb_intern("close"), 0, 0);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
 io_close(VALUE io)
 {
     return rb_rescue(io_call_close, io, 0, 0);
+    RB_GC_GUARD(io);
 }
 
 static VALUE
 pair_yield(VALUE pair)
 {
     return rb_ensure(rb_yield, pair, io_close, rb_ary_entry(pair, 1));
+    RB_GC_GUARD(pair);
 }
 #endif
 
@@ -272,6 +298,13 @@ rsock_sock_s_socketpair(int argc, VALUE *argv, VALUE klass)
         return rb_ensure(pair_yield, r, io_close, s1);
     }
     return r;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(s2);
+    RB_GC_GUARD(s1);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(domain);
 }
 #else
 #define rsock_sock_s_socketpair rb_f_notimplement
@@ -403,6 +436,9 @@ sock_connect(VALUE self, VALUE addr)
     }
 
     return INT2FIX(result);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(rai);
 }
 
 /* :nodoc: */
@@ -435,6 +471,10 @@ sock_connect_nonblock(VALUE sock, VALUE addr, VALUE ex)
     }
 
     return INT2FIX(n);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(rai);
 }
 
 /*
@@ -535,6 +575,9 @@ sock_bind(VALUE sock, VALUE addr)
         rsock_sys_fail_raddrinfo_or_sockaddr("bind(2)", addr, rai);
 
     return INT2FIX(0);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(rai);
 }
 
 /*
@@ -619,6 +662,8 @@ rsock_sock_listen(VALUE sock, VALUE log)
         rb_sys_fail("listen(2)");
 
     return INT2FIX(0);
+    RB_GC_GUARD(log);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -730,6 +775,7 @@ static VALUE
 sock_recvfrom(int argc, VALUE *argv, VALUE sock)
 {
     return rsock_s_recvfrom(sock, argc, argv, RECV_SOCKET);
+    RB_GC_GUARD(sock);
 }
 
 /* :nodoc: */
@@ -737,6 +783,11 @@ static VALUE
 sock_recvfrom_nonblock(VALUE sock, VALUE len, VALUE flg, VALUE str, VALUE ex)
 {
     return rsock_s_recvfrom_nonblock(sock, len, flg, str, ex, RECV_SOCKET);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(flg);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -762,6 +813,8 @@ sock_accept(VALUE server)
     VALUE peer = rsock_s_accept(rb_cSocket, server, &buffer.addr, &length);
 
     return rb_assoc_new(peer, rsock_io_socket_addrinfo(peer, &buffer.addr, length));
+    RB_GC_GUARD(server);
+    RB_GC_GUARD(peer);
 }
 
 /* :nodoc: */
@@ -780,6 +833,9 @@ sock_accept_nonblock(VALUE sock, VALUE ex)
     if (SYMBOL_P(sock2)) /* :wait_readable */
         return sock2;
     return rb_assoc_new(sock2, rsock_io_socket_addrinfo(sock2, &buf.addr, len));
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(sock2);
 }
 
 /*
@@ -829,6 +885,8 @@ sock_sysaccept(VALUE server)
     VALUE peer = rsock_s_accept(0, server, &buffer.addr, &length);
 
     return rb_assoc_new(peer, rsock_io_socket_addrinfo(peer, &buffer.addr, length));
+    RB_GC_GUARD(server);
+    RB_GC_GUARD(peer);
 }
 
 #ifdef HAVE_GETHOSTNAME
@@ -875,6 +933,8 @@ sock_gethostname(VALUE obj)
     }
     rb_str_resize(name, strlen(RSTRING_PTR(name)));
     return name;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(name);
 }
 #else
 #ifdef HAVE_UNAME
@@ -915,6 +975,8 @@ make_addrinfo(struct rb_addrinfo *res0, int norevlookup)
         rb_ary_push(base, ary);
     }
     return base;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(base);
 }
 
 static VALUE
@@ -967,6 +1029,8 @@ sock_s_gethostbyname(VALUE obj, VALUE host)
     struct rb_addrinfo *res =
         rsock_addrinfo(host, Qnil, AF_UNSPEC, SOCK_STREAM, AI_CANONNAME);
     return rsock_make_hostent(host, res, sock_sockaddr);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1043,6 +1107,11 @@ sock_s_gethostbyaddr(int argc, VALUE *argv, VALUE _)
 #endif
 
     return ary;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(names);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(addr);
 }
 
 /*
@@ -1084,6 +1153,9 @@ sock_s_getservbyname(int argc, VALUE *argv, VALUE _)
         }
     }
     return INT2FIX(port);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(proto);
+    RB_GC_GUARD(service);
 }
 
 /*
@@ -1120,6 +1192,9 @@ sock_s_getservbyport(int argc, VALUE *argv, VALUE _)
         rb_raise(rb_eSocket, "no such service for port %d/%s", (int)portnum, protoname);
     }
     return rb_str_new2(sp->s_name);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(proto);
+    RB_GC_GUARD(port);
 }
 
 /*
@@ -1188,6 +1263,15 @@ sock_s_getaddrinfo(int argc, VALUE *argv, VALUE _)
     ret = make_addrinfo(res, norevlookup);
     rb_freeaddrinfo(res);
     return ret;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(revlookup);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(protocol);
+    RB_GC_GUARD(socktype);
+    RB_GC_GUARD(family);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
 }
 
 /*
@@ -1316,6 +1400,13 @@ sock_s_getnameinfo(int argc, VALUE *argv, VALUE _)
     rsock_raise_resolution_error("getnameinfo", error);
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(sa);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(af);
 }
 
 /*
@@ -1341,6 +1432,10 @@ sock_s_pack_sockaddr_in(VALUE self, VALUE port, VALUE host)
     rb_freeaddrinfo(res);
 
     return addr;
+    RB_GC_GUARD(host);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(addr);
 }
 
 /*
@@ -1381,6 +1476,9 @@ sock_s_unpack_sockaddr_in(VALUE self, VALUE addr)
     }
     host = rsock_make_ipaddr((struct sockaddr*)sockaddr, RSTRING_SOCKLEN(addr));
     return rb_assoc_new(INT2NUM(ntohs(sockaddr->sin_port)), host);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(host);
 }
 
 #ifdef HAVE_TYPE_STRUCT_SOCKADDR_UN
@@ -1411,6 +1509,9 @@ sock_s_pack_sockaddr_un(VALUE self, VALUE path)
     addr = rb_str_new((char*)&sockaddr, rsock_unix_sockaddr_len(path));
 
     return addr;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(addr);
 }
 
 /*
@@ -1446,6 +1547,9 @@ sock_s_unpack_sockaddr_un(VALUE self, VALUE addr)
     }
     path = rsock_unixpath_str(sockaddr, RSTRING_SOCKLEN(addr));
     return path;
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(path);
 }
 #endif
 
@@ -1594,6 +1698,8 @@ socket_s_ip_address_list(VALUE self)
     freeifaddrs(ifp);
 
     return list;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(list);
 #elif defined(SIOCGLIFCONF) && defined(SIOCGLIFNUM)
     /* Solaris if_tcp(7P) */
     int fd = -1;
@@ -1874,6 +1980,7 @@ socket_s_ip_address_list(VALUE self)
  */
 VALUE socket_s_tcp_fast_fallback(VALUE self) {
     return rb_ivar_get(rb_cSocket, tcp_fast_fallback);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1915,6 +2022,8 @@ VALUE socket_s_tcp_fast_fallback(VALUE self) {
 VALUE socket_s_tcp_fast_fallback_set(VALUE self, VALUE value) {
     rb_ivar_set(rb_cSocket, tcp_fast_fallback, value);
     return value;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -2103,4 +2212,5 @@ Init_socket(void)
 
 #undef rb_intern
     sym_wait_writable = ID2SYM(rb_intern("wait_writable"));
+    RB_GC_GUARD(fast_fallback_default);
 }

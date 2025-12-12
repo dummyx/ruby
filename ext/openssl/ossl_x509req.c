@@ -55,6 +55,7 @@ GetX509ReqPtr(VALUE obj)
     GetX509Req(obj, req);
 
     return req;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -73,6 +74,8 @@ ossl_x509req_alloc(VALUE klass)
     SetX509Req(obj, req);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -101,6 +104,8 @@ ossl_x509req_initialize(int argc, VALUE *argv, VALUE self)
     X509_REQ_free(req_orig);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 static VALUE
@@ -119,6 +124,8 @@ ossl_x509req_copy(VALUE self, VALUE other)
     DATA_PTR(self) = req;
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -137,6 +144,7 @@ ossl_x509req_to_pem(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -157,6 +165,8 @@ ossl_x509req_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -175,6 +185,7 @@ ossl_x509req_to_text(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 #if 0
@@ -207,6 +218,7 @@ ossl_x509req_get_version(VALUE self)
     version = X509_REQ_get_version(req);
 
     return LONG2NUM(version);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -224,6 +236,8 @@ ossl_x509req_set_version(VALUE self, VALUE version)
     }
 
     return version;
+    RB_GC_GUARD(version);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -238,6 +252,7 @@ ossl_x509req_get_subject(VALUE self)
     }
 
     return ossl_x509name_new(name);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -252,6 +267,8 @@ ossl_x509req_set_subject(VALUE self, VALUE subject)
     }
 
     return subject;
+    RB_GC_GUARD(subject);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -273,6 +290,7 @@ ossl_x509req_get_signature_algorithm(VALUE self)
     }
 
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -287,6 +305,7 @@ ossl_x509req_get_public_key(VALUE self)
     }
 
     return ossl_pkey_new(pkey); /* NO DUP - OK */
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -301,6 +320,8 @@ ossl_x509req_set_public_key(VALUE self, VALUE key)
     if (!X509_REQ_set_pubkey(req, pkey))
 	ossl_raise(eX509ReqError, "X509_REQ_set_pubkey");
     return key;
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -322,6 +343,9 @@ ossl_x509req_sign(VALUE self, VALUE key, VALUE digest)
     }
 
     return self;
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -345,6 +369,8 @@ ossl_x509req_verify(VALUE self, VALUE key)
       default:
 	ossl_raise(eX509ReqError, NULL);
     }
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(key);
 }
 
 static VALUE
@@ -369,6 +395,8 @@ ossl_x509req_get_attributes(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -394,6 +422,9 @@ ossl_x509req_set_attributes(VALUE self, VALUE ary)
 	}
     }
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(item);
 }
 
 static VALUE
@@ -407,6 +438,8 @@ ossl_x509req_add_attribute(VALUE self, VALUE attr)
     }
 
     return attr;
+    RB_GC_GUARD(attr);
+    RB_GC_GUARD(self);
 }
 
 /*

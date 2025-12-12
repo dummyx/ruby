@@ -250,6 +250,9 @@ rb_num_get_rounding_option(VALUE opts)
     }
   noopt:
     return RUBY_NUM_ROUND_DEFAULT;
+    RB_GC_GUARD(opts);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(rounding);
 }
 
 /* experimental API */
@@ -282,6 +285,7 @@ rb_num_to_uint(VALUE val, unsigned int *ret)
 #endif
     }
     return NUMERR_TYPE;
+    RB_GC_GUARD(val);
 }
 
 #define method_basic_p(klass) rb_method_basic_definition_p(klass, mid)
@@ -296,6 +300,7 @@ int_pos_p(VALUE num)
         return BIGNUM_POSITIVE_P(num);
     }
     rb_raise(rb_eTypeError, "not an Integer");
+    RB_GC_GUARD(num);
 }
 
 static inline int
@@ -308,24 +313,28 @@ int_neg_p(VALUE num)
         return BIGNUM_NEGATIVE_P(num);
     }
     rb_raise(rb_eTypeError, "not an Integer");
+    RB_GC_GUARD(num);
 }
 
 int
 rb_int_positive_p(VALUE num)
 {
     return int_pos_p(num);
+    RB_GC_GUARD(num);
 }
 
 int
 rb_int_negative_p(VALUE num)
 {
     return int_neg_p(num);
+    RB_GC_GUARD(num);
 }
 
 int
 rb_num_negative_p(VALUE num)
 {
     return rb_num_negative_int_p(num);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -348,12 +357,15 @@ num_funcall_op_0(VALUE x, VALUE arg, int recursive)
         }
     }
     return rb_funcallv(x, func, 0, 0);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
 num_funcall0(VALUE x, ID func)
 {
     return rb_exec_recursive(num_funcall_op_0, x, (VALUE)func);
+    RB_GC_GUARD(x);
 }
 
 NORETURN(static void num_funcall_op_1_recursion(VALUE x, ID func, VALUE y));
@@ -370,6 +382,8 @@ num_funcall_op_1_recursion(VALUE x, ID func, VALUE y)
         rb_name_error(func, "%"PRIsVALUE"%"PRIsVALUE"%"PRIsVALUE,
                       x, ID2SYM(func), y);
     }
+                      RB_GC_GUARD(x);
+                      RB_GC_GUARD(y);
 }
 
 static VALUE
@@ -381,6 +395,9 @@ num_funcall_op_1(VALUE y, VALUE arg, int recursive)
         num_funcall_op_1_recursion(x, func, y);
     }
     return rb_funcall(x, func, 1, y);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -390,6 +407,8 @@ num_funcall1(VALUE x, ID func, VALUE y)
     args[0] = (VALUE)func;
     args[1] = x;
     return rb_exec_recursive_paired(num_funcall_op_1, y, x, (VALUE)args);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -435,6 +454,8 @@ num_coerce(VALUE x, VALUE y)
     x = rb_Float(x);
     y = rb_Float(y);
     return rb_assoc_new(y, x);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 NORETURN(static void coerce_failed(VALUE x, VALUE y));
@@ -449,6 +470,8 @@ coerce_failed(VALUE x, VALUE y)
     }
     rb_raise(rb_eTypeError, "%"PRIsVALUE" can't be coerced into %"PRIsVALUE,
              y, rb_obj_class(x));
+             RB_GC_GUARD(x);
+             RB_GC_GUARD(y);
 }
 
 static int
@@ -471,6 +494,7 @@ do_coerce(VALUE *x, VALUE *y, int err)
     *x = RARRAY_AREF(ary, 0);
     *y = RARRAY_AREF(ary, 1);
     return TRUE;
+    RB_GC_GUARD(ary);
 }
 
 VALUE
@@ -478,6 +502,8 @@ rb_num_coerce_bin(VALUE x, VALUE y, ID func)
 {
     do_coerce(&x, &y, TRUE);
     return rb_funcall(x, func, 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -486,6 +512,8 @@ rb_num_coerce_cmp(VALUE x, VALUE y, ID func)
     if (do_coerce(&x, &y, FALSE))
         return rb_funcall(x, func, 1, y);
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -493,6 +521,9 @@ ensure_cmp(VALUE c, VALUE x, VALUE y)
 {
     if (NIL_P(c)) rb_cmperr(x, y);
     return c;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(c);
 }
 
 VALUE
@@ -505,6 +536,10 @@ rb_num_coerce_relop(VALUE x, VALUE y, ID func)
         UNREACHABLE_RETURN(Qnil);
     }
     return ensure_cmp(rb_funcall(x, func, 1, y), x0, y0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(y0);
+    RB_GC_GUARD(x0);
 }
 
 NORETURN(static VALUE num_sadded(VALUE x, VALUE name));
@@ -529,6 +564,8 @@ num_sadded(VALUE x, VALUE name)
              rb_obj_class(x));
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(name);
 }
 
 #if 0
@@ -570,6 +607,7 @@ static VALUE
 num_imaginary(VALUE num)
 {
     return rb_complex_new(INT2FIX(0), num);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -588,6 +626,8 @@ num_uminus(VALUE num)
     do_coerce(&zero, &num, TRUE);
 
     return num_funcall1(zero, '-', num);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(zero);
 }
 
 /*
@@ -607,6 +647,8 @@ static VALUE
 num_fdiv(VALUE x, VALUE y)
 {
     return rb_funcall(rb_Float(x), '/', 1, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -627,6 +669,8 @@ num_div(VALUE x, VALUE y)
 {
     if (rb_equal(INT2FIX(0), y)) rb_num_zerodiv();
     return rb_funcall(num_funcall1(x, '/', y), rb_intern("floor"), 0);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -669,6 +713,9 @@ num_modulo(VALUE x, VALUE y)
     VALUE q = num_funcall1(x, id_div, y);
     return rb_funcall(x, '-', 1,
                       rb_funcall(y, '*', 1, q));
+                      RB_GC_GUARD(y);
+                      RB_GC_GUARD(x);
+                      RB_GC_GUARD(q);
 }
 
 /*
@@ -723,6 +770,9 @@ num_remainder(VALUE x, VALUE y)
         return rb_funcall(z, '-', 1, y);
     }
     return z;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 /*
@@ -757,6 +807,8 @@ static VALUE
 num_divmod(VALUE x, VALUE y)
 {
     return rb_assoc_new(num_div(x, y), num_modulo(x, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -778,6 +830,7 @@ num_abs(VALUE num)
         return num_funcall0(num, idUMinus);
     }
     return num;
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -795,6 +848,7 @@ static VALUE
 num_zero_p(VALUE num)
 {
     return rb_equal(num, INT2FIX(0));
+    RB_GC_GUARD(num);
 }
 
 static bool
@@ -805,12 +859,14 @@ int_zero_p(VALUE num)
     }
     RUBY_ASSERT(RB_BIGNUM_TYPE_P(num));
     return rb_bigzero_p(num);
+    RB_GC_GUARD(num);
 }
 
 VALUE
 rb_int_zero_p(VALUE num)
 {
     return RBOOL(int_zero_p(num));
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -840,6 +896,7 @@ num_nonzero_p(VALUE num)
         return Qnil;
     }
     return num;
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -865,6 +922,7 @@ static VALUE
 num_to_int(VALUE num)
 {
     return num_funcall0(num, id_to_i);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -889,6 +947,7 @@ num_positive_p(VALUE num)
             return RBOOL(BIGNUM_POSITIVE_P(num) && !rb_bigzero_p(num));
     }
     return rb_num_compare_with_zero(num, mid);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -903,6 +962,7 @@ static VALUE
 num_negative_p(VALUE num)
 {
     return RBOOL(rb_num_negative_int_p(num));
+    RB_GC_GUARD(num);
 }
 
 
@@ -1098,6 +1158,8 @@ flo_to_s(VALUE flt)
     rb_str_cat(s, buf, digs + 1);
     rb_str_catf(s, "e%+03d", decpt - 1);
     return s;
+    RB_GC_GUARD(flt);
+    RB_GC_GUARD(s);
 }
 
 /*
@@ -1121,12 +1183,15 @@ static VALUE
 flo_coerce(VALUE x, VALUE y)
 {
     return rb_assoc_new(rb_Float(y), x);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
 rb_float_uminus(VALUE flt)
 {
     return DBL2NUM(-RFLOAT_VALUE(flt));
+    RB_GC_GUARD(flt);
 }
 
 /*
@@ -1157,6 +1222,8 @@ rb_float_plus(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '+');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -1188,6 +1255,8 @@ rb_float_minus(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '-');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -1218,6 +1287,8 @@ rb_float_mul(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '*');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -1243,6 +1314,8 @@ rb_flo_div_flo(VALUE x, VALUE y)
     double den = RFLOAT_VALUE(y);
     double ret = double_div_double(num, den);
     return DBL2NUM(ret);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1281,6 +1354,8 @@ rb_float_div(VALUE x, VALUE y)
 
     ret = double_div_double(num, den);
     return DBL2NUM(ret);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1301,6 +1376,8 @@ static VALUE
 flo_quo(VALUE x, VALUE y)
 {
     return num_funcall1(x, '/', y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static void
@@ -1401,6 +1478,8 @@ flo_mod(VALUE x, VALUE y)
         return rb_num_coerce_bin(x, y, '%');
     }
     return DBL2NUM(ruby_float_mod(RFLOAT_VALUE(x), fy));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -1460,6 +1539,8 @@ flo_divmod(VALUE x, VALUE y)
     a = dbl2ival(div);
     b = DBL2NUM(mod);
     return rb_assoc_new(a, b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1503,6 +1584,8 @@ rb_float_pow(VALUE x, VALUE y)
         return rb_num_coerce_bin(x, y, idPow);
     }
     return DBL2NUM(pow(dx, dy));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1536,6 +1619,8 @@ num_eql(VALUE x, VALUE y)
     }
 
     return rb_equal(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1553,6 +1638,8 @@ num_cmp(VALUE x, VALUE y)
 {
     if (x == y) return INT2FIX(0);
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -1562,6 +1649,9 @@ num_equal(VALUE x, VALUE y)
     if (x == y) return Qtrue;
     result = num_funcall1(y, id_eq, x);
     return RBOOL(RTEST(result));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(result);
 }
 
 /*
@@ -1603,6 +1693,8 @@ rb_float_equal(VALUE x, VALUE y)
     if (isnan(a)) return Qfalse;
 #endif
     return RBOOL(a == b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define flo_eq rb_float_equal
@@ -1621,6 +1713,7 @@ static VALUE
 flo_hash(VALUE num)
 {
     return rb_dbl_hash(RFLOAT_VALUE(num));
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -1680,6 +1773,7 @@ flo_cmp(VALUE x, VALUE y)
         if (FIXNUM_P(rel))
             return LONG2FIX(-FIX2LONG(rel));
         return rel;
+    RB_GC_GUARD(rel);
     }
     else if (RB_FLOAT_TYPE_P(y)) {
         b = RFLOAT_VALUE(y);
@@ -1697,12 +1791,17 @@ flo_cmp(VALUE x, VALUE y)
         return rb_num_coerce_cmp(x, y, id_cmp);
     }
     return rb_dbl_cmp(a, b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(i);
 }
 
 int
 rb_float_cmp(VALUE x, VALUE y)
 {
     return NUM2INT(ensure_cmp(flo_cmp(x, y), x, y));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1731,6 +1830,7 @@ rb_float_gt(VALUE x, VALUE y)
         if (FIXNUM_P(rel))
             return RBOOL(-FIX2LONG(rel) > 0);
         return Qfalse;
+    RB_GC_GUARD(rel);
     }
     else if (RB_FLOAT_TYPE_P(y)) {
         b = RFLOAT_VALUE(y);
@@ -1745,6 +1845,8 @@ rb_float_gt(VALUE x, VALUE y)
     if (isnan(a)) return Qfalse;
 #endif
     return RBOOL(a > b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1774,6 +1876,7 @@ flo_ge(VALUE x, VALUE y)
         if (FIXNUM_P(rel))
             return RBOOL(-FIX2LONG(rel) >= 0);
         return Qfalse;
+    RB_GC_GUARD(rel);
     }
     else if (RB_FLOAT_TYPE_P(y)) {
         b = RFLOAT_VALUE(y);
@@ -1788,6 +1891,8 @@ flo_ge(VALUE x, VALUE y)
     if (isnan(a)) return Qfalse;
 #endif
     return RBOOL(a >= b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1816,6 +1921,7 @@ flo_lt(VALUE x, VALUE y)
         if (FIXNUM_P(rel))
             return RBOOL(-FIX2LONG(rel) < 0);
         return Qfalse;
+    RB_GC_GUARD(rel);
     }
     else if (RB_FLOAT_TYPE_P(y)) {
         b = RFLOAT_VALUE(y);
@@ -1830,6 +1936,8 @@ flo_lt(VALUE x, VALUE y)
     if (isnan(a)) return Qfalse;
 #endif
     return RBOOL(a < b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1859,6 +1967,7 @@ flo_le(VALUE x, VALUE y)
         if (FIXNUM_P(rel))
             return RBOOL(-FIX2LONG(rel) <= 0);
         return Qfalse;
+    RB_GC_GUARD(rel);
     }
     else if (RB_FLOAT_TYPE_P(y)) {
         b = RFLOAT_VALUE(y);
@@ -1873,6 +1982,8 @@ flo_le(VALUE x, VALUE y)
     if (isnan(a)) return Qfalse;
 #endif
     return RBOOL(a <= b);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -1905,6 +2016,8 @@ rb_float_eql(VALUE x, VALUE y)
     return RBOOL(a == b);
     }
     return Qfalse;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 #define flo_eql rb_float_eql
@@ -1914,6 +2027,7 @@ rb_float_abs(VALUE flt)
 {
     double val = fabs(RFLOAT_VALUE(flt));
     return DBL2NUM(val);
+    RB_GC_GUARD(flt);
 }
 
 /*
@@ -1934,6 +2048,7 @@ flo_is_nan_p(VALUE num)
     double value = RFLOAT_VALUE(num);
 
     return RBOOL(isnan(value));
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -1969,6 +2084,7 @@ rb_flo_is_infinite_p(VALUE num)
     }
 
     return Qnil;
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -1995,6 +2111,7 @@ rb_flo_is_finite_p(VALUE num)
     double value = RFLOAT_VALUE(num);
 
     return RBOOL(isfinite(value));
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -2004,6 +2121,7 @@ flo_nextafter(VALUE flo, double value)
     x = NUM2DBL(flo);
     y = nextafter(x, value);
     return DBL2NUM(y);
+    RB_GC_GUARD(flo);
 }
 
 /*
@@ -2054,6 +2172,7 @@ static VALUE
 flo_next_float(VALUE vx)
 {
     return flo_nextafter(vx, HUGE_VAL);
+    RB_GC_GUARD(vx);
 }
 
 /*
@@ -2095,6 +2214,7 @@ static VALUE
 flo_prev_float(VALUE vx)
 {
     return flo_nextafter(vx, -HUGE_VAL);
+    RB_GC_GUARD(vx);
 }
 
 VALUE
@@ -2123,6 +2243,7 @@ rb_float_floor(VALUE num, int ndigits)
         num = dbl2ival(floor(number));
         if (ndigits < 0) num = rb_int_floor(num, ndigits);
         return num;
+        RB_GC_GUARD(num);
     }
 }
 
@@ -2218,6 +2339,7 @@ flo_floor(int argc, VALUE *argv, VALUE num)
 {
     int ndigits = flo_ndigits(argc, argv);
     return rb_float_floor(num, ndigits);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2303,6 +2425,7 @@ flo_ceil(int argc, VALUE *argv, VALUE num)
 {
     int ndigits = flo_ndigits(argc, argv);
     return rb_float_ceil(num, ndigits);
+    RB_GC_GUARD(num);
 }
 
 VALUE
@@ -2328,6 +2451,7 @@ rb_float_ceil(VALUE num, int ndigits)
         num = dbl2ival(ceil(number));
         if (ndigits < 0) num = rb_int_ceil(num, ndigits);
         return num;
+        RB_GC_GUARD(num);
     }
 }
 
@@ -2347,6 +2471,7 @@ int_round_zero_p(VALUE num, int ndigits)
         bytes = NUM2LONG(rb_funcall(num, idSize, 0));
     }
     return (-0.415241 * ndigits - 0.125 > bytes);
+    RB_GC_GUARD(num);
 }
 
 static SIGNED_VALUE
@@ -2375,18 +2500,27 @@ static int
 int_half_p_half_even(VALUE num, VALUE n, VALUE f)
 {
     return (int)rb_int_odd_p(rb_int_idiv(n, f));
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(num);
 }
 
 static int
 int_half_p_half_up(VALUE num, VALUE n, VALUE f)
 {
     return int_pos_p(num);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(num);
 }
 
 static int
 int_half_p_half_down(VALUE num, VALUE n, VALUE f)
 {
     return int_neg_p(num);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2423,6 +2557,11 @@ rb_int_round(VALUE num, int ndigits, enum ruby_num_rounding_mode mode)
         n = rb_int_plus(n, f);
     }
     return n;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(h);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(n);
 }
 
 static VALUE
@@ -2443,6 +2582,8 @@ rb_int_floor(VALUE num, int ndigits)
         num = rb_int_mul(rb_int_div(num, f), f);
         if (neg) num = rb_int_uminus(num);
         return num;
+        RB_GC_GUARD(f);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -2468,6 +2609,8 @@ rb_int_ceil(VALUE num, int ndigits)
         num = rb_int_mul(rb_int_div(num, f), f);
         if (neg) num = rb_int_uminus(num);
         return num;
+        RB_GC_GUARD(f);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -2498,6 +2641,9 @@ rb_int_truncate(VALUE num, int ndigits)
     }
     else {
         return rb_int_minus(num, m);
+        RB_GC_GUARD(f);
+        RB_GC_GUARD(num);
+        RB_GC_GUARD(m);
     }
 }
 
@@ -2593,6 +2739,9 @@ flo_round(int argc, VALUE *argv, VALUE num)
         return DBL2NUM(x / f);
     }
     return num;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(nd);
 }
 
 static int
@@ -2657,6 +2806,7 @@ flo_to_i(VALUE num)
     if (f < 0.0) f = ceil(f);
 
     return dbl2ival(f);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2701,6 +2851,7 @@ flo_truncate(int argc, VALUE *argv, VALUE num)
         return flo_ceil(argc, argv, num);
     else
         return flo_floor(argc, argv, num);
+        RB_GC_GUARD(num);
 }
 
 /*
@@ -2721,6 +2872,7 @@ static VALUE
 num_floor(int argc, VALUE *argv, VALUE num)
 {
     return flo_floor(argc, argv, rb_Float(num));
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2741,6 +2893,7 @@ static VALUE
 num_ceil(int argc, VALUE *argv, VALUE num)
 {
     return flo_ceil(argc, argv, rb_Float(num));
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2758,6 +2911,7 @@ static VALUE
 num_round(int argc, VALUE* argv, VALUE num)
 {
     return flo_round(argc, argv, rb_Float(num));
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -2775,6 +2929,7 @@ static VALUE
 num_truncate(int argc, VALUE *argv, VALUE num)
 {
     return flo_truncate(argc, argv, rb_Float(num));
+    RB_GC_GUARD(num);
 }
 
 double
@@ -2842,6 +2997,7 @@ ruby_float_step(VALUE from, VALUE to, VALUE step, int excl, int allow_endless)
             VALUE val = DBL2NUM(beg);
             for (;;)
                 rb_yield(val);
+        RB_GC_GUARD(val);
         }
         else {
             for (i=0; i<n; i++) {
@@ -2853,6 +3009,9 @@ ruby_float_step(VALUE from, VALUE to, VALUE step, int excl, int allow_endless)
         return TRUE;
     }
     return FALSE;
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
 }
 
 VALUE
@@ -2898,6 +3057,10 @@ ruby_num_interval_step_size(VALUE from, VALUE to, VALUE step, int excl)
             result = rb_funcall(result, '+', 1, INT2FIX(1));
         }
         return result;
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(from);
+        RB_GC_GUARD(step);
+        RB_GC_GUARD(to);
     }
 }
 
@@ -2922,6 +3085,9 @@ num_step_negative_p(VALUE num)
         coerce_failed(num, INT2FIX(0));
     }
     return !RTEST(r);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(r);
+    RB_GC_GUARD(zero);
 }
 
 static int
@@ -2947,6 +3113,7 @@ num_step_extract_args(int argc, const VALUE *argv, VALUE *to, VALUE *step, VALUE
     }
 
     return argc;
+    RB_GC_GUARD(hash);
 }
 
 static int
@@ -2973,6 +3140,7 @@ num_step_check_fix_args(int argc, VALUE *to, VALUE *step, VALUE by, int fix_nil,
         *to = desc ? DBL2NUM(-HUGE_VAL) : DBL2NUM(HUGE_VAL);
     }
     return desc;
+    RB_GC_GUARD(by);
 }
 
 static int
@@ -2981,6 +3149,7 @@ num_step_scan_args(int argc, const VALUE *argv, VALUE *to, VALUE *step, int fix_
     VALUE by = Qundef;
     argc = num_step_extract_args(argc, argv, to, step, &by);
     return num_step_check_fix_args(argc, to, step, by, fix_nil, allow_zero_step);
+    RB_GC_GUARD(by);
 }
 
 static VALUE
@@ -2993,6 +3162,11 @@ num_step_size(VALUE from, VALUE args, VALUE eobj)
     num_step_scan_args(argc, argv, &to, &step, TRUE, FALSE);
 
     return ruby_num_interval_step_size(from, to, step, FALSE);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(to);
 }
 
 /*
@@ -3117,6 +3291,7 @@ num_step(int argc, VALUE *argv, VALUE from)
         }
 
         return SIZED_ENUMERATOR_KW(from, 2, ((VALUE [2]){to, step}), num_step_size, FALSE);
+    RB_GC_GUARD(by);
     }
 
     desc = num_step_scan_args(argc, argv, &to, &step, TRUE, FALSE);
@@ -3162,9 +3337,13 @@ num_step(int argc, VALUE *argv, VALUE from)
 
             for (; !RTEST(rb_funcall(i, cmp, 1, to)); i = rb_funcall(i, '+', 1, step))
                 rb_yield(i);
+    RB_GC_GUARD(i);
         }
     }
     return from;
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(step);
+    RB_GC_GUARD(to);
 }
 
 static char *
@@ -3176,6 +3355,7 @@ out_of_range_float(char (*pbuf)[24], VALUE val)
     snprintf(buf, sizeof(*pbuf), "%-.10g", RFLOAT_VALUE(val));
     if ((s = strchr(buf, ' ')) != 0) *s = '\0';
     return buf;
+    RB_GC_GUARD(val);
 }
 
 #define FLOAT_OUT_OF_RANGE(val, type) do { \
@@ -3218,6 +3398,7 @@ rb_num2long(VALUE val)
         val = rb_to_int(val);
         goto again;
     }
+        RB_GC_GUARD(val);
 }
 
 static unsigned long
@@ -3259,12 +3440,14 @@ rb_num2ulong_internal(VALUE val, int *wrap_p)
         val = rb_to_int(val);
         goto again;
     }
+        RB_GC_GUARD(val);
 }
 
 unsigned long
 rb_num2ulong(VALUE val)
 {
     return rb_num2ulong_internal(val, NULL);
+    RB_GC_GUARD(val);
 }
 
 void
@@ -3305,6 +3488,7 @@ rb_num2int(VALUE val)
 
     check_int(num);
     return num;
+    RB_GC_GUARD(val);
 }
 
 long
@@ -3314,6 +3498,7 @@ rb_fix2int(VALUE val)
 
     check_int(num);
     return num;
+    RB_GC_GUARD(val);
 }
 
 unsigned long
@@ -3324,6 +3509,7 @@ rb_num2uint(VALUE val)
 
     check_uint(num, wrap);
     return num;
+    RB_GC_GUARD(val);
 }
 
 unsigned long
@@ -3338,6 +3524,7 @@ rb_fix2uint(VALUE val)
 
     check_uint(num, FIXNUM_NEGATIVE_P(val));
     return num;
+    RB_GC_GUARD(val);
 }
 #else
 long
@@ -3403,6 +3590,7 @@ rb_num2short(VALUE val)
 
     check_short(num);
     return num;
+    RB_GC_GUARD(val);
 }
 
 short
@@ -3412,6 +3600,7 @@ rb_fix2short(VALUE val)
 
     check_short(num);
     return num;
+    RB_GC_GUARD(val);
 }
 
 unsigned short
@@ -3422,6 +3611,7 @@ rb_num2ushort(VALUE val)
 
     check_ushort(num, wrap);
     return num;
+    RB_GC_GUARD(val);
 }
 
 unsigned short
@@ -3436,6 +3626,7 @@ rb_fix2ushort(VALUE val)
 
     check_ushort(num, FIXNUM_NEGATIVE_P(val));
     return num;
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -3449,6 +3640,7 @@ rb_num2fix(VALUE val)
     if (!FIXABLE(v))
         rb_raise(rb_eRangeError, "integer %ld out of range of fixnum", v);
     return LONG2FIX(v);
+    RB_GC_GUARD(val);
 }
 
 #if HAVE_LONG_LONG
@@ -3494,6 +3686,7 @@ rb_num2ll(VALUE val)
 
     val = rb_to_int(val);
     return NUM2LL(val);
+    RB_GC_GUARD(val);
 }
 
 unsigned LONG_LONG
@@ -3523,6 +3716,7 @@ rb_num2ull(VALUE val)
         val = rb_to_int(val);
         return NUM2ULL(val);
     }
+        RB_GC_GUARD(val);
 }
 
 #endif  /* HAVE_LONG_LONG */
@@ -3633,6 +3827,7 @@ rb_int_odd_p(VALUE num)
     else {
         RUBY_ASSERT(RB_BIGNUM_TYPE_P(num));
         return rb_big_odd_p(num);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -3645,6 +3840,7 @@ int_even_p(VALUE num)
     else {
         RUBY_ASSERT(RB_BIGNUM_TYPE_P(num));
         return rb_big_even_p(num);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -3652,6 +3848,7 @@ VALUE
 rb_int_even_p(VALUE num)
 {
     return int_even_p(num);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -3682,6 +3879,8 @@ int_allbits_p(VALUE num, VALUE mask)
 {
     mask = rb_to_int(mask);
     return rb_int_equal(rb_int_and(num, mask), mask);
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -3712,6 +3911,8 @@ int_anybits_p(VALUE num, VALUE mask)
 {
     mask = rb_to_int(mask);
     return RBOOL(!int_zero_p(rb_int_and(num, mask)));
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -3742,6 +3943,8 @@ int_nobits_p(VALUE num, VALUE mask)
 {
     mask = rb_to_int(mask);
     return RBOOL(int_zero_p(rb_int_and(num, mask)));
+    RB_GC_GUARD(mask);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -3767,6 +3970,7 @@ rb_int_succ(VALUE num)
         return rb_big_plus(num, INT2FIX(1));
     }
     return num_funcall1(num, '+', INT2FIX(1));
+    RB_GC_GUARD(num);
 }
 
 #define int_succ rb_int_succ
@@ -3795,6 +3999,7 @@ rb_int_pred(VALUE num)
         return rb_big_minus(num, INT2FIX(1));
     }
     return num_funcall1(num, '-', INT2FIX(1));
+    RB_GC_GUARD(num);
 }
 
 #define int_pred rb_int_pred
@@ -3819,6 +4024,7 @@ rb_enc_uint_chr(unsigned int code, rb_encoding *enc)
         rb_raise(rb_eRangeError, "invalid codepoint 0x%X in %s", code, rb_enc_name(enc));
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*  call-seq:
@@ -3881,6 +4087,7 @@ int_chr(int argc, VALUE *argv, VALUE num)
     if (!enc) enc = rb_ascii8bit_encoding();
   decode:
     return rb_enc_uint_chr(i, enc);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -3891,6 +4098,7 @@ static VALUE
 fix_uminus(VALUE num)
 {
     return LONG2NUM(-FIX2LONG(num));
+    RB_GC_GUARD(num);
 }
 
 VALUE
@@ -3902,6 +4110,7 @@ rb_int_uminus(VALUE num)
     else {
         RUBY_ASSERT(RB_BIGNUM_TYPE_P(num));
         return rb_big_uminus(num);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -3945,6 +4154,7 @@ rb_fix2str(VALUE x, int base)
     }
 
     return rb_usascii_str_new(b, e - b);
+    RB_GC_GUARD(x);
 }
 
 static VALUE rb_fix_to_s_static[10];
@@ -3957,6 +4167,7 @@ rb_fix_to_s(VALUE x)
         return rb_fix_to_s_static[i];
     }
     return rb_fix2str(x, 10);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -3987,6 +4198,7 @@ rb_int_to_s(int argc, VALUE *argv, VALUE x)
     else
         base = 10;
     return rb_int2str(x, base);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -4000,6 +4212,7 @@ rb_int2str(VALUE x, int base)
     }
 
     return rb_any_to_s(x);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4019,6 +4232,8 @@ fix_plus(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '+');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4026,6 +4241,8 @@ VALUE
 rb_fix_plus(VALUE x, VALUE y)
 {
     return fix_plus(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -4053,6 +4270,8 @@ rb_int_plus(VALUE x, VALUE y)
         return rb_big_plus(x, y);
     }
     return rb_num_coerce_bin(x, y, '+');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4070,6 +4289,8 @@ fix_minus(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '-');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4098,6 +4319,8 @@ rb_int_minus(VALUE x, VALUE y)
         return rb_big_minus(x, y);
     }
     return rb_num_coerce_bin(x, y, '-');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 
@@ -4126,6 +4349,8 @@ fix_mul(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '*');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4153,6 +4378,8 @@ rb_int_mul(VALUE x, VALUE y)
         return rb_big_mul(x, y);
     }
     return rb_num_coerce_bin(x, y, '*');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static double
@@ -4175,6 +4402,8 @@ fix_fdiv_double(VALUE x, VALUE y)
     }
     else {
         return NUM2DBL(rb_num_coerce_bin(x, y, idFdiv));
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4186,6 +4415,7 @@ rb_int_fdiv_double(VALUE x, VALUE y)
         if (!FIXNUM_ZERO_P(gcd) && gcd != INT2FIX(1)) {
             x = rb_int_idiv(x, gcd);
             y = rb_int_idiv(y, gcd);
+    RB_GC_GUARD(gcd);
         }
     }
     if (FIXNUM_P(x)) {
@@ -4196,6 +4426,8 @@ rb_int_fdiv_double(VALUE x, VALUE y)
     }
     else {
         return nan("");
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4222,6 +4454,8 @@ rb_int_fdiv(VALUE x, VALUE y)
         return DBL2NUM(rb_int_fdiv_double(x, y));
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4245,6 +4479,7 @@ fix_divide(VALUE x, VALUE y, ID op)
                 if (RFLOAT_VALUE(y) == 0) rb_num_zerodiv();
                 v = fix_divide(x, y, '/');
                 return flo_floor(0, 0, v);
+    RB_GC_GUARD(v);
             }
     }
     else {
@@ -4252,6 +4487,8 @@ fix_divide(VALUE x, VALUE y, ID op)
             op == '/' && FIX2LONG(x) == 1)
             return rb_rational_reciprocal(y);
         return rb_num_coerce_bin(x, y, op);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4259,6 +4496,8 @@ static VALUE
 fix_div(VALUE x, VALUE y)
 {
     return fix_divide(x, y, '/');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -4290,12 +4529,16 @@ rb_int_div(VALUE x, VALUE y)
         return rb_big_div(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
 fix_idiv(VALUE x, VALUE y)
 {
     return fix_divide(x, y, id_div);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -4326,6 +4569,8 @@ rb_int_idiv(VALUE x, VALUE y)
         return rb_big_idiv(x, y);
     }
     return num_div(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4344,6 +4589,8 @@ fix_mod(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, '%');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4385,6 +4632,8 @@ rb_int_modulo(VALUE x, VALUE y)
         return rb_big_modulo(x, y);
     }
     return num_modulo(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -4420,6 +4669,7 @@ int_remainder(VALUE x, VALUE y)
             if (z != INT2FIX(0) && (SIGNED_VALUE)(x ^ y) < 0)
                 z = fix_minus(z, y);
             return z;
+        RB_GC_GUARD(z);
         }
         else if (!RB_BIGNUM_TYPE_P(y)) {
             return num_remainder(x, y);
@@ -4430,6 +4680,8 @@ int_remainder(VALUE x, VALUE y)
         return Qnil;
     }
     return rb_big_remainder(x, y);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4440,6 +4692,8 @@ fix_divmod(VALUE x, VALUE y)
         if (FIXNUM_ZERO_P(y)) rb_num_zerodiv();
         rb_fix_divmod_fix(x, y, &div, &mod);
         return rb_assoc_new(div, mod);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(div);
     }
     else if (RB_BIGNUM_TYPE_P(y)) {
         x = rb_int2big(FIX2LONG(x));
@@ -4458,6 +4712,8 @@ fix_divmod(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, id_divmod);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4496,6 +4752,8 @@ rb_int_divmod(VALUE x, VALUE y)
         return rb_big_divmod(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -4553,6 +4811,7 @@ int_pow(long x, unsigned long y)
         return v;
     if (z != 1) v = rb_big_mul(rb_int2big(neg ? -z : z), v);
     return v;
+    RB_GC_GUARD(v);
 }
 
 VALUE
@@ -4577,8 +4836,11 @@ fix_pow_inverted(VALUE x, VALUE minusb)
         }
         else {
             return rb_rational_raw(INT2FIX(1), y);
+            RB_GC_GUARD(y);
         }
     }
+            RB_GC_GUARD(x);
+            RB_GC_GUARD(minusb);
 }
 
 static VALUE
@@ -4618,6 +4880,8 @@ fix_pow(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_bin(x, y, idPow);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4646,6 +4910,8 @@ rb_int_pow(VALUE x, VALUE y)
         return rb_big_pow(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -4664,6 +4930,9 @@ rb_num_pow(VALUE x, VALUE y)
         break;
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(z);
 }
 
 static VALUE
@@ -4679,6 +4948,8 @@ fix_equal(VALUE x, VALUE y)
     }
     else {
         return num_equal(x, y);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4704,6 +4975,8 @@ rb_int_equal(VALUE x, VALUE y)
         return rb_big_eq(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4721,12 +4994,15 @@ fix_cmp(VALUE x, VALUE y)
           case INT2FIX(-1): return INT2FIX(+1);
         }
         return cmp;
+    RB_GC_GUARD(cmp);
     }
     else if (RB_FLOAT_TYPE_P(y)) {
         return rb_integer_float_cmp(x, y);
     }
     else {
         return rb_num_coerce_cmp(x, y, id_cmp);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4768,6 +5044,8 @@ rb_int_cmp(VALUE x, VALUE y)
     else {
         rb_raise(rb_eNotImpError, "need to define '<=>' in %s", rb_obj_classname(x));
     }
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
 }
 
 static VALUE
@@ -4784,6 +5062,8 @@ fix_gt(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_relop(x, y, '>');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4813,6 +5093,8 @@ rb_int_gt(VALUE x, VALUE y)
         return rb_big_gt(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4827,9 +5109,12 @@ fix_ge(VALUE x, VALUE y)
     else if (RB_FLOAT_TYPE_P(y)) {
         VALUE rel = rb_integer_float_cmp(x, y);
         return RBOOL(rel == INT2FIX(1) || rel == INT2FIX(0));
+    RB_GC_GUARD(rel);
     }
     else {
         return rb_num_coerce_relop(x, y, idGE);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4860,6 +5145,8 @@ rb_int_ge(VALUE x, VALUE y)
         return rb_big_ge(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4876,6 +5163,8 @@ fix_lt(VALUE x, VALUE y)
     }
     else {
         return rb_num_coerce_relop(x, y, '<');
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4905,6 +5194,8 @@ int_lt(VALUE x, VALUE y)
         return rb_big_lt(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -4919,9 +5210,12 @@ fix_le(VALUE x, VALUE y)
     else if (RB_FLOAT_TYPE_P(y)) {
         VALUE rel = rb_integer_float_cmp(x, y);
         return RBOOL(rel == INT2FIX(-1) || rel == INT2FIX(0));
+    RB_GC_GUARD(rel);
     }
     else {
         return rb_num_coerce_relop(x, y, idLE);
+        RB_GC_GUARD(x);
+        RB_GC_GUARD(y);
     }
 }
 
@@ -4952,12 +5246,15 @@ int_le(VALUE x, VALUE y)
         return rb_big_le(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
 fix_comp(VALUE num)
 {
     return ~num | FIXNUM_FLAG;
+    RB_GC_GUARD(num);
 }
 
 VALUE
@@ -4970,6 +5267,7 @@ rb_int_comp(VALUE num)
         return rb_big_comp(num);
     }
     return Qnil;
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -4981,6 +5279,9 @@ num_funcall_bit_1(VALUE y, VALUE arg, int recursive)
         num_funcall_op_1_recursion(x, func, y);
     }
     return rb_check_funcall(x, func, 1, &y);
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -4999,6 +5300,9 @@ rb_num_coerce_bit(VALUE x, VALUE y, ID func)
         coerce_failed(x, y);
     }
     return ret;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -5014,6 +5318,8 @@ fix_and(VALUE x, VALUE y)
     }
 
     return rb_num_coerce_bit(x, y, '&');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -5041,6 +5347,8 @@ rb_int_and(VALUE x, VALUE y)
         return rb_big_and(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5056,6 +5364,8 @@ fix_or(VALUE x, VALUE y)
     }
 
     return rb_num_coerce_bit(x, y, '|');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -5083,6 +5393,8 @@ int_or(VALUE x, VALUE y)
         return rb_big_or(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5098,6 +5410,8 @@ fix_xor(VALUE x, VALUE y)
     }
 
     return rb_num_coerce_bit(x, y, '^');
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -5125,6 +5439,8 @@ int_xor(VALUE x, VALUE y)
         return rb_big_xor(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5140,6 +5456,8 @@ rb_fix_lshift(VALUE x, VALUE y)
     if (width < 0)
         return fix_rshift(val, (unsigned long)-width);
     return fix_lshift(val, width);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5180,6 +5498,8 @@ rb_int_lshift(VALUE x, VALUE y)
         return rb_big_lshift(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5196,6 +5516,8 @@ rb_fix_rshift(VALUE x, VALUE y)
     if (i < 0)
         return fix_lshift(val, (unsigned long)-i);
     return fix_rshift(val, i);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -5236,6 +5558,8 @@ rb_int_rshift(VALUE x, VALUE y)
         return rb_big_rshift(x, y);
     }
     return Qnil;
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
 }
 
 VALUE
@@ -5263,6 +5587,8 @@ rb_fix_aref(VALUE fix, VALUE idx)
     if (val & (1L<<i))
         return INT2FIX(1);
     return INT2FIX(0);
+    RB_GC_GUARD(idx);
+    RB_GC_GUARD(fix);
 }
 
 
@@ -5280,12 +5606,16 @@ compare_indexes(VALUE a, VALUE b)
     if (NIL_P(r))
         return INT_MAX;
     return rb_cmpint(r, a, b);
+    RB_GC_GUARD(b);
+    RB_GC_GUARD(a);
+    RB_GC_GUARD(r);
 }
 
 static VALUE
 generate_mask(VALUE len)
 {
     return rb_int_minus(rb_int_lshift(INT2FIX(1), len), INT2FIX(1));
+    RB_GC_GUARD(len);
 }
 
 static VALUE
@@ -5305,6 +5635,7 @@ int_aref1(VALUE num, VALUE arg)
                 }
                 else {
                     rb_raise(rb_eArgError, "The beginless range for Integer#[] results in infinity");
+            RB_GC_GUARD(mask);
                 }
             }
             else {
@@ -5319,6 +5650,8 @@ int_aref1(VALUE num, VALUE arg)
             if (!excl) len = rb_int_plus(len, INT2FIX(1));
             VALUE mask = generate_mask(len);
             num = rb_int_and(num, mask);
+        RB_GC_GUARD(mask);
+        RB_GC_GUARD(len);
         }
         else if (cmp == 0) {
             if (excl) return INT2FIX(0);
@@ -5337,6 +5670,11 @@ one_bit:
         return rb_big_aref(num, arg);
     }
     return Qnil;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(end);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(orig_num);
 }
 
 static VALUE
@@ -5346,6 +5684,10 @@ int_aref2(VALUE num, VALUE beg, VALUE len)
     VALUE mask = generate_mask(len);
     num = rb_int_and(num, mask);
     return num;
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(beg);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(mask);
 }
 
 /*
@@ -5432,6 +5774,7 @@ int_to_f(VALUE num)
     }
 
     return DBL2NUM(val);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -5442,6 +5785,7 @@ fix_abs(VALUE fix)
     if (i < 0) i = -i;
 
     return LONG2NUM(i);
+    RB_GC_GUARD(fix);
 }
 
 VALUE
@@ -5454,12 +5798,14 @@ rb_int_abs(VALUE num)
         return rb_big_abs(num);
     }
     return Qnil;
+    RB_GC_GUARD(num);
 }
 
 static VALUE
 fix_size(VALUE fix)
 {
     return INT2FIX(sizeof(long));
+    RB_GC_GUARD(fix);
 }
 
 VALUE
@@ -5472,6 +5818,7 @@ rb_int_size(VALUE num)
         return rb_big_size_m(num);
     }
     return Qnil;
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -5481,6 +5828,7 @@ rb_fix_bit_length(VALUE fix)
     if (v < 0)
         v = ~v;
     return LONG2FIX(bit_length(v));
+    RB_GC_GUARD(fix);
 }
 
 VALUE
@@ -5493,6 +5841,7 @@ rb_int_bit_length(VALUE num)
         return rb_big_bit_length(num);
     }
     return Qnil;
+    RB_GC_GUARD(num);
 }
 
 static VALUE
@@ -5518,6 +5867,8 @@ rb_fix_digits(VALUE fix, long base)
     rb_ary_push(digits, LONG2NUM(x));
 
     return digits;
+    RB_GC_GUARD(fix);
+    RB_GC_GUARD(digits);
 }
 
 static VALUE
@@ -5547,6 +5898,7 @@ rb_int_digits_bigbase(VALUE num, VALUE base)
             VALUE qr = rb_int_divmod(num, base);
             rb_ary_push(digits, RARRAY_AREF(qr, 1));
             num = RARRAY_AREF(qr, 0);
+        RB_GC_GUARD(qr);
         }
         return digits;
     }
@@ -5566,10 +5918,19 @@ rb_int_digits_bigbase(VALUE num, VALUE base)
             VALUE mod = RARRAY_AREF(divmod, 1);
             if (i != last_idx || div != INT2FIX(0)) rb_ary_store(digits, 2 * i + 1,  div);
             rb_ary_store(digits, 2 * i, mod);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(div);
+    RB_GC_GUARD(divmod);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(b);
         }
     }
 
     return digits;
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(bases);
+    RB_GC_GUARD(digits);
 }
 
 /*
@@ -5620,12 +5981,17 @@ rb_int_digits(int argc, VALUE *argv, VALUE num)
         return rb_int_digits_bigbase(num, LONG2FIX(base));
 
     return Qnil;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(base_value);
 }
 
 static VALUE
 int_upto_size(VALUE from, VALUE args, VALUE eobj)
 {
     return ruby_num_interval_step_size(from, RARRAY_AREF(args, 0), INT2FIX(1), FALSE);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(from);
 }
 
 /*
@@ -5668,14 +6034,21 @@ int_upto(VALUE from, VALUE to)
             i = rb_funcall(i, '+', 1, INT2FIX(1));
         }
         ensure_cmp(c, i, to);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(i);
     }
     return from;
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
 }
 
 static VALUE
 int_downto_size(VALUE from, VALUE args, VALUE eobj)
 {
     return ruby_num_interval_step_size(from, RARRAY_AREF(args, 0), INT2FIX(-1), FALSE);
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(from);
 }
 
 /*
@@ -5718,14 +6091,21 @@ int_downto(VALUE from, VALUE to)
             i = rb_funcall(i, '-', 1, INT2FIX(1));
         }
         if (NIL_P(c)) rb_cmperr(i, to);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(i);
     }
     return from;
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
 }
 
 static VALUE
 int_dotimes_size(VALUE num, VALUE args, VALUE eobj)
 {
     return int_neg_p(num) ? INT2FIX(0) : num;
+    RB_GC_GUARD(eobj);
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -5791,6 +6171,9 @@ int_round(int argc, VALUE* argv, VALUE num)
         return num;
     }
     return rb_int_round(num, ndigits, mode);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(nd);
 }
 
 /*
@@ -5860,6 +6243,7 @@ int_floor(int argc, VALUE* argv, VALUE num)
         return num;
     }
     return rb_int_floor(num, ndigits);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -5928,6 +6312,7 @@ int_ceil(int argc, VALUE* argv, VALUE num)
         return num;
     }
     return rb_int_ceil(num, ndigits);
+    RB_GC_GUARD(num);
 }
 
 /*
@@ -5964,6 +6349,7 @@ int_truncate(int argc, VALUE* argv, VALUE num)
         return num;
     }
     return rb_int_truncate(num, ndigits);
+    RB_GC_GUARD(num);
 }
 
 #define DEFINE_INT_SQRT(rettype, prefix, argtype) \
@@ -6072,6 +6458,8 @@ rb_int_s_isqrt(VALUE self, VALUE num)
         }
 #endif
         return rb_big_isqrt(num);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(num);
     }
 }
 
@@ -6095,6 +6483,8 @@ static VALUE
 int_s_try_convert(VALUE self, VALUE num)
 {
     return rb_check_integer_type(num);
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -6522,6 +6912,7 @@ double
 rb_float_value(VALUE v)
 {
     return rb_float_value_inline(v);
+    RB_GC_GUARD(v);
 }
 
 #undef rb_float_new

@@ -35,6 +35,7 @@ static inline int
 DSA_PRIVATE(VALUE obj, OSSL_3_const DSA *dsa)
 {
     return DSA_HAS_PRIVATE(dsa) || OSSL_PKEY_IS_PRIVATE(obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -137,6 +138,9 @@ ossl_dsa_initialize(int argc, VALUE *argv, VALUE self)
     }
     RTYPEDDATA_DATA(self) = pkey;
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(arg);
 }
 
 #ifndef HAVE_EVP_PKEY_DUP
@@ -186,6 +190,7 @@ ossl_dsa_is_public(VALUE self)
     DSA_get0_key(dsa, &bn, NULL);
 
     return bn ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -203,6 +208,7 @@ ossl_dsa_is_private(VALUE self)
     GetDSA(self, dsa);
 
     return DSA_PRIVATE(self, dsa) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -274,6 +280,7 @@ ossl_dsa_export(int argc, VALUE *argv, VALUE self)
         return ossl_pkey_export_traditional(argc, argv, self, 0);
     else
         return ossl_pkey_export_spki(self, 0);
+        RB_GC_GUARD(self);
 }
 
 /*
@@ -300,6 +307,7 @@ ossl_dsa_to_der(VALUE self)
         return ossl_pkey_export_traditional(0, NULL, self, 1);
     else
         return ossl_pkey_export_spki(self, 1);
+        RB_GC_GUARD(self);
 }
 
 
@@ -330,6 +338,8 @@ ossl_dsa_get_params(VALUE self)
     rb_hash_aset(hash, rb_str_new2("priv_key"), ossl_bn_new(priv_key));
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 /*

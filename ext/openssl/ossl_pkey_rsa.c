@@ -36,6 +36,7 @@ static inline int
 RSA_PRIVATE(VALUE obj, OSSL_3_const RSA *rsa)
 {
     return RSA_HAS_PRIVATE(rsa) || OSSL_PKEY_IS_PRIVATE(obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -133,6 +134,9 @@ ossl_rsa_initialize(int argc, VALUE *argv, VALUE self)
     }
     RTYPEDDATA_DATA(self) = pkey;
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(arg);
 }
 
 #ifndef HAVE_EVP_PKEY_DUP
@@ -182,6 +186,7 @@ ossl_rsa_is_public(VALUE self)
      */
     (void)rsa;
     return Qtrue;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -198,6 +203,7 @@ ossl_rsa_is_private(VALUE self)
     GetRSA(self, rsa);
 
     return RSA_PRIVATE(self, rsa) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -213,6 +219,7 @@ can_export_rsaprivatekey(VALUE self)
     RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
 
     return n && e && d && p && q && dmp1 && dmq1 && iqmp;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -280,6 +287,7 @@ ossl_rsa_export(int argc, VALUE *argv, VALUE self)
         return ossl_pkey_export_traditional(argc, argv, self, 0);
     else
         return ossl_pkey_export_spki(self, 0);
+        RB_GC_GUARD(self);
 }
 
 /*
@@ -302,6 +310,7 @@ ossl_rsa_to_der(VALUE self)
         return ossl_pkey_export_traditional(0, NULL, self, 1);
     else
         return ossl_pkey_export_spki(self, 1);
+        RB_GC_GUARD(self);
 }
 
 /*
@@ -399,6 +408,11 @@ ossl_rsa_sign_pss(int argc, VALUE *argv, VALUE self)
   err:
     EVP_MD_CTX_free(md_ctx);
     ossl_raise(eRSAError, NULL);
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(signature);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(data);
 }
 
 /*
@@ -492,6 +506,11 @@ ossl_rsa_verify_pss(int argc, VALUE *argv, VALUE self)
   err:
     EVP_MD_CTX_free(md_ctx);
     ossl_raise(eRSAError, NULL);
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(signature);
 }
 
 /*
@@ -528,6 +547,8 @@ ossl_rsa_get_params(VALUE self)
     rb_hash_aset(hash, rb_str_new2("iqmp"), ossl_bn_new(iqmp));
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
 }
 
 /*

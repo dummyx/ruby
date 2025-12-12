@@ -58,6 +58,8 @@ ossl_hmac_alloc(VALUE klass)
     RTYPEDDATA_DATA(obj) = ctx;
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -119,6 +121,9 @@ ossl_hmac_initialize(VALUE self, VALUE key, VALUE digest)
     EVP_PKEY_free(pkey);
 
     return self;
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -134,6 +139,8 @@ ossl_hmac_copy(VALUE self, VALUE other)
     if (EVP_MD_CTX_copy(ctx1, ctx2) != 1)
         ossl_raise(eHMACError, "EVP_MD_CTX_copy");
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -165,6 +172,8 @@ ossl_hmac_update(VALUE self, VALUE data)
         ossl_raise(eHMACError, "EVP_DigestSignUpdate");
 
     return self;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -194,6 +203,8 @@ ossl_hmac_digest(VALUE self)
     rb_str_set_len(ret, (long)buf_len);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -218,6 +229,8 @@ ossl_hmac_hexdigest(VALUE self)
     ossl_bin2hex(buf, RSTRING_PTR(ret), buf_len);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -251,6 +264,7 @@ ossl_hmac_reset(VALUE self)
         ossl_raise(eHMACError, "EVP_DigestSignInit");
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*

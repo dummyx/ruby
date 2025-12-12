@@ -5,6 +5,8 @@ VALUE
 bug_str_enc_associate(VALUE str, VALUE enc)
 {
     return rb_enc_associate(str, rb_to_encoding(enc));
+    RB_GC_GUARD(enc);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -12,6 +14,8 @@ bug_str_encoding_index(VALUE self, VALUE str)
 {
     int idx = rb_enc_get_index(str);
     return INT2NUM(idx);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 void

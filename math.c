@@ -85,6 +85,9 @@ math_atan2(VALUE unused_obj, VALUE y, VALUE x)
     }
 #endif
     return DBL2NUM(atan2(dy, dx));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(unused_obj);
 }
 
 
@@ -113,6 +116,8 @@ static VALUE
 math_cos(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(cos(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -140,6 +145,8 @@ static VALUE
 math_sin(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(sin(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 
@@ -168,6 +175,8 @@ static VALUE
 math_tan(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(tan(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 #define math_arc(num, func) \
@@ -219,6 +228,8 @@ math_acos(VALUE unused_obj, VALUE x)
 static VALUE
 math_asin(VALUE unused_obj, VALUE x)
 {
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
     math_arc(x, asin)
 }
 
@@ -246,7 +257,11 @@ math_asin(VALUE unused_obj, VALUE x)
 static VALUE
 math_atan(VALUE unused_obj, VALUE x)
 {
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
     return DBL2NUM(atan(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 #ifndef HAVE_COSH
@@ -279,6 +294,8 @@ static VALUE
 math_cosh(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(cosh(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 #ifndef HAVE_SINH
@@ -311,6 +328,8 @@ static VALUE
 math_sinh(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(sinh(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 #ifndef HAVE_TANH
@@ -350,6 +369,8 @@ static VALUE
 math_tanh(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(tanh(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -376,6 +397,8 @@ math_acosh(VALUE unused_obj, VALUE x)
     d = Get_Double(x);
     domain_check_min(d, 1.0, "acosh");
     return DBL2NUM(acosh(d));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -399,6 +422,8 @@ static VALUE
 math_asinh(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(asinh(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -429,6 +454,8 @@ math_atanh(VALUE unused_obj, VALUE x)
     if (d == -1.0) return DBL2NUM(-HUGE_VAL);
     if (d == +1.0) return DBL2NUM(+HUGE_VAL);
     return DBL2NUM(atanh(d));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -456,6 +483,8 @@ static VALUE
 math_exp(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(exp(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 #if defined __CYGWIN__
@@ -506,6 +535,7 @@ static VALUE
 math_log(int argc, const VALUE *argv, VALUE unused_obj)
 {
     return rb_math_log(argc, argv);
+    RB_GC_GUARD(unused_obj);
 }
 
 static double
@@ -523,6 +553,7 @@ get_double_rshift(VALUE x, size_t *pnumbits)
     }
     *pnumbits = numbits;
     return Get_Double(x);
+    RB_GC_GUARD(x);
 }
 
 static double
@@ -532,6 +563,7 @@ math_log_split(VALUE x, size_t *numbits)
 
     domain_check_min(d, 0.0, "log");
     return d;
+    RB_GC_GUARD(x);
 }
 
 #if defined(log2) || defined(HAVE_LOG2)
@@ -571,6 +603,8 @@ rb_math_log(int argc, const VALUE *argv)
         d += numbits * M_LN2;
     }
     return DBL2NUM(d);
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(x);
 }
 
 #ifndef log2
@@ -614,6 +648,8 @@ math_log2(VALUE unused_obj, VALUE x)
     if (d == 0.0) return DBL2NUM(-HUGE_VAL);
 
     return DBL2NUM(log2(d) + numbits); /* log2(d * 2 ** numbits) */
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -645,6 +681,8 @@ math_log10(VALUE unused_obj, VALUE x)
     if (d == 0.0) return DBL2NUM(-HUGE_VAL);
 
     return DBL2NUM(log10(d) + numbits * log10(2)); /* log10(d * 2 ** numbits) */
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 static VALUE rb_math_sqrt(VALUE x);
@@ -674,6 +712,8 @@ static VALUE
 math_sqrt(VALUE unused_obj, VALUE x)
 {
     return rb_math_sqrt(x);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 inline static VALUE
@@ -682,6 +722,7 @@ f_negative_p(VALUE x)
     if (FIXNUM_P(x))
         return RBOOL(FIX2LONG(x) < 0);
     return rb_funcall(x, '<', 1, INT2FIX(0));
+    RB_GC_GUARD(x);
 }
 inline static VALUE
 f_signbit(VALUE x)
@@ -691,6 +732,7 @@ f_signbit(VALUE x)
         return RBOOL(!isnan(f) && signbit(f));
     }
     return f_negative_p(x);
+    RB_GC_GUARD(x);
 }
 
 static VALUE
@@ -706,11 +748,13 @@ rb_math_sqrt(VALUE x)
         re = sqrt((d + re) / 2.0);
         if (neg) im = -im;
         return rb_complex_new(DBL2NUM(re), DBL2NUM(im));
+    RB_GC_GUARD(neg);
     }
     d = Get_Double(x);
     domain_check_min(d, 0.0, "sqrt");
     if (d == 0.0) return DBL2NUM(0.0);
     return DBL2NUM(sqrt(d));
+    RB_GC_GUARD(x);
 }
 
 /*
@@ -749,6 +793,8 @@ math_cbrt(VALUE unused_obj, VALUE x)
     }
 #endif
     return DBL2NUM(r);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -787,6 +833,8 @@ math_frexp(VALUE unused_obj, VALUE x)
 
     d = frexp(Get_Double(x), &exp);
     return rb_assoc_new(DBL2NUM(d), INT2NUM(exp));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -819,6 +867,9 @@ static VALUE
 math_ldexp(VALUE unused_obj, VALUE x, VALUE n)
 {
     return DBL2NUM(ldexp(Get_Double(x), NUM2INT(n)));
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -850,6 +901,9 @@ static VALUE
 math_hypot(VALUE unused_obj, VALUE x, VALUE y)
 {
     return DBL2NUM(hypot(Get_Double(x), Get_Double(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -875,6 +929,8 @@ static VALUE
 math_erf(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(erf(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -900,6 +956,8 @@ static VALUE
 math_erfc(VALUE unused_obj, VALUE x)
 {
     return DBL2NUM(erfc(Get_Double(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -976,6 +1034,8 @@ math_gamma(VALUE unused_obj, VALUE x)
         }
     }
     return DBL2NUM(tgamma(d));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
 }
 
 /*
@@ -1031,9 +1091,13 @@ math_lgamma(VALUE unused_obj, VALUE x)
     if (d == 0.0) {
         VALUE vsign = signbit(d) ? INT2FIX(-1) : INT2FIX(+1);
         return rb_assoc_new(DBL2NUM(HUGE_VAL), vsign);
+    RB_GC_GUARD(vsign);
     }
     v = DBL2NUM(lgamma_r(d, &sign));
     return rb_assoc_new(v, INT2FIX(sign));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(unused_obj);
+    RB_GC_GUARD(v);
 }
 
 

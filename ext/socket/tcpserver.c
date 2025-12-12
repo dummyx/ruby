@@ -37,6 +37,9 @@ tcp_svr_init(int argc, VALUE *argv, VALUE sock)
 
     rb_scan_args(argc, argv, "011", &hostname, &port);
     return rsock_init_inetsock(sock, hostname, port, Qnil, Qnil, INET_SERVER, Qnil, Qnil, Qfalse, Qnil);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(hostname);
 }
 
 /*
@@ -59,6 +62,7 @@ tcp_accept(VALUE server)
     socklen_t length = sizeof(buffer);
 
     return rsock_s_accept(rb_cTCPSocket, server, &buffer.addr, &length);
+    RB_GC_GUARD(server);
 }
 
 /* :nodoc: */
@@ -71,6 +75,8 @@ tcp_accept_nonblock(VALUE sock, VALUE ex)
 
     GetOpenFile(sock, fptr);
     return rsock_s_accept_nonblock(rb_cTCPSocket, ex, fptr, &from.addr, &len);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -94,6 +100,7 @@ tcp_sysaccept(VALUE server)
     socklen_t length = sizeof(buffer);
 
     return rsock_s_accept(0, server, &buffer.addr, &length);
+    RB_GC_GUARD(server);
 }
 
 void

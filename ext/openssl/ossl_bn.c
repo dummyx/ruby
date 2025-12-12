@@ -68,6 +68,7 @@ ossl_bn_new(const BIGNUM *bn)
     SetBN(obj, newbn);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static BIGNUM *
@@ -110,9 +111,11 @@ integer_to_bnptr(VALUE obj, BIGNUM *orig)
 	    ossl_raise(eBNError, "BN_bin2bn");
 	if (sign < 0)
 	    BN_set_negative(bn, 1);
+    RB_GC_GUARD(buf);
     }
 
     return bn;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -130,6 +133,8 @@ try_convert_to_bn(VALUE obj)
     }
 
     return newobj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(newobj);
 }
 
 BIGNUM *
@@ -145,6 +150,7 @@ ossl_bn_value_ptr(volatile VALUE *ptr)
     *ptr = tmp;
 
     return bn;
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -215,6 +221,8 @@ ossl_bn_alloc(VALUE klass)
     SetBN(obj, bn);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -306,6 +314,9 @@ ossl_bn_initialize(int argc, VALUE *argv, VALUE self)
 	ossl_raise(rb_eArgError, "invalid radix %d", base);
     }
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(bs);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -364,6 +375,9 @@ ossl_bn_to_s(int argc, VALUE *argv, VALUE self)
     }
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(bs);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -386,12 +400,15 @@ ossl_bn_to_i(VALUE self)
     OPENSSL_free(txt);
 
     return num;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(num);
 }
 
 static VALUE
 ossl_bn_to_bn(VALUE self)
 {
     return self;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -411,6 +428,8 @@ ossl_bn_coerce(VALUE self, VALUE other)
 	}
     }
     return rb_assoc_new(other, self);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 #define BIGNUM_BOOL1(func)				\
@@ -459,6 +478,7 @@ ossl_bn_is_negative(VALUE self)
     if (BN_is_zero(bn))
 	return Qfalse;
     return BN_is_negative(bn) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 #define BIGNUM_1c(func)					\
@@ -635,6 +655,11 @@ ossl_bn_div(VALUE self, VALUE other)
     SetBN(obj2, r2);
 
     return rb_ary_new3(2, obj1, obj2);
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj2);
+    RB_GC_GUARD(obj1);
+    RB_GC_GUARD(klass);
 }
 
 #define BIGNUM_3c(func)						\
@@ -737,6 +762,8 @@ ossl_bn_is_bit_set(VALUE self, VALUE bit)
 	return Qtrue;
     }
     return Qfalse;
+    RB_GC_GUARD(bit);
+    RB_GC_GUARD(self);
 }
 
 #define BIGNUM_SHIFT(func)				\
@@ -835,6 +862,11 @@ ossl_bn_s_rand(int argc, VALUE *argv, VALUE klass)
     }
     SetBN(obj, result);
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(odd);
+    RB_GC_GUARD(fill);
+    RB_GC_GUARD(bits);
 }
 
 /*
@@ -859,6 +891,9 @@ ossl_bn_s_rand_range(VALUE klass, VALUE range)
     }
     SetBN(obj, result);
     return obj;
+    RB_GC_GUARD(range);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -904,6 +939,12 @@ ossl_bn_s_generate_prime(int argc, VALUE *argv, VALUE klass)
     SetBN(obj, result);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(vrem);
+    RB_GC_GUARD(vadd);
+    RB_GC_GUARD(vsafe);
+    RB_GC_GUARD(vnum);
 }
 
 #define BIGNUM_NUM(func)			\
@@ -945,6 +986,8 @@ ossl_bn_copy(VALUE self, VALUE other)
 	ossl_raise(eBNError, NULL);
     }
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -965,6 +1008,8 @@ ossl_bn_uplus(VALUE self)
     SetBN(obj, bn2);
 
     return obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -986,6 +1031,8 @@ ossl_bn_uminus(VALUE self)
     BN_set_negative(bn2, !BN_is_negative(bn2));
 
     return obj;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1003,6 +1050,7 @@ ossl_bn_abs(VALUE self)
     }
     else {
         return ossl_bn_uplus(self);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -1056,6 +1104,8 @@ ossl_bn_eq(VALUE self, VALUE other)
 	return Qtrue;
     }
     return Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1077,6 +1127,8 @@ ossl_bn_eql(VALUE self, VALUE other)
     GetBN(other, bn2);
 
     return BN_cmp(bn1, bn2) ? Qfalse : Qtrue;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1107,6 +1159,9 @@ ossl_bn_hash(VALUE self)
     ALLOCV_END(tmp);
 
     return hash;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(hash);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -1137,6 +1192,7 @@ ossl_bn_is_prime(int argc, VALUE *argv, VALUE self)
         ossl_raise(eBNError, "BN_is_prime_fasttest_ex");
 #endif
     return ret ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1156,6 +1212,7 @@ ossl_bn_is_prime_fasttest(int argc, VALUE *argv, VALUE self)
 {
     rb_check_arity(argc, 0, 2);
     return ossl_bn_is_prime(0, argv, self);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1175,6 +1232,8 @@ ossl_bn_get_flags(VALUE self, VALUE arg)
     GetBN(self, bn);
 
     return INT2NUM(BN_get_flags(bn, NUM2INT(arg)));
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1193,6 +1252,8 @@ ossl_bn_set_flags(VALUE self, VALUE arg)
     rb_check_frozen(self);
     BN_set_flags(bn, NUM2INT(arg));
     return Qnil;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 /*

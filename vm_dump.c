@@ -204,6 +204,7 @@ control_frame_dump(const rb_execution_context_t *ec, const rb_control_frame_t *c
     return true;
   error:
     return false;
+    RB_GC_GUARD(tmp);
 }
 
 bool
@@ -289,6 +290,7 @@ rb_vmdebug_proc_dump_raw(rb_proc_t *proc, FILE *errout)
 
   error:
     return false;
+    RB_GC_GUARD(val);
 }
 
 bool
@@ -296,6 +298,7 @@ rb_vmdebug_stack_dump_th(VALUE thval, FILE *errout)
 {
     rb_thread_t *target_th = rb_thread_ptr(thval);
     return rb_vmdebug_stack_dump_raw(target_th->ec, target_th->ec->cfp, errout);
+    RB_GC_GUARD(thval);
 }
 
 #if VMDEBUG > 2
@@ -413,6 +416,7 @@ bool
 rb_vmdebug_thread_dump_regs(VALUE thval, FILE *errout)
 {
     return rb_vmdebug_debug_print_register(rb_thread_ptr(thval)->ec, errout);
+    RB_GC_GUARD(thval);
 }
 
 bool
@@ -488,6 +492,7 @@ rb_vmdebug_thread_dump_state(FILE *errout, VALUE self)
 
   error:
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 #if defined __APPLE__
@@ -1205,10 +1210,12 @@ rb_vm_bugreport(const void *ctx, FILE *errout)
                     kprintf(" %4d #<%.*s:%p>\n", i,
                             LIMITED_NAME_LENGTH(klass), RSTRING_PTR(klass),
                             (void *)name);
+        RB_GC_GUARD(klass);
                 }
             }
         }
         kprintf("\n");
+    RB_GC_GUARD(name);
     }
 
     {

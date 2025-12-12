@@ -38,6 +38,8 @@ static int io_reader(void * data, unsigned char *buf, size_t size, size_t *read)
     }
 
     return 1;
+    RB_GC_GUARD(string);
+    RB_GC_GUARD(io);
 }
 
 static void dealloc(void * ptr)
@@ -75,6 +77,8 @@ static VALUE allocate(VALUE klass)
     yaml_parser_initialize(parser);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE make_exception(yaml_parser_t * parser, VALUE path)
@@ -97,6 +101,8 @@ static VALUE make_exception(yaml_parser_t * parser, VALUE path)
                 SIZET2NUM(parser->problem_offset),
                 parser->problem ? rb_usascii_str_new2(parser->problem) : Qnil,
                 parser->context ? rb_usascii_str_new2(parser->context) : Qnil);
+                RB_GC_GUARD(ePsychSyntaxError);
+                RB_GC_GUARD(path);
     }
 }
 
@@ -127,6 +133,7 @@ static VALUE transcode_string(VALUE src, int * parser_encoding)
 
     *parser_encoding = YAML_UTF8_ENCODING;
     return src;
+    RB_GC_GUARD(src);
 }
 
 static VALUE transcode_io(VALUE src, int * parser_encoding)
@@ -175,74 +182,88 @@ static VALUE transcode_io(VALUE src, int * parser_encoding)
     *parser_encoding = YAML_ANY_ENCODING;
 
     return src;
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(io_external_encoding);
 }
 
 static VALUE protected_start_stream(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall(args[0], id_start_stream, 1, args[1]);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_start_document(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall3(args[0], id_start_document, 3, args + 1);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_end_document(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall(args[0], id_end_document, 1, args[1]);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_alias(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall(args[0], id_alias, 1, args[1]);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_scalar(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall3(args[0], id_scalar, 6, args + 1);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_start_sequence(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall3(args[0], id_start_sequence, 4, args + 1);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_end_sequence(VALUE handler)
 {
     return rb_funcall(handler, id_end_sequence, 0);
+    RB_GC_GUARD(handler);
 }
 
 static VALUE protected_start_mapping(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall3(args[0], id_start_mapping, 4, args + 1);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE protected_end_mapping(VALUE handler)
 {
     return rb_funcall(handler, id_end_mapping, 0);
+    RB_GC_GUARD(handler);
 }
 
 static VALUE protected_empty(VALUE handler)
 {
     return rb_funcall(handler, id_empty, 0);
+    RB_GC_GUARD(handler);
 }
 
 static VALUE protected_end_stream(VALUE handler)
 {
     return rb_funcall(handler, id_end_stream, 0);
+    RB_GC_GUARD(handler);
 }
 
 static VALUE protected_event_location(VALUE pointer)
 {
     VALUE *args = (VALUE *)pointer;
     return rb_funcall3(args[0], id_event_location, 4, args + 1);
+    RB_GC_GUARD(pointer);
 }
 
 static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
@@ -287,6 +308,7 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
             yaml_parser_initialize(parser);
 
             rb_exc_raise(exception);
+        RB_GC_GUARD(exception);
         }
 
         start_line = SIZET2NUM(event.start_mark.line);
@@ -343,6 +365,8 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
                         }
 
                         rb_ary_push(tag_directives, rb_ary_new3((long)2, handle, prefix));
+                RB_GC_GUARD(prefix);
+                RB_GC_GUARD(handle);
                     }
                 }
                 args[0] = handler;
@@ -350,6 +374,8 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
                 args[2] = tag_directives;
                 args[3] = event.data.document_start.implicit == 1 ? Qtrue : Qfalse;
                 rb_protect(protected_start_document, (VALUE)args, &state);
+            RB_GC_GUARD(version);
+            RB_GC_GUARD(tag_directives);
             }
             break;
           case YAML_DOCUMENT_END_EVENT:
@@ -373,6 +399,7 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
                 args[0] = handler;
                 args[1] = alias;
                 rb_protect(protected_alias, (VALUE)args, &state);
+            RB_GC_GUARD(alias);
             }
             break;
           case YAML_SCALAR_EVENT:
@@ -414,6 +441,12 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
                 args[5] = quoted_implicit;
                 args[6] = style;
                 rb_protect(protected_scalar, (VALUE)args, &state);
+            RB_GC_GUARD(val);
+            RB_GC_GUARD(style);
+            RB_GC_GUARD(quoted_implicit);
+            RB_GC_GUARD(plain_implicit);
+            RB_GC_GUARD(tag);
+            RB_GC_GUARD(anchor);
             }
             break;
           case YAML_SEQUENCE_START_EVENT:
@@ -445,6 +478,10 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
                 args[4] = style;
 
                 rb_protect(protected_start_sequence, (VALUE)args, &state);
+            RB_GC_GUARD(style);
+            RB_GC_GUARD(implicit);
+            RB_GC_GUARD(tag);
+            RB_GC_GUARD(anchor);
             }
             break;
           case YAML_SEQUENCE_END_EVENT:
@@ -478,6 +515,10 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
                 args[4] = style;
 
                 rb_protect(protected_start_mapping, (VALUE)args, &state);
+            RB_GC_GUARD(style);
+            RB_GC_GUARD(implicit);
+            RB_GC_GUARD(tag);
+            RB_GC_GUARD(anchor);
             }
             break;
           case YAML_MAPPING_END_EVENT:
@@ -493,9 +534,17 @@ static VALUE parse(VALUE self, VALUE handler, VALUE yaml, VALUE path)
         }
         yaml_event_delete(&event);
         if (state) rb_jump_tag(state);
+    RB_GC_GUARD(end_column);
+    RB_GC_GUARD(end_line);
+    RB_GC_GUARD(start_column);
+    RB_GC_GUARD(start_line);
     }
 
     return self;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(yaml);
+    RB_GC_GUARD(handler);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -518,6 +567,8 @@ static VALUE mark(VALUE self)
     args[2] = SIZET2NUM(parser->mark.column);
 
     return rb_class_new_instance(3, args, mark_klass);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(mark_klass);
 }
 
 void Init_psych_parser(void)

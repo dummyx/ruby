@@ -53,6 +53,7 @@ rb_io_nonblock_p(VALUE io)
     if (get_fcntl_flags(rb_io_descriptor(io)) & O_NONBLOCK)
         return Qtrue;
     return Qfalse;
+    RB_GC_GUARD(io);
 }
 #else
 #define rb_io_nonblock_p rb_f_notimplement
@@ -146,6 +147,8 @@ rb_io_nonblock_set(VALUE self, VALUE value)
     }
 
     return self;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(self);
 }
 
 #endif /* RUBY_IO_NONBLOCK_METHODS */
@@ -156,6 +159,7 @@ io_nonblock_restore(VALUE arg)
     int *restore = (int *)arg;
     set_fcntl_flags(restore[0], restore[1]);
     return Qnil;
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -179,6 +183,7 @@ rb_io_nonblock_block(int argc, VALUE *argv, VALUE self)
         VALUE v;
         rb_scan_args(argc, argv, "01", &v);
         nb = RTEST(v);
+    RB_GC_GUARD(v);
     }
 
     int current_flags = get_fcntl_flags(descriptor);
@@ -188,6 +193,7 @@ rb_io_nonblock_block(int argc, VALUE *argv, VALUE self)
         return rb_yield(self);
 
     return rb_ensure(rb_yield, self, io_nonblock_restore, (VALUE)restore);
+    RB_GC_GUARD(self);
 }
 #else
 #define rb_io_nonblock_set rb_f_notimplement

@@ -119,6 +119,13 @@ newobj_i(VALUE tpval, void *data)
     info->class_path = class_path_cstr;
     info->generation = rb_gc_count();
     st_insert(arg->object_table, (st_data_t)obj, (st_data_t)info);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tpval);
+    RB_GC_GUARD(class_path);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(mid);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(path);
 }
 
 static void
@@ -150,6 +157,8 @@ freeobj_i(VALUE tpval, void *data)
     }
 
     if (gc_disabled == Qfalse) rb_gc_enable();
+    RB_GC_GUARD(gc_disabled);
+    RB_GC_GUARD(tpval);
 }
 
 static int
@@ -261,6 +270,7 @@ get_traceobj_arg(void)
         tmp_trace_arg->freeobj_trace = 0;
         tmp_trace_arg->object_table = st_init_numtable();
         tmp_trace_arg->str_table = st_init_strtable();
+    RB_GC_GUARD(obj);
     }
     return tmp_trace_arg;
 }
@@ -289,6 +299,7 @@ trace_object_allocations_start(VALUE self)
     }
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -319,6 +330,7 @@ trace_object_allocations_stop(VALUE self)
     }
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -341,6 +353,7 @@ trace_object_allocations_clear(VALUE self)
     /* do not touch TracePoints */
 
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -376,6 +389,7 @@ trace_object_allocations(VALUE self)
 {
     trace_object_allocations_start(self);
     return rb_ensure(rb_yield, Qnil, trace_object_allocations_stop, self);
+    RB_GC_GUARD(self);
 }
 
 int rb_bug_reporter_add(void (*func)(FILE *, void *), void *data);
@@ -395,10 +409,12 @@ object_allocations_reporter_i(st_data_t key, st_data_t val, st_data_t ptr)
     if (!NIL_P(info->mid)) {
         VALUE m = rb_sym2str(info->mid);
         fprintf(out, " (%s)", RSTRING_PTR(m));
+    RB_GC_GUARD(m);
     }
     fprintf(out, ")\n");
 
     return ST_CONTINUE;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -421,6 +437,7 @@ trace_object_allocations_debug_start(VALUE self)
     }
 
     return trace_object_allocations_start(self);
+    RB_GC_GUARD(self);
 }
 
 static struct allocation_info *
@@ -433,12 +450,14 @@ lookup_allocation_info(VALUE obj)
         }
     }
     return NULL;
+    RB_GC_GUARD(obj);
 }
 
 struct allocation_info *
 objspace_lookup_allocation_info(VALUE obj)
 {
     return lookup_allocation_info(obj);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -458,6 +477,8 @@ allocation_sourcefile(VALUE self, VALUE obj)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -478,6 +499,8 @@ allocation_sourceline(VALUE self, VALUE obj)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -509,6 +532,8 @@ allocation_class_path(VALUE self, VALUE obj)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -541,6 +566,8 @@ allocation_method_id(VALUE self, VALUE obj)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -573,6 +600,8 @@ allocation_generation(VALUE self, VALUE obj)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -595,4 +624,5 @@ Init_object_tracing(VALUE rb_mObjSpace)
     rb_define_module_function(rb_mObjSpace, "allocation_class_path", allocation_class_path, 1);
     rb_define_module_function(rb_mObjSpace, "allocation_method_id", allocation_method_id, 1);
     rb_define_module_function(rb_mObjSpace, "allocation_generation", allocation_generation, 1);
+    RB_GC_GUARD(rb_mObjSpace);
 }

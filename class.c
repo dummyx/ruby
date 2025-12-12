@@ -102,6 +102,8 @@ push_subclass_entry_to_list(VALUE super, VALUE klass)
     head->next = entry;
 
     return entry;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(super);
 }
 
 void
@@ -111,6 +113,8 @@ rb_class_subclass_add(VALUE super, VALUE klass)
         rb_subclass_entry_t *entry = push_subclass_entry_to_list(super, klass);
         RCLASS_SUBCLASS_ENTRY(klass) = entry;
     }
+        RB_GC_GUARD(super);
+        RB_GC_GUARD(klass);
 }
 
 static void
@@ -118,6 +122,8 @@ rb_module_add_to_subclasses_list(VALUE module, VALUE iclass)
 {
     rb_subclass_entry_t *entry = push_subclass_entry_to_list(module, iclass);
     RCLASS_MODULE_SUBCLASS_ENTRY(iclass) = entry;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(iclass);
 }
 
 void
@@ -132,6 +138,7 @@ rb_class_remove_subclass_head(VALUE klass)
         RCLASS_SUBCLASSES(klass) = NULL;
         xfree(head);
     }
+        RB_GC_GUARD(klass);
 }
 
 void
@@ -153,6 +160,7 @@ rb_class_remove_from_super_subclasses(VALUE klass)
     }
 
     RCLASS_SUBCLASS_ENTRY(klass) = NULL;
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -174,6 +182,7 @@ rb_class_remove_from_module_subclasses(VALUE klass)
     }
 
     RCLASS_MODULE_SUBCLASS_ENTRY(klass) = NULL;
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -196,31 +205,40 @@ rb_class_foreach_subclass(VALUE klass, void (*f)(VALUE, VALUE), VALUE arg)
         // do not trigger GC during f, otherwise the cur will become
         // a dangling pointer if the subclass is collected
         f(curklass, arg);
+        RB_GC_GUARD(curklass);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(arg);
 }
 
 static void
 class_detach_subclasses(VALUE klass, VALUE arg)
 {
     rb_class_remove_from_super_subclasses(klass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(arg);
 }
 
 void
 rb_class_detach_subclasses(VALUE klass)
 {
     rb_class_foreach_subclass(klass, class_detach_subclasses, Qnil);
+    RB_GC_GUARD(klass);
 }
 
 static void
 class_detach_module_subclasses(VALUE klass, VALUE arg)
 {
     rb_class_remove_from_module_subclasses(klass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(arg);
 }
 
 void
 rb_class_detach_module_subclasses(VALUE klass)
 {
     rb_class_foreach_subclass(klass, class_detach_module_subclasses, Qnil);
+    RB_GC_GUARD(klass);
 }
 
 /**
@@ -260,12 +278,15 @@ class_alloc(VALUE flags, VALUE klass)
     RCLASS_SET_ALLOCATOR((VALUE)obj, 0);
 
     return (VALUE)obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(flags);
 }
 
 static void
 RCLASS_M_TBL_INIT(VALUE c)
 {
     RCLASS_M_TBL(c) = rb_id_table_create(0);
+    RB_GC_GUARD(c);
 }
 
 /**
@@ -286,6 +307,8 @@ rb_class_boot(VALUE super)
     RCLASS_M_TBL_INIT(klass);
 
     return (VALUE)klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE *
@@ -303,6 +326,7 @@ class_superclasses_including_self(VALUE klass)
     RCLASS_SUPERCLASSES(klass) = superclasses;
     FL_SET_RAW(klass, RCLASS_SUPERCLASSES_INCLUDE_SELF);
     return superclasses;
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -338,6 +362,8 @@ rb_class_update_superclasses(VALUE klass)
 
     RCLASS_SUPERCLASSES(klass) = class_superclasses_including_self(super);
     RCLASS_SUPERCLASS_DEPTH(klass) = RCLASS_SUPERCLASS_DEPTH(super) + 1;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -353,6 +379,7 @@ rb_check_inheritable(VALUE super)
     if (super == rb_cClass) {
         rb_raise(rb_eTypeError, "can't make subclass of Class");
     }
+        RB_GC_GUARD(super);
 }
 
 VALUE
@@ -367,12 +394,15 @@ rb_class_new(VALUE super)
     }
 
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_class_s_alloc(VALUE klass)
 {
     return rb_class_boot(0);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -386,6 +416,8 @@ clone_method(VALUE old_klass, VALUE new_klass, ID mid, const rb_method_entry_t *
     else {
         rb_method_entry_set(new_klass, mid, me, METHOD_ENTRY_VISI(me));
     }
+        RB_GC_GUARD(old_klass);
+        RB_GC_GUARD(new_klass);
 }
 
 struct clone_method_arg {
@@ -399,6 +431,7 @@ clone_method_i(ID key, VALUE value, void *data)
     const struct clone_method_arg *arg = (struct clone_method_arg *)data;
     clone_method(arg->old_klass, arg->new_klass, key, (const rb_method_entry_t *)value);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 struct clone_const_arg {
@@ -422,6 +455,7 @@ static enum rb_id_table_iterator_result
 clone_const_i(ID key, VALUE value, void *data)
 {
     return clone_const(key, (const rb_const_entry_t *)value, data);
+    RB_GC_GUARD(value);
 }
 
 static void
@@ -436,6 +470,8 @@ class_init_copy_check(VALUE clone, VALUE orig)
     if (RCLASS_SINGLETON_P(orig)) {
         rb_raise(rb_eTypeError, "can't copy singleton class");
     }
+        RB_GC_GUARD(clone);
+        RB_GC_GUARD(orig);
 }
 
 struct cvc_table_copy_ctx {
@@ -461,6 +497,7 @@ cvc_table_copy(ID id, VALUE val, void *data)
     RB_OBJ_WRITTEN(ctx->clone, Qundef, ent->cref);
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -498,6 +535,8 @@ copy_tables(VALUE clone, VALUE orig)
         arg.klass = clone;
         rb_id_table_foreach(RCLASS_CONST_TBL(orig), clone_const_i, &arg);
     }
+        RB_GC_GUARD(clone);
+        RB_GC_GUARD(orig);
 }
 
 static bool ensure_origin(VALUE klass);
@@ -511,6 +550,7 @@ static inline bool
 RMODULE_UNINITIALIZED(VALUE module)
 {
     return FL_TEST_RAW(module, RMODULE_ALLOCATED_BUT_NOT_INITIALIZED);
+    RB_GC_GUARD(module);
 }
 
 void
@@ -518,6 +558,7 @@ rb_module_set_initialized(VALUE mod)
 {
     FL_UNSET_RAW(mod, RMODULE_ALLOCATED_BUT_NOT_INITIALIZED);
     /* no more re-initialization */
+    RB_GC_GUARD(mod);
 }
 
 void
@@ -526,6 +567,7 @@ rb_module_check_initializable(VALUE mod)
     if (!RMODULE_UNINITIALIZED(mod)) {
         rb_raise(rb_eTypeError, "already initialized module");
     }
+        RB_GC_GUARD(mod);
 }
 
 /* :nodoc: */
@@ -636,15 +678,24 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
         }
 
         rb_class_update_superclasses(clone);
+    RB_GC_GUARD(clone_origin);
+    RB_GC_GUARD(clone_p);
+    RB_GC_GUARD(origin_stack);
+    RB_GC_GUARD(prev_clone_p);
+    RB_GC_GUARD(orig_origin);
+    RB_GC_GUARD(p);
     }
 
     return clone;
+    RB_GC_GUARD(orig);
+    RB_GC_GUARD(clone);
 }
 
 VALUE
 rb_singleton_class_clone(VALUE obj)
 {
     return rb_singleton_class_clone_and_attach(obj, Qundef);
+    RB_GC_GUARD(obj);
 }
 
 // Clone and return the singleton class of `obj` if it has been created and is attached to `obj`.
@@ -676,6 +727,7 @@ rb_singleton_class_clone_and_attach(VALUE obj, VALUE attach)
             // recursive call did not clone `METACLASS_OF(klass)`.
             klass_of_clone_is_new = (METACLASS_OF(klass) != klass_metaclass_clone);
             RBASIC_SET_CLASS(clone, klass_metaclass_clone);
+        RB_GC_GUARD(klass_metaclass_clone);
         }
 
         RCLASS_SET_SUPER(clone, RCLASS_SUPER(klass));
@@ -702,6 +754,9 @@ rb_singleton_class_clone_and_attach(VALUE obj, VALUE attach)
         FL_SET(clone, FL_SINGLETON);
 
         return clone;
+        RB_GC_GUARD(clone);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(attach);
     }
 }
 
@@ -711,6 +766,8 @@ rb_singleton_class_attached(VALUE klass, VALUE obj)
     if (RCLASS_SINGLETON_P(klass)) {
         RCLASS_SET_ATTACHED_OBJECT(klass, obj);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(obj);
 }
 
 /*!
@@ -724,6 +781,7 @@ static int
 rb_singleton_class_has_metaclass_p(VALUE sklass)
 {
     return RCLASS_ATTACHED_OBJECT(METACLASS_OF(sklass)) == sklass;
+    RB_GC_GUARD(sklass);
 }
 
 int
@@ -731,6 +789,7 @@ rb_singleton_class_internal_p(VALUE sklass)
 {
     return (RB_TYPE_P(RCLASS_ATTACHED_OBJECT(sklass), T_CLASS) &&
             !rb_singleton_class_has_metaclass_p(sklass));
+            RB_GC_GUARD(sklass);
 }
 
 /**
@@ -779,6 +838,7 @@ make_metaclass(VALUE klass)
         VALUE tmp = METACLASS_OF(klass); /* for a meta^(n)-class klass, tmp is meta^(n)-class of Class class */
         SET_METACLASS_OF(klass, metaclass);
         SET_METACLASS_OF(metaclass, ENSURE_EIGENCLASS(tmp));
+    RB_GC_GUARD(tmp);
     }
 
     super = RCLASS_SUPER(klass);
@@ -789,6 +849,9 @@ make_metaclass(VALUE klass)
     rb_class_update_superclasses(METACLASS_OF(metaclass));
 
     return metaclass;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(metaclass);
+    RB_GC_GUARD(super);
 }
 
 /**
@@ -810,6 +873,9 @@ make_singleton_class(VALUE obj)
 
     SET_METACLASS_OF(klass, METACLASS_OF(rb_class_real(orig_class)));
     return klass;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(orig_class);
 }
 
 
@@ -822,6 +888,8 @@ boot_defclass(const char *name, VALUE super)
     rb_const_set((rb_cObject ? rb_cObject : obj), id, obj);
     rb_vm_register_global_object(obj);
     return obj;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(obj);
 }
 
 /***********************************************************************
@@ -945,6 +1013,8 @@ rb_make_metaclass(VALUE obj, VALUE unused)
     }
     else {
         return make_singleton_class(obj);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(unused);
     }
 }
 
@@ -958,6 +1028,8 @@ rb_define_class_id(ID id, VALUE super)
     rb_make_metaclass(klass, METACLASS_OF(super));
 
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
 }
 
 
@@ -976,6 +1048,8 @@ rb_class_inherited(VALUE super, VALUE klass)
     if (!super) super = rb_cObject;
     CONST_ID(inherited, "inherited");
     return rb_funcall(super, inherited, 1, klass);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(super);
 }
 
 VALUE
@@ -1008,12 +1082,16 @@ rb_define_class(const char *name, VALUE super)
     rb_class_inherited(super, klass);
 
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
 rb_define_class_under(VALUE outer, const char *name, VALUE super)
 {
     return rb_define_class_id_under(outer, rb_intern(name), super);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(outer);
 }
 
 VALUE
@@ -1047,6 +1125,9 @@ rb_define_class_id_under_no_pin(VALUE outer, ID id, VALUE super)
     rb_class_inherited(super, klass);
 
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1055,6 +1136,9 @@ rb_define_class_id_under(VALUE outer, ID id, VALUE super)
     VALUE klass = rb_define_class_id_under_no_pin(outer, id, super);
     rb_vm_register_global_object(klass);
     return klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1064,6 +1148,8 @@ rb_module_s_alloc(VALUE klass)
     RCLASS_M_TBL_INIT(mod);
     FL_SET(mod, RMODULE_ALLOCATED_BUT_NOT_INITIALIZED);
     return mod;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(mod);
 }
 
 static inline VALUE
@@ -1072,6 +1158,8 @@ module_new(VALUE klass)
     VALUE mdl = class_alloc(T_MODULE, klass);
     RCLASS_M_TBL_INIT(mdl);
     return (VALUE)mdl;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(mdl);
 }
 
 VALUE
@@ -1115,12 +1203,14 @@ rb_define_module(const char *name)
     rb_const_set(rb_cObject, id, module);
 
     return module;
+    RB_GC_GUARD(module);
 }
 
 VALUE
 rb_define_module_under(VALUE outer, const char *name)
 {
     return rb_define_module_id_under(outer, rb_intern(name));
+    RB_GC_GUARD(outer);
 }
 
 VALUE
@@ -1145,6 +1235,8 @@ rb_define_module_id_under(VALUE outer, ID id)
     rb_vm_register_global_object(module);
 
     return module;
+    RB_GC_GUARD(outer);
+    RB_GC_GUARD(module);
 }
 
 VALUE
@@ -1170,6 +1262,9 @@ rb_include_class_new(VALUE module, VALUE super)
     RBASIC_SET_CLASS(klass, module);
 
     return (VALUE)klass;
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(klass);
 }
 
 static int include_modules_at(const VALUE klass, VALUE c, VALUE module, int search_super);
@@ -1183,6 +1278,8 @@ ensure_includable(VALUE klass, VALUE module)
     if (!NIL_P(rb_refinement_module_get_refined_class(module))) {
         rb_raise(rb_eArgError, "refinement module is not allowed");
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(module);
 }
 
 void
@@ -1226,8 +1323,11 @@ rb_include_module(VALUE klass, VALUE module)
             }
 
             iclass = iclass->next;
+            RB_GC_GUARD(check_class);
         }
     }
+            RB_GC_GUARD(klass);
+            RB_GC_GUARD(module);
 }
 
 static enum rb_id_table_iterator_result
@@ -1235,6 +1335,7 @@ add_refined_method_entry_i(ID key, VALUE value, void *data)
 {
     rb_add_refined_method_entry((VALUE)data, key);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static enum rb_id_table_iterator_result
@@ -1243,6 +1344,8 @@ clear_module_cache_i(ID id, VALUE val, void *data)
     VALUE klass = (VALUE)data;
     rb_clear_method_cache(klass, id);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(klass);
 }
 
 static bool
@@ -1257,6 +1360,7 @@ module_in_super_chain(const VALUE klass, VALUE module)
         }
     }
     return false;
+    RB_GC_GUARD(module);
 }
 
 // For each ID key in the class constant table, we're going to clear the VM's
@@ -1266,6 +1370,7 @@ clear_constant_cache_i(ID id, VALUE value, void *data)
 {
     rb_clear_constant_cache_for_id(id);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static int
@@ -1358,6 +1463,7 @@ do_include_modules_at(const VALUE klass, VALUE c, VALUE module, int search_super
 
             rb_id_table_foreach(RCLASS_M_TBL(module), add_refined_method_entry_i, (void *)refined_class);
             RUBY_ASSERT(BUILTIN_TYPE(c) == T_MODULE);
+        RB_GC_GUARD(refined_class);
         }
 
         tbl = RCLASS_CONST_TBL(module);
@@ -1365,15 +1471,26 @@ do_include_modules_at(const VALUE klass, VALUE c, VALUE module, int search_super
             rb_id_table_foreach(tbl, clear_constant_cache_i, NULL);
       skip:
         module = RCLASS_SUPER(module);
+    RB_GC_GUARD(m);
+    RB_GC_GUARD(super_class);
     }
 
     return method_changed;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(c);
+    RB_GC_GUARD(original_klass);
+    RB_GC_GUARD(klass_origin);
+    RB_GC_GUARD(origin_stack);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(p);
 }
 
 static int
 include_modules_at(const VALUE klass, VALUE c, VALUE module, int search_super)
 {
     return do_include_modules_at(klass, c, module, search_super, true);
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(c);
 }
 
 static enum rb_id_table_iterator_result
@@ -1396,10 +1513,12 @@ move_refined_method(ID key, VALUE value, void *data)
         else {
             rb_method_table_insert(klass, tbl, key, me);
             return ID_TABLE_DELETE;
+    RB_GC_GUARD(klass);
         }
     }
     else {
         return ID_TABLE_CONTINUE;
+        RB_GC_GUARD(value);
     }
 }
 
@@ -1411,11 +1530,13 @@ cache_clear_refined_method(ID key, VALUE value, void *data)
     if (me->def->type == VM_METHOD_TYPE_REFINED && me->def->body.refined.orig_me) {
         VALUE klass = (VALUE)data;
         rb_clear_method_cache(klass, me->called_id);
+    RB_GC_GUARD(klass);
     }
     // Refined method entries without an orig_me is going to stay in the method
     // table of klass, like before the move, so no need to clear the cache.
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static bool
@@ -1434,6 +1555,8 @@ ensure_origin(VALUE klass)
         return true;
     }
     return false;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(origin);
 }
 
 void
@@ -1477,13 +1600,17 @@ rb_prepend_module(VALUE klass, VALUE module)
                     RCLASS_SET_INCLUDER(origin, RCLASS_INCLUDER(subclass));
                     RCLASS_SET_ORIGIN(subclass, origin);
                     RICLASS_SET_ORIGIN_SHARED_MTBL(origin);
+                RB_GC_GUARD(origin);
                 }
                 include_modules_at(subclass, subclass, module, FALSE);
             }
 
             iclass = iclass->next;
+            RB_GC_GUARD(klass_origin);
         }
     }
+            RB_GC_GUARD(klass);
+            RB_GC_GUARD(module);
 }
 
 /*
@@ -1520,9 +1647,14 @@ rb_mod_included_modules(VALUE mod)
             VALUE m = METACLASS_OF(p);
             if (RB_TYPE_P(m, T_MODULE))
                 rb_ary_push(ary, m);
+    RB_GC_GUARD(m);
         }
     }
     return ary;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(origin);
+    RB_GC_GUARD(p);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1556,6 +1688,9 @@ rb_mod_include_p(VALUE mod, VALUE mod2)
         }
     }
     return Qfalse;
+    RB_GC_GUARD(mod2);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(p);
 }
 
 /*
@@ -1596,6 +1731,10 @@ rb_mod_ancestors(VALUE mod)
         }
     }
     return ary;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(refined_class);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(p);
 }
 
 struct subclass_traverse_data
@@ -1624,6 +1763,8 @@ class_descendants_recursive(VALUE klass, VALUE v)
     else {
         rb_class_foreach_subclass(klass, class_descendants_recursive, v);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1649,6 +1790,7 @@ class_descendants(VALUE klass, bool immediate_only)
     }
 
     return data.buffer;
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1694,6 +1836,7 @@ VALUE
 rb_class_subclasses(VALUE klass)
 {
     return class_descendants(klass, true);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1721,6 +1864,7 @@ rb_class_attached_object(VALUE klass)
     }
 
     return RCLASS_ATTACHED_OBJECT(klass);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -1793,6 +1937,7 @@ method_entry_i(ID key, VALUE value, void *data)
         me = rb_resolve_refined_method(Qnil, me);
         if (!me) return ID_TABLE_CONTINUE;
         if (!arg->recur && me->owner != owner) return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(owner);
     }
     if (!st_is_member(arg->list, key)) {
         if (UNDEFINED_METHOD_ENTRY_P(me)) {
@@ -1805,6 +1950,7 @@ method_entry_i(ID key, VALUE value, void *data)
         st_add_direct(arg->list, key, (st_data_t)type);
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static void
@@ -1813,6 +1959,7 @@ add_instance_method_list(VALUE mod, struct method_entry_arg *me_arg)
     struct rb_id_table *m_tbl = RCLASS_M_TBL(mod);
     if (!m_tbl) return;
     rb_id_table_foreach(m_tbl, method_entry_i, me_arg);
+    RB_GC_GUARD(mod);
 }
 
 static bool
@@ -1822,6 +1969,7 @@ particular_class_p(VALUE mod)
     if (RCLASS_SINGLETON_P(mod)) return true;
     if (BUILTIN_TYPE(mod) == T_ICLASS) return true;
     return false;
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
@@ -1857,6 +2005,8 @@ class_instance_method_list(int argc, const VALUE *argv, VALUE mod, int obj, int 
     st_free_table(me_arg.list);
 
     return ary;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1899,6 +2049,7 @@ VALUE
 rb_class_instance_methods(int argc, const VALUE *argv, VALUE mod)
 {
     return class_instance_method_list(argc, argv, mod, 0, ins_methods_i);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -1914,6 +2065,7 @@ VALUE
 rb_class_protected_instance_methods(int argc, const VALUE *argv, VALUE mod)
 {
     return class_instance_method_list(argc, argv, mod, 0, ins_methods_prot_i);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -1937,6 +2089,7 @@ VALUE
 rb_class_private_instance_methods(int argc, const VALUE *argv, VALUE mod)
 {
     return class_instance_method_list(argc, argv, mod, 0, ins_methods_priv_i);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -1952,6 +2105,7 @@ VALUE
 rb_class_public_instance_methods(int argc, const VALUE *argv, VALUE mod)
 {
     return class_instance_method_list(argc, argv, mod, 0, ins_methods_pub_i);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -1967,6 +2121,8 @@ rb_class_undefined_instance_methods(VALUE mod)
 {
     VALUE include_super = Qfalse;
     return class_instance_method_list(1, &include_super, mod, 0, ins_methods_undef_i);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(include_super);
 }
 
 /*
@@ -2007,6 +2163,7 @@ rb_obj_methods(int argc, const VALUE *argv, VALUE obj)
         return rb_obj_singleton_methods(argc, argv, obj);
     }
     return class_instance_method_list(argc, argv, CLASS_OF(obj), 1, ins_methods_i);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2022,6 +2179,7 @@ VALUE
 rb_obj_protected_methods(int argc, const VALUE *argv, VALUE obj)
 {
     return class_instance_method_list(argc, argv, CLASS_OF(obj), 1, ins_methods_prot_i);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2037,6 +2195,7 @@ VALUE
 rb_obj_private_methods(int argc, const VALUE *argv, VALUE obj)
 {
     return class_instance_method_list(argc, argv, CLASS_OF(obj), 1, ins_methods_priv_i);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2052,6 +2211,7 @@ VALUE
 rb_obj_public_methods(int argc, const VALUE *argv, VALUE obj)
 {
     return class_instance_method_list(argc, argv, CLASS_OF(obj), 1, ins_methods_pub_i);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2118,6 +2278,10 @@ rb_obj_singleton_methods(int argc, const VALUE *argv, VALUE obj)
     st_free_table(me_arg.list);
 
     return ary;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(origin);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ary);
 }
 
 /*!
@@ -2168,6 +2332,7 @@ void
 rb_undef_method(VALUE klass, const char *name)
 {
     rb_add_method(klass, rb_intern(name), VM_METHOD_TYPE_UNDEF, 0, METHOD_VISI_UNDEF);
+    RB_GC_GUARD(klass);
 }
 
 static enum rb_id_table_iterator_result
@@ -2176,6 +2341,8 @@ undef_method_i(ID name, VALUE value, void *data)
     VALUE klass = (VALUE)data;
     rb_add_method(klass, name, VM_METHOD_TYPE_UNDEF, 0, METHOD_VISI_UNDEF);
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -2185,6 +2352,8 @@ rb_undef_methods_from(VALUE klass, VALUE super)
     if (mtbl) {
         rb_id_table_foreach(mtbl, undef_method_i, (void *)klass);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(super);
 }
 
 /*!
@@ -2203,6 +2372,7 @@ special_singleton_class_of(VALUE obj)
       case Qfalse: return rb_cFalseClass;
       case Qtrue:  return rb_cTrueClass;
       default:     return Qnil;
+      RB_GC_GUARD(obj);
     }
 }
 
@@ -2210,6 +2380,7 @@ VALUE
 rb_special_singleton_class(VALUE obj)
 {
     return special_singleton_class_of(obj);
+    RB_GC_GUARD(obj);
 }
 
 /**
@@ -2259,6 +2430,8 @@ singleton_class_of(VALUE obj)
     RB_FL_SET_RAW(klass, RB_OBJ_FROZEN_RAW(obj));
 
     return klass;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -2270,8 +2443,10 @@ rb_freeze_singleton_class(VALUE x)
         if (klass && // no class when hidden from ObjectSpace
             FL_TEST(klass, (FL_SINGLETON|FL_FREEZE)) == FL_SINGLETON) {
             OBJ_FREEZE(klass);
+            RB_GC_GUARD(klass);
         }
     }
+            RB_GC_GUARD(x);
 }
 
 /**
@@ -2293,6 +2468,8 @@ rb_singleton_class_get(VALUE obj)
     if (!RCLASS_SINGLETON_P(klass)) return Qnil;
     if (RCLASS_ATTACHED_OBJECT(klass) != obj) return Qnil;
     return klass;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -2304,6 +2481,8 @@ rb_singleton_class(VALUE obj)
     if (RB_TYPE_P(obj, T_CLASS)) (void)ENSURE_EIGENCLASS(klass);
 
     return klass;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 /*!
@@ -2347,12 +2526,14 @@ void
 rb_define_alias(VALUE klass, const char *name1, const char *name2)
 {
     rb_alias(klass, rb_intern(name1), rb_intern(name2));
+    RB_GC_GUARD(klass);
 }
 
 void
 rb_define_attr(VALUE klass, const char *name, int read, int write)
 {
     rb_attr(klass, rb_intern(name), read, write, FALSE);
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -2372,6 +2553,8 @@ rb_keyword_error_new(const char *error, VALUE keys)
     }
 
     return rb_exc_new_str(rb_eArgError, error_message);
+    RB_GC_GUARD(keys);
+    RB_GC_GUARD(error_message);
 }
 
 NORETURN(static void rb_keyword_error(const char *error, VALUE keys));
@@ -2379,6 +2562,7 @@ static void
 rb_keyword_error(const char *error, VALUE keys)
 {
     rb_exc_raise(rb_keyword_error_new(error, keys));
+    RB_GC_GUARD(keys);
 }
 
 NORETURN(static void unknown_keyword_error(VALUE hash, const ID *table, int keywords));
@@ -2391,6 +2575,7 @@ unknown_keyword_error(VALUE hash, const ID *table, int keywords)
         rb_hash_stlike_delete(hash, &key, NULL);
     }
     rb_keyword_error("unknown", rb_hash_keys(hash));
+    RB_GC_GUARD(hash);
 }
 
 
@@ -2420,6 +2605,7 @@ rb_extract_keywords(VALUE *orighash)
         RBASIC_SET_CLASS(parthash[1], RBASIC_CLASS(hash));
     }
     return parthash[0];
+    RB_GC_GUARD(hash);
 }
 
 int
@@ -2451,6 +2637,7 @@ rb_get_kwargs(VALUE keyword_hash, const ID *table, int required, int optional, V
             }
             if (NIL_P(missing)) missing = rb_ary_hidden_new(1);
             rb_ary_push(missing, keyword);
+        RB_GC_GUARD(keyword);
         }
         if (!NIL_P(missing)) {
             rb_keyword_error("missing", missing);
@@ -2475,6 +2662,8 @@ rb_get_kwargs(VALUE keyword_hash, const ID *table, int required, int optional, V
         }
     }
     return j;
+    RB_GC_GUARD(keyword_hash);
+    RB_GC_GUARD(missing);
 #undef extract_kwarg
 }
 
@@ -2546,6 +2735,7 @@ rb_scan_args_assign(const struct rb_scan_args_t *arg, int argc, const VALUE *con
         if (rb_scan_args_keyword_p(kw_flag, last)) {
             hash = rb_hash_dup(last);
             argc--;
+    RB_GC_GUARD(last);
         }
     }
 
@@ -2611,6 +2801,7 @@ rb_scan_args_assign(const struct rb_scan_args_t *arg, int argc, const VALUE *con
 
   argc_error:
     return -(argc + 1);
+    RB_GC_GUARD(hash);
 #undef rb_scan_args_next_param
 }
 

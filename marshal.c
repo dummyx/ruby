@@ -149,6 +149,8 @@ rb_marshal_define_compat(VALUE newclass, VALUE oldclass, VALUE (*dumper)(VALUE),
     compat->loader = loader;
 
     st_insert(compat_allocator_table(), (st_data_t)allocator, (st_data_t)compat);
+    RB_GC_GUARD(newclass);
+    RB_GC_GUARD(oldclass);
 }
 
 struct dump_arg {
@@ -175,6 +177,7 @@ check_dump_arg(VALUE ret, struct dump_arg *arg, const char *name)
                  name);
     }
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -188,6 +191,9 @@ check_userdump_arg(VALUE obj, ID sym, int argc, const VALUE *argv,
                  klass, name);
     }
     return check_dump_arg(ret, arg, name);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ret);
 }
 
 #define dump_funcall(arg, obj, sym, argc, argv) \
@@ -250,6 +256,7 @@ must_not_be_anonymous(const char *type, VALUE path)
                  type, path);
     }
     return path;
+    RB_GC_GUARD(path);
 }
 
 static VALUE
@@ -262,6 +269,8 @@ class2path(VALUE klass)
         rb_raise(rb_eTypeError, "% "PRIsVALUE" can't be referred to", path);
     }
     return path;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(path);
 }
 
 int ruby_marshal_write_long(long x, char *buf);
@@ -278,6 +287,7 @@ w_nbyte(const char *s, long n, struct dump_arg *arg)
         rb_io_write(arg->dest, buf);
         rb_str_resize(buf, 0);
     }
+        RB_GC_GUARD(buf);
 }
 
 static void
@@ -469,6 +479,8 @@ w_encivar(VALUE str, struct dump_arg *arg)
     }
     w_byte(TYPE_IVAR, arg);
     return encname;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(encname);
 }
 
 static void
@@ -481,6 +493,7 @@ w_encname(VALUE encname, struct dump_arg *arg)
         w_long(1L, arg);
         w_encoding(encname, &c_arg);
     }
+        RB_GC_GUARD(encname);
 }
 
 static void
@@ -505,6 +518,8 @@ w_symbol(VALUE sym, struct dump_arg *arg)
         st_add_direct(arg->symbols, orig_sym, arg->symbols->num_entries);
         w_encname(encname, arg);
     }
+        RB_GC_GUARD(encname);
+        RB_GC_GUARD(sym);
 }
 
 static void
@@ -512,6 +527,7 @@ w_unique(VALUE s, struct dump_arg *arg)
 {
     must_not_be_anonymous("class", s);
     w_symbol(rb_str_intern(s), arg);
+    RB_GC_GUARD(s);
 }
 
 static void w_object(VALUE,struct dump_arg*,int);
@@ -523,6 +539,9 @@ hash_each(VALUE key, VALUE value, VALUE v)
     w_object(key, arg->arg, arg->limit);
     w_object(value, arg->arg, arg->limit);
     return ST_CONTINUE;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 #define SINGLETON_DUMP_UNABLE_P(klass) \
@@ -539,6 +558,7 @@ w_extended(VALUE klass, struct dump_arg *arg, int check)
             rb_raise(rb_eTypeError, "singleton can't be dumped");
         }
         klass = RCLASS_SUPER(klass);
+    RB_GC_GUARD(origin);
     }
     while (BUILTIN_TYPE(klass) == T_ICLASS) {
         if (!FL_TEST(klass, RICLASS_IS_ORIGIN) ||
@@ -546,9 +566,11 @@ w_extended(VALUE klass, struct dump_arg *arg, int check)
             VALUE path = rb_class_name(RBASIC(klass)->klass);
             w_byte(TYPE_EXTENDED, arg);
             w_unique(path, arg);
+        RB_GC_GUARD(path);
         }
         klass = RCLASS_SUPER(klass);
     }
+        RB_GC_GUARD(klass);
 }
 
 static void
@@ -567,6 +589,9 @@ w_class(char type, VALUE obj, struct dump_arg *arg, int check)
     w_byte(type, arg);
     path = class2path(rb_class_real(klass));
     w_unique(path, arg);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -580,18 +605,23 @@ w_uclass(VALUE obj, VALUE super, struct dump_arg *arg)
         w_byte(TYPE_UCLASS, arg);
         w_unique(class2path(klass), arg);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(super);
+        RB_GC_GUARD(obj);
 }
 
 static bool
 rb_hash_ruby2_keywords_p(VALUE obj)
 {
     return (RHASH(obj)->basic.flags & RHASH_PASS_AS_KEYWORDS) != 0;
+    RB_GC_GUARD(obj);
 }
 
 static void
 rb_hash_ruby2_keywords(VALUE obj)
 {
     RHASH(obj)->basic.flags |= RHASH_PASS_AS_KEYWORDS;
+    RB_GC_GUARD(obj);
 }
 
 static inline bool
@@ -629,6 +659,7 @@ w_obj_each(ID id, VALUE value, st_data_t a)
     w_symbol(ID2SYM(id), arg->arg);
     w_object(value, arg->arg, arg->limit);
     return ST_CONTINUE;
+    RB_GC_GUARD(value);
 }
 
 static int
@@ -638,6 +669,7 @@ obj_count_ivars(ID id, VALUE val, st_data_t a)
         rb_raise(rb_eRuntimeError, "too many instance variables");
     }
     return ST_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -670,6 +702,7 @@ encoding_name(VALUE obj, struct dump_arg *arg)
     }
     else {
         return Qnil;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -690,6 +723,7 @@ w_encoding(VALUE encname, struct dump_call_arg *arg)
     w_symbol(ID2SYM(rb_id_encoding()), arg->arg);
     w_object(encname, arg->arg, limit);
     return 1;
+    RB_GC_GUARD(encname);
 }
 
 static st_index_t
@@ -713,6 +747,8 @@ has_ivars(VALUE obj, VALUE encname, VALUE *ivobj)
     }
 
     return num;
+    RB_GC_GUARD(encname);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -740,6 +776,7 @@ w_ivar_each(VALUE obj, st_index_t num, struct dump_call_arg *arg)
                     CLASS_OF(arg->obj));
         }
     }
+                    RB_GC_GUARD(obj);
 }
 
 static void
@@ -757,6 +794,8 @@ w_ivar(st_index_t num, VALUE ivobj, VALUE encname, struct dump_call_arg *arg)
     if (!UNDEF_P(ivobj) && num) {
         w_ivar_each(ivobj, num, arg);
     }
+        RB_GC_GUARD(ivobj);
+        RB_GC_GUARD(encname);
 }
 
 static void
@@ -767,6 +806,7 @@ w_objivar(VALUE obj, struct dump_call_arg *arg)
     rb_ivar_foreach(obj, obj_count_ivars, (st_data_t)&num);
     w_long(num, arg->arg);
     w_ivar_each(obj, num, arg);
+    RB_GC_GUARD(obj);
 }
 
 #if SIZEOF_LONG > 4
@@ -816,6 +856,7 @@ w_bigfixnum(VALUE obj, struct dump_arg *arg)
     arg->num_entries++;
 
     RUBY_ASSERT(num == 0);
+    RB_GC_GUARD(obj);
 }
 #endif
 
@@ -823,6 +864,7 @@ static void
 w_remember(VALUE obj, struct dump_arg *arg)
 {
     st_add_direct(arg->data, obj, arg->num_entries++);
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -932,6 +974,8 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
             }
             w_remember(obj, arg);
             return;
+        RB_GC_GUARD(encname2);
+        RB_GC_GUARD(ivobj2);
         }
 
         w_remember(obj, arg);
@@ -951,6 +995,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
                 }
                 st_insert(arg->compat_tbl, (st_data_t)obj, (st_data_t)real_obj);
                 if (obj != real_obj && UNDEF_P(ivobj)) hasiv = 0;
+        RB_GC_GUARD(real_obj);
             }
         }
         if (hasiv) w_byte(TYPE_IVAR, arg);
@@ -967,6 +1012,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
                 w_bytes(RSTRING_PTR(path), RSTRING_LEN(path), arg);
                 w_encname(encname, arg);
                 RB_GC_GUARD(path);
+            RB_GC_GUARD(encname);
             }
             break;
 
@@ -978,6 +1024,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
                 w_bytes(RSTRING_PTR(path), RSTRING_LEN(path), arg);
                 w_encname(encname, arg);
                 RB_GC_GUARD(path);
+            RB_GC_GUARD(encname);
             }
             break;
 
@@ -1086,6 +1133,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
                 for (i=0; i<len; i++) {
                     w_symbol(RARRAY_AREF(mem, i), arg);
                     w_object(RSTRUCT_GET(obj, i), arg, limit);
+            RB_GC_GUARD(mem);
                 }
             }
             break;
@@ -1107,6 +1155,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
                 v = dump_funcall(arg, obj, s_dump_data, 0, 0);
                 w_class(TYPE_DATA, obj, arg, TRUE);
                 w_object(v, arg, limit);
+            RB_GC_GUARD(v);
             }
             break;
 
@@ -1116,10 +1165,14 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
             break;
         }
         RB_GC_GUARD(obj);
+    RB_GC_GUARD(v);
     }
     if (hasiv) {
         w_ivar(hasiv, ivobj, encname, &c_arg);
     }
+        RB_GC_GUARD(ivobj);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(encname);
 }
 
 static void
@@ -1205,6 +1258,11 @@ marshal_dump(int argc, VALUE *argv, VALUE _)
         else port = a1;
     }
     return rb_marshal_dump_limited(obj, port, limit);
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(a2);
+    RB_GC_GUARD(a1);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -1245,6 +1303,9 @@ rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
     RB_GC_GUARD(wrapper);
 
     return port;
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(wrapper);
 }
 
 struct load_arg {
@@ -1269,6 +1330,7 @@ check_load_arg(VALUE ret, struct load_arg *arg, const char *name)
                  name);
     }
     return ret;
+    RB_GC_GUARD(ret);
 }
 #define load_funcall(arg, obj, sym, argc, argv) \
     check_load_arg(rb_funcallv(obj, sym, argc, argv), arg, name_##sym)
@@ -1344,6 +1406,8 @@ r_byte1_buffered(struct load_arg *arg)
         memcpy(arg->buf, RSTRING_PTR(str), RSTRING_LEN(str));
         arg->offset = 0;
         arg->buflen = RSTRING_LEN(str);
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(str);
     }
     arg->buflen--;
     return arg->buf[arg->offset++];
@@ -1370,6 +1434,7 @@ r_byte(struct load_arg *arg)
             VALUE v = load_funcall(arg, arg->src, s_getbyte, 0, 0);
             if (NIL_P(v)) rb_eof_error();
             c = (unsigned char)NUM2CHR(v);
+    RB_GC_GUARD(v);
         }
     }
     return c;
@@ -1441,6 +1506,8 @@ r_bytes1(long len, struct load_arg *arg)
     if (RSTRING_LEN(str) != len) too_short();
 
     return str;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -1482,9 +1549,12 @@ r_bytes1_buffered(long len, struct load_arg *arg)
             arg->buflen = 0;
         }
         arg->offset = 0;
+    RB_GC_GUARD(n);
+    RB_GC_GUARD(tmp);
     }
 
     return str;
+    RB_GC_GUARD(str);
 }
 
 #define r_bytes(arg) r_bytes0(r_long(arg), (arg))
@@ -1513,6 +1583,7 @@ r_bytes0(long len, struct load_arg *arg)
         }
     }
     return str;
+    RB_GC_GUARD(str);
 }
 
 static inline int
@@ -1541,6 +1612,8 @@ sym2encidx(VALUE sym, VALUE val)
         /* bogus ignore */
     }
     return -1;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(sym);
 }
 
 static int
@@ -1551,6 +1624,7 @@ symname_equal(VALUE sym, const char *name, size_t nlen)
     if (rb_enc_get_index(sym) != ENCINDEX_US_ASCII) return 0;
     RSTRING_GETMEM(sym, p, l);
     return name_equal(name, nlen, p, l);
+    RB_GC_GUARD(sym);
 }
 
 #define BUILD_ASSERT_POSITIVE(n) \
@@ -1597,6 +1671,8 @@ r_symreal(struct load_arg *arg, int ivar)
     }
 
     return s;
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(s);
 }
 
 static VALUE
@@ -1644,6 +1720,7 @@ r_entry0(VALUE v, st_index_t num, struct load_arg *arg)
     st_insert(arg->data, num, real_obj);
     st_insert(arg->partial_objects, (st_data_t)real_obj, Qtrue);
     return v;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1659,8 +1736,10 @@ r_fixup_compat(VALUE v, struct load_arg *arg)
             compat->loader(real_obj, v);
         }
         v = real_obj;
+    RB_GC_GUARD(real_obj);
     }
     return v;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1670,6 +1749,7 @@ r_post_proc(VALUE v, struct load_arg *arg)
         v = load_funcall(arg, arg->proc, s_call, 1, &v);
     }
     return v;
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1694,6 +1774,7 @@ r_leave(VALUE v, struct load_arg *arg, bool partial)
         v = r_post_proc(v, arg);
     }
     return v;
+    RB_GC_GUARD(v);
 }
 
 static int
@@ -1704,6 +1785,8 @@ copy_ivar_i(ID vid, VALUE value, st_data_t arg)
     if (!rb_ivar_defined(obj, vid))
         rb_ivar_set(obj, vid, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1711,6 +1794,8 @@ r_copy_ivar(VALUE v, VALUE data)
 {
     rb_ivar_foreach(data, copy_ivar_i, (st_data_t)v);
     return v;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(v);
 }
 
 #define override_ivar_error(type, str) \
@@ -1732,6 +1817,9 @@ r_ivar_encoding(VALUE obj, struct load_arg *arg, VALUE sym, VALUE val)
         return TRUE;
     }
     return FALSE;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(sym);
+    RB_GC_GUARD(obj);
 }
 
 static long
@@ -1742,8 +1830,11 @@ r_encname(VALUE obj, struct load_arg *arg)
         VALUE sym = r_symbol(arg);
         VALUE val = r_object(arg);
         len -= r_ivar_encoding(obj, arg, sym, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(sym);
     }
     return len;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1775,9 +1866,12 @@ r_ivar(VALUE obj, int *has_encoding, struct load_arg *arg)
             }
             else {
                 rb_ivar_set(obj, rb_intern_str(sym), val);
+                RB_GC_GUARD(sym);
+                RB_GC_GUARD(val);
             }
         } while (--len > 0);
     }
+                RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1789,6 +1883,8 @@ path2class(VALUE path)
         rb_raise(rb_eArgError, "%"PRIsVALUE" does not refer to class", path);
     }
     return v;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(v);
 }
 
 #define path2module(path) must_be_module(rb_path_to_class(path), path)
@@ -1800,6 +1896,8 @@ must_be_module(VALUE v, VALUE path)
         rb_raise(rb_eArgError, "%"PRIsVALUE" does not refer to module", path);
     }
     return v;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -1820,15 +1918,19 @@ obj_alloc_by_klass(VALUE klass, struct load_arg *arg, VALUE *oldclass)
         }
         st_insert(arg->compat_tbl, (st_data_t)obj, (st_data_t)real_obj);
         return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(real_obj);
     }
 
     return rb_obj_alloc(klass);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 obj_alloc_by_path(VALUE path, struct load_arg *arg)
 {
     return obj_alloc_by_klass(path2class(path), arg, 0);
+    RB_GC_GUARD(path);
 }
 
 static VALUE
@@ -1838,8 +1940,11 @@ append_extmod(VALUE obj, VALUE extmod)
     while (i > 0) {
         VALUE m = RARRAY_AREF(extmod, --i);
         rb_extend_object(obj, m);
+    RB_GC_GUARD(m);
     }
     return obj;
+    RB_GC_GUARD(extmod);
+    RB_GC_GUARD(obj);
 }
 
 #define prohibit_ivar(type, str) do { \
@@ -1854,6 +1959,7 @@ r_object0(struct load_arg *arg, bool partial, int *ivp, VALUE extmod)
 {
     int type = r_byte(arg);
     return r_object_for(arg, partial, ivp, extmod, type);
+    RB_GC_GUARD(extmod);
 }
 
 static VALUE
@@ -1905,6 +2011,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
                 while (RARRAY_LEN(extmod) > 0) {
                     m = rb_ary_pop(extmod);
                     rb_prepend_module(c, m);
+            RB_GC_GUARD(c);
                 }
             }
             else {
@@ -1918,6 +2025,8 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
                 }
             }
             v = r_leave(v, arg, partial);
+        RB_GC_GUARD(m);
+        RB_GC_GUARD(path);
         }
         break;
 
@@ -1943,8 +2052,10 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
                 VALUE tmp = rb_obj_alloc(c);
 
                 if (TYPE(v) != TYPE(tmp)) goto format_error;
+            RB_GC_GUARD(tmp);
             }
             RBASIC_SET_CLASS(v, c);
+        RB_GC_GUARD(c);
         }
         break;
 
@@ -1997,6 +2108,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             v = DBL2NUM(d);
             v = r_entry(v, arg);
             v = r_leave(v, arg, false);
+        RB_GC_GUARD(str);
         }
         break;
 
@@ -2023,6 +2135,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
 #endif
                 if (sign == '-') {
                     v = rb_int_uminus(v);
+            RB_GC_GUARD(num);
                 }
             }
             else {
@@ -2033,6 +2146,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             }
             v = r_entry(v, arg);
             v = r_leave(v, arg, false);
+        RB_GC_GUARD(data);
         }
         break;
 
@@ -2077,6 +2191,8 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
 
             v = r_entry0(regexp, idx, arg);
             v = r_leave(v, arg, partial);
+        RB_GC_GUARD(regexp);
+        RB_GC_GUARD(str);
         }
         break;
 
@@ -2110,6 +2226,8 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
                 VALUE value = r_object(arg);
                 rb_hash_aset(v, key, value);
                 arg->readable -= 2;
+            RB_GC_GUARD(value);
+            RB_GC_GUARD(key);
             }
             arg->readable += 2;
             if (type == TYPE_HASH_DEF) {
@@ -2164,11 +2282,17 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
                         rb_ary_push(values, r_object(arg));
                     }
                     arg->readable -= 2;
+            RB_GC_GUARD(n);
+            RB_GC_GUARD(keywords);
                 }
             }
             rb_struct_initialize(v, values);
             v = r_leave(v, arg, partial);
             arg->readable += 2;
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(slot);
+        RB_GC_GUARD(values);
+        RB_GC_GUARD(mem);
         }
         break;
 
@@ -2199,6 +2323,9 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
                     OBJ_FREEZE(v);
                 }
                 v = r_post_proc(v, arg);
+        RB_GC_GUARD(name);
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(klass);
             }
         }
         break;
@@ -2231,6 +2358,10 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             if (!NIL_P(extmod)) {
                 if (oldclass) append_extmod(v, extmod);
                 rb_ary_clear(extmod);
+        RB_GC_GUARD(name);
+        RB_GC_GUARD(data);
+        RB_GC_GUARD(oldclass);
+        RB_GC_GUARD(klass);
             }
         }
         break;
@@ -2268,6 +2399,10 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             r = r_object0(arg, partial, 0, extmod);
             load_funcall(arg, v, s_load_data, 1, &r);
             v = r_leave(v, arg, partial);
+        RB_GC_GUARD(r);
+        RB_GC_GUARD(oldclass);
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(name);
         }
         break;
 
@@ -2279,6 +2414,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             prohibit_ivar("class/module", str);
             v = r_entry(v, arg);
             v = r_leave(v, arg, partial);
+        RB_GC_GUARD(str);
         }
         break;
 
@@ -2291,6 +2427,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             prohibit_ivar("class", str);
             v = r_entry(v, arg);
             v = r_leave(v, arg, partial);
+        RB_GC_GUARD(str);
         }
         break;
 
@@ -2303,6 +2440,7 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
             prohibit_ivar("module", str);
             v = r_entry(v, arg);
             v = r_leave(v, arg, partial);
+        RB_GC_GUARD(str);
         }
         break;
 
@@ -2332,6 +2470,8 @@ r_object_for(struct load_arg *arg, bool partial, int *ivp, VALUE extmod, int typ
     }
 
     return v;
+    RB_GC_GUARD(extmod);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
@@ -2415,12 +2555,20 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc, bool freeze)
     RB_GC_GUARD(wrapper);
 
     return v;
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(wrapper);
+    RB_GC_GUARD(v);
 }
 
 static VALUE
 marshal_load(rb_execution_context_t *ec, VALUE mod, VALUE source, VALUE proc, VALUE freeze)
 {
     return rb_marshal_load_with_proc(source, proc, RTEST(freeze));
+    RB_GC_GUARD(freeze);
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(source);
+    RB_GC_GUARD(mod);
 }
 
 #include "marshal.rbinc"
@@ -2562,6 +2710,7 @@ Init_marshal(void)
     rb_define_const(rb_mMarshal, "MAJOR_VERSION", INT2FIX(MARSHAL_MAJOR));
     /* minor version */
     rb_define_const(rb_mMarshal, "MINOR_VERSION", INT2FIX(MARSHAL_MINOR));
+    RB_GC_GUARD(rb_mMarshal);
 }
 
 static int
@@ -2642,10 +2791,13 @@ VALUE
 rb_marshal_dump(VALUE obj, VALUE port)
 {
     return rb_marshal_dump_limited(obj, port, -1);
+    RB_GC_GUARD(port);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_marshal_load(VALUE port)
 {
     return rb_marshal_load_with_proc(port, Qnil, false);
+    RB_GC_GUARD(port);
 }

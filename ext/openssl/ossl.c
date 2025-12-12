@@ -101,6 +101,7 @@ static VALUE
 ossl_str_new_i(VALUE size)
 {
     return rb_str_new(NULL, (long)size);
+    RB_GC_GUARD(size);
 }
 
 VALUE
@@ -120,6 +121,7 @@ ossl_str_new(const char *ptr, long len, int *pstate)
     if (ptr)
 	memcpy(RSTRING_PTR(str), ptr, len);
     return str;
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -133,6 +135,7 @@ ossl_buf2str(char *buf, int len)
     if (state)
 	rb_jump_tag(state);
     return str;
+    RB_GC_GUARD(str);
 }
 
 void
@@ -167,6 +170,7 @@ ossl_pem_passwd_value(VALUE pass)
 	ossl_raise(eOSSLError, "password must not be longer than %d bytes", PEM_BUFSIZE);
 
     return pass;
+    RB_GC_GUARD(pass);
 }
 
 static VALUE
@@ -177,6 +181,8 @@ ossl_pem_passwd_cb0(VALUE flag)
 	return Qnil;
     StringValue(pass);
     return pass;
+    RB_GC_GUARD(flag);
+    RB_GC_GUARD(pass);
 }
 
 int
@@ -229,6 +235,8 @@ ossl_pem_passwd_cb(char *buf, int max_len, int flag, void *pwd_)
 	break;
     }
     return (int)len;
+    RB_GC_GUARD(pass);
+    RB_GC_GUARD(rflag);
 }
 
 /*
@@ -255,6 +263,8 @@ ossl_to_der(VALUE obj)
     StringValue(tmp);
 
     return tmp;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(tmp);
 }
 
 VALUE
@@ -263,6 +273,7 @@ ossl_to_der_if_possible(VALUE obj)
     if(rb_respond_to(obj, ossl_s_to_der))
 	return ossl_to_der(obj);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -294,6 +305,8 @@ ossl_make_error(VALUE exc, VALUE str)
     }
 
     return rb_exc_new_str(exc, str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -312,6 +325,8 @@ ossl_raise(VALUE exc, const char *fmt, ...)
     }
 
     rb_exc_raise(ossl_make_error(exc, err));
+    RB_GC_GUARD(err);
+    RB_GC_GUARD(exc);
 }
 
 void
@@ -367,6 +382,8 @@ ossl_get_errors(VALUE _)
     }
 
     return ary;
+    RB_GC_GUARD(_);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -382,6 +399,7 @@ static VALUE
 ossl_debug_get(VALUE self)
 {
     return dOSSL;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -397,6 +415,8 @@ ossl_debug_set(VALUE self, VALUE val)
     dOSSL = RTEST(val) ? Qtrue : Qfalse;
 
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -411,6 +431,8 @@ ossl_fips_mode_get(VALUE self)
     VALUE enabled;
     enabled = EVP_default_properties_is_fips_enabled(NULL) ? Qtrue : Qfalse;
     return enabled;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(enabled);
 #elif defined(OPENSSL_FIPS)
     VALUE enabled;
     enabled = FIPS_mode() ? Qtrue : Qfalse;
@@ -446,6 +468,8 @@ ossl_fips_mode_set(VALUE self, VALUE enabled)
         }
     }
     return enabled;
+    RB_GC_GUARD(enabled);
+    RB_GC_GUARD(self);
 #elif defined(OPENSSL_FIPS)
     if (RTEST(enabled)) {
 	int mode = FIPS_mode();
@@ -580,6 +604,9 @@ ossl_crypto_fixed_length_secure_compare(VALUE dummy, VALUE str1, VALUE str2)
     switch (CRYPTO_memcmp(p1, p2, len1)) {
         case 0:	return Qtrue;
         default: return Qfalse;
+        RB_GC_GUARD(dummy);
+        RB_GC_GUARD(str2);
+        RB_GC_GUARD(str1);
     }
 }
 

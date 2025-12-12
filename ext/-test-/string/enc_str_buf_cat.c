@@ -5,6 +5,8 @@ static VALUE
 enc_str_buf_cat(VALUE str, VALUE str2)
 {
     return rb_enc_str_buf_cat(str, RSTRING_PTR(str2), RSTRING_LEN(str2), rb_enc_get(str2));
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str);
 }
 
 static VALUE
@@ -18,6 +20,11 @@ str_conv_enc_opts(VALUE str, VALUE from, VALUE to, VALUE ecflags, VALUE ecopts)
         OBJ_FREEZE(ecopts);
     }
     return rb_str_conv_enc_opts(str, from_enc, to_enc, flags, ecopts);
+    RB_GC_GUARD(ecopts);
+    RB_GC_GUARD(ecflags);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(str);
 }
 
 void

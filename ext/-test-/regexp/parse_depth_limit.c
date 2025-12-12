@@ -6,6 +6,7 @@ get_parse_depth_limit(VALUE self)
 {
     unsigned int depth = onig_get_parse_depth_limit();
     return UINT2NUM(depth);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -13,6 +14,8 @@ set_parse_depth_limit(VALUE self, VALUE depth)
 {
     onig_set_parse_depth_limit(NUM2UINT(depth));
     return depth;
+    RB_GC_GUARD(depth);
+    RB_GC_GUARD(self);
 }
 
 void

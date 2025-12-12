@@ -9,6 +9,8 @@ bug_struct_get(VALUE obj, VALUE name)
         rb_name_error_str(name, "'%"PRIsVALUE"' is not a struct member", name);
     }
     return rb_struct_getmember(obj, id);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(obj);
 }
 
 void

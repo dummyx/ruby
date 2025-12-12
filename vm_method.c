@@ -35,6 +35,7 @@ vm_ccs_dump_i(ID mid, VALUE val, void *data)
     }
 
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static void
@@ -52,8 +53,10 @@ vm_ccs_dump(VALUE klass, ID target_mid)
         else {
             fprintf(stderr, "  [CCTB] %p\n", (void *)cc_tbl);
             rb_id_table_foreach(cc_tbl, vm_ccs_dump_i, (void *)target_mid);
+            RB_GC_GUARD(ccs);
         }
     }
+            RB_GC_GUARD(klass);
 }
 
 static enum rb_id_table_iterator_result
@@ -64,6 +67,7 @@ vm_cme_dump_i(ID mid, VALUE val, void *data)
         rp_m("  > ", val);
     }
     return ID_TABLE_CONTINUE;
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -103,8 +107,10 @@ vm_mtbl_dump(VALUE klass, ID target_mid)
             vm_ccs_dump(klass, target_mid);
         }
         klass = RCLASS_SUPER(klass);
+    RB_GC_GUARD(me);
     }
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -112,6 +118,7 @@ rb_vm_mtbl_dump(const char *msg, VALUE klass, ID target_mid)
 {
     fprintf(stderr, "[%s] ", msg);
     vm_mtbl_dump(klass, target_mid);
+    RB_GC_GUARD(klass);
 }
 
 static inline void
@@ -150,6 +157,7 @@ rb_clear_constant_cache_for_id(ID id)
 
     rb_yjit_constant_state_changed(id);
     rb_rjit_constant_state_changed(id);
+    RB_GC_GUARD(lookup_result);
 }
 
 static void
@@ -163,6 +171,7 @@ invalidate_negative_cache(ID mid)
         vm_cme_invalidate((rb_callable_method_entry_t *)cme);
         RB_DEBUG_COUNTER_INC(cc_invalidate_negative);
     }
+        RB_GC_GUARD(cme);
 }
 
 const rb_method_entry_t * rb_method_entry_clone(const rb_method_entry_t *src_me);
@@ -207,8 +216,10 @@ clear_method_cache_by_id_in_class(VALUE klass, ID mid)
             }
             rb_id_table_delete(cm_tbl, mid);
             RB_DEBUG_COUNTER_INC(cc_invalidate_leaf_callable);
+        RB_GC_GUARD(cme);
         }
         RB_DEBUG_COUNTER_INC(cc_invalidate_leaf);
+    RB_GC_GUARD(ccs_data);
     }
     else {
         const rb_callable_method_entry_t *cme = complemented_callable_method_entry(klass, mid);
@@ -234,6 +245,8 @@ clear_method_cache_by_id_in_class(VALUE klass, ID mid)
                     VM_ASSERT(lookup_method_table(klass_housing_cme, mid) == (const rb_method_entry_t *)cme);
                     const rb_method_entry_t *new_cme = rb_method_entry_clone((const rb_method_entry_t *)cme);
                     rb_method_table_insert(klass_housing_cme, RCLASS_M_TBL(klass_housing_cme), mid, new_cme);
+                RB_GC_GUARD(klass_housing_cme);
+                RB_GC_GUARD(owner);
                 }
 
                 vm_cme_invalidate((rb_callable_method_entry_t *)cme);
@@ -262,6 +275,7 @@ clear_method_cache_by_id_in_class(VALUE klass, ID mid)
                 int r = rb_id_table_delete(cm_tbl, mid);
                 VM_ASSERT(r == TRUE); (void)r;
                 RB_DEBUG_COUNTER_INC(cc_invalidate_tree_callable);
+            RB_GC_GUARD(defined_class);
             }
 
             RB_DEBUG_COUNTER_INC(cc_invalidate_tree);
@@ -271,6 +285,7 @@ clear_method_cache_by_id_in_class(VALUE klass, ID mid)
         }
     }
     RB_VM_LOCK_LEAVE();
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -279,6 +294,8 @@ clear_iclass_method_cache_by_id(VALUE iclass, VALUE d)
     VM_ASSERT_TYPE(iclass, T_ICLASS);
     ID mid = (ID)d;
     clear_method_cache_by_id_in_class(iclass, mid);
+    RB_GC_GUARD(iclass);
+    RB_GC_GUARD(d);
 }
 
 static void
@@ -288,6 +305,8 @@ clear_iclass_method_cache_by_id_for_refinements(VALUE klass, VALUE d)
         ID mid = (ID)d;
         clear_method_cache_by_id_in_class(klass, mid);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(d);
 }
 
 void
@@ -301,12 +320,15 @@ rb_clear_method_cache(VALUE klass_or_module, ID mid)
             rb_clear_method_cache(refined_class, mid);
             rb_class_foreach_subclass(refined_class, clear_iclass_method_cache_by_id_for_refinements, mid);
             rb_clear_all_refinement_method_cache();
+        RB_GC_GUARD(refined_class);
         }
         rb_class_foreach_subclass(module, clear_iclass_method_cache_by_id, mid);
+    RB_GC_GUARD(module);
     }
     else {
         clear_method_cache_by_id_in_class(klass_or_module, mid);
     }
+        RB_GC_GUARD(klass_or_module);
 }
 
 static int
@@ -331,6 +353,7 @@ invalidate_all_refinement_cc(void *vstart, void *vend, size_t stride, void *data
         }
     }
     return 0; // continue to iteration
+    RB_GC_GUARD(v);
 }
 
 static st_index_t
@@ -347,6 +370,7 @@ vm_ci_hash(VALUE v)
         }
     }
     return h;
+    RB_GC_GUARD(v);
 }
 
 static int
@@ -372,6 +396,8 @@ vm_ci_hash_cmp(VALUE v1, VALUE v2)
         VM_ASSERT(ci2->kwarg == NULL); // implied by matching flags
     }
     return 0;
+    RB_GC_GUARD(v2);
+    RB_GC_GUARD(v1);
 }
 
 static const struct st_hash_type vm_ci_hashtype = {
@@ -460,6 +486,8 @@ rb_method_table_insert(VALUE klass, struct rb_id_table *table, ID method_id, con
     VM_ASSERT(table == RCLASS_M_TBL(table_owner));
     rb_id_table_insert(table, method_id, (VALUE)me);
     RB_OBJ_WRITTEN(table_owner, Qundef, (VALUE)me);
+    RB_GC_GUARD(table_owner);
+    RB_GC_GUARD(klass);
 }
 
 // rb_f_notimplement has an extra trailing argument to distinguish it from other methods
@@ -475,18 +503,22 @@ rb_f_notimplement_internal(int argc, const VALUE *argv, VALUE obj)
     rb_notimplement();
 
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_f_notimplement(int argc, const VALUE *argv, VALUE obj, VALUE marker)
 {
     rb_f_notimplement_internal(argc, argv, obj);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(marker);
 }
 
 static void
 rb_define_notimplement_method_id(VALUE mod, ID id, rb_method_visibility_t visi)
 {
     rb_add_method(mod, id, VM_METHOD_TYPE_NOTIMPLEMENTED, (void *)1, visi);
+    RB_GC_GUARD(mod);
 }
 
 void
@@ -502,6 +534,7 @@ rb_add_method_cfunc(VALUE klass, ID mid, VALUE (*func)(ANYARGS), int argc, rb_me
     else {
         rb_define_notimplement_method_id(klass, mid, visi);
     }
+        RB_GC_GUARD(klass);
 }
 
 void
@@ -512,6 +545,7 @@ rb_add_method_optimized(VALUE klass, ID mid, enum method_optimized_type opt_type
         .index = index,
     };
     rb_add_method(klass, mid, VM_METHOD_TYPE_OPTIMIZED, &opt, visi);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -685,6 +719,7 @@ rb_method_definition_set(const rb_method_entry_t *me, rb_method_definition_t *de
                 if (cfp && (line = rb_vm_get_sourceline(cfp))) {
                     VALUE location = rb_ary_new3(2, rb_iseq_path(cfp->iseq), INT2FIX(line));
                     RB_OBJ_WRITE(me, &def->body.attr.location, rb_ary_freeze(location));
+                RB_GC_GUARD(location);
                 }
                 else {
                     VM_ASSERT(def->body.attr.location == 0);
@@ -779,6 +814,8 @@ rb_method_entry_alloc(ID called_id, VALUE owner, VALUE defined_class, rb_method_
     me->owner = owner;
 
     return me;
+    RB_GC_GUARD(defined_class);
+    RB_GC_GUARD(owner);
 }
 
 static VALUE
@@ -795,6 +832,7 @@ filter_defined_class(VALUE klass)
         break;
     }
     rb_bug("filter_defined_class: %s", rb_obj_info(klass));
+    RB_GC_GUARD(klass);
 }
 
 rb_method_entry_t *
@@ -804,6 +842,7 @@ rb_method_entry_create(ID called_id, VALUE klass, rb_method_visibility_t visi, r
     METHOD_ENTRY_FLAGS_SET(me, visi, ruby_running ? FALSE : TRUE);
     if (def != NULL) method_definition_reset(me);
     return me;
+    RB_GC_GUARD(klass);
 }
 
 // Return a cloned ME that's not invalidated (MEs are disposable for caching).
@@ -862,6 +901,7 @@ rb_method_entry_complement_defined_class(const rb_method_entry_t *src_me, ID cal
     VM_ASSERT_TYPE(me->owner, T_MODULE);
 
     return (rb_callable_method_entry_t *)me;
+    RB_GC_GUARD(defined_class);
 }
 
 void
@@ -899,6 +939,7 @@ make_method_entry_refined(VALUE owner, rb_method_entry_t *me)
         rb_method_definition_set(me, def, orig_me);
         METHOD_ENTRY_VISI_SET(me, METHOD_VISI_PUBLIC);
     }
+        RB_GC_GUARD(owner);
 }
 
 static inline rb_method_entry_t *
@@ -912,6 +953,7 @@ lookup_method_table(VALUE klass, ID id)
     }
     else {
         return 0;
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -927,6 +969,7 @@ rb_add_refined_method_entry(VALUE refined_class, ID mid)
     else {
         rb_add_method(refined_class, mid, VM_METHOD_TYPE_REFINED, 0, METHOD_VISI_PUBLIC);
     }
+        RB_GC_GUARD(refined_class);
 }
 
 static void
@@ -943,6 +986,8 @@ check_override_opt_method_i(VALUE klass, VALUE arg)
         }
     }
     rb_class_foreach_subclass(klass, check_override_opt_method_i, (VALUE)mid);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(arg);
 }
 
 static void
@@ -951,6 +996,8 @@ check_override_opt_method(VALUE klass, VALUE mid)
     if (rb_vm_check_optimizable_mid(mid)) {
         check_override_opt_method_i(klass, mid);
     }
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(mid);
 }
 
 /*
@@ -994,6 +1041,7 @@ rb_method_entry_make(VALUE klass, ID mid, VALUE defined_class, rb_method_visibil
     if (RB_TYPE_P(klass, T_MODULE) && FL_TEST(klass, RMODULE_IS_REFINEMENT)) {
         VALUE refined_class = rb_refinement_module_get_refined_class(klass);
         rb_add_refined_method_entry(refined_class, mid);
+    RB_GC_GUARD(refined_class);
     }
     if (type == VM_METHOD_TYPE_REFINED) {
         rb_method_entry_t *old_me = lookup_method_table(RCLASS_ORIGIN(klass), mid);
@@ -1092,6 +1140,9 @@ rb_method_entry_make(VALUE klass, ID mid, VALUE defined_class, rb_method_visibil
     }
 
     return me;
+    RB_GC_GUARD(defined_class);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(orig_klass);
 }
 
 static st_table *
@@ -1228,6 +1279,7 @@ method_added(VALUE klass, ID mid)
     if (ruby_running) {
         CALL_METHOD_HOOK(klass, added, mid);
     }
+        RB_GC_GUARD(klass);
 }
 
 void
@@ -1238,6 +1290,7 @@ rb_add_method(VALUE klass, ID mid, rb_method_type_t type, void *opts, rb_method_
     if (type != VM_METHOD_TYPE_UNDEF && type != VM_METHOD_TYPE_REFINED) {
         method_added(klass, mid);
     }
+        RB_GC_GUARD(klass);
 }
 
 void
@@ -1252,6 +1305,7 @@ rb_add_method_iseq(VALUE klass, ID mid, const rb_iseq_t *iseq, rb_cref_t *cref, 
     iseq_body.cref = cref;
 
     rb_add_method(klass, mid, VM_METHOD_TYPE_ISEQ, &iseq_body, visi);
+    RB_GC_GUARD(klass);
 }
 
 static rb_method_entry_t *
@@ -1267,12 +1321,15 @@ method_entry_set(VALUE klass, ID mid, const rb_method_entry_t *me,
 
     method_added(klass, mid);
     return newme;
+    RB_GC_GUARD(defined_class);
+    RB_GC_GUARD(klass);
 }
 
 rb_method_entry_t *
 rb_method_entry_set(VALUE klass, ID mid, const rb_method_entry_t *me, rb_method_visibility_t visi)
 {
     return method_entry_set(klass, mid, me, visi, klass);
+    RB_GC_GUARD(klass);
 }
 
 #define UNDEF_ALLOC_FUNC ((rb_alloc_func_t)-1)
@@ -1285,12 +1342,14 @@ rb_define_alloc_func(VALUE klass, VALUE (*func)(VALUE))
         rb_raise(rb_eTypeError, "can't define an allocator for a singleton class");
     }
     RCLASS_SET_ALLOCATOR(klass, func);
+    RB_GC_GUARD(klass);
 }
 
 void
 rb_undef_alloc_func(VALUE klass)
 {
     rb_define_alloc_func(klass, UNDEF_ALLOC_FUNC);
+    RB_GC_GUARD(klass);
 }
 
 rb_alloc_func_t
@@ -1304,12 +1363,14 @@ rb_get_alloc_func(VALUE klass)
         if (allocator) return allocator;
     }
     return 0;
+    RB_GC_GUARD(klass);
 }
 
 const rb_method_entry_t *
 rb_method_entry_at(VALUE klass, ID id)
 {
     return lookup_method_table(klass, id);
+    RB_GC_GUARD(klass);
 }
 
 static inline rb_method_entry_t*
@@ -1335,12 +1396,14 @@ search_method0(VALUE klass, ID id, VALUE *defined_class_ptr, bool skip_refined)
 
     VM_ASSERT(me == NULL || !METHOD_ENTRY_INVALIDATED(me));
     return me;
+    RB_GC_GUARD(klass);
 }
 
 static inline rb_method_entry_t*
 search_method(VALUE klass, ID id, VALUE *defined_class_ptr)
 {
     return search_method0(klass, id, defined_class_ptr, false);
+    RB_GC_GUARD(klass);
 }
 
 static rb_method_entry_t *
@@ -1353,6 +1416,7 @@ search_method_protect(VALUE klass, ID id, VALUE *defined_class_ptr)
     }
     else {
         return NULL;
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -1360,6 +1424,7 @@ const rb_method_entry_t *
 rb_method_entry(VALUE klass, ID id)
 {
     return search_method_protect(klass, id, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static inline const rb_callable_method_entry_t *
@@ -1405,6 +1470,8 @@ prepare_callable_method_entry(VALUE defined_class, ID id, const rb_method_entry_
     }
     else {
         return NULL;
+        RB_GC_GUARD(cme_data);
+        RB_GC_GUARD(defined_class);
     }
 }
 
@@ -1414,6 +1481,8 @@ complemented_callable_method_entry(VALUE klass, ID id)
     VALUE defined_class;
     rb_method_entry_t *me = search_method(klass, id, &defined_class);
     return prepare_callable_method_entry(defined_class, id, me, FALSE);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(defined_class);
 }
 
 static const rb_callable_method_entry_t *
@@ -1441,6 +1510,8 @@ cached_callable_method_entry(VALUE klass, ID mid)
 
     RB_DEBUG_COUNTER_INC(ccs_not_found);
     return NULL;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(ccs_data);
 }
 
 static void
@@ -1465,6 +1536,8 @@ cache_callable_method_entry(VALUE klass, ID mid, const rb_callable_method_entry_
     else {
         vm_ccs_create(klass, cc_tbl, mid, cme);
     }
+        RB_GC_GUARD(ccs_data);
+        RB_GC_GUARD(klass);
 }
 
 static const rb_callable_method_entry_t *
@@ -1484,6 +1557,7 @@ negative_cme(ID mid)
 
     VM_ASSERT(cme != NULL);
     return cme;
+    RB_GC_GUARD(cme_data);
 }
 
 static const rb_callable_method_entry_t *
@@ -1512,11 +1586,13 @@ callable_method_entry_or_negative(VALUE klass, ID mid, VALUE *defined_class_ptr)
             }
 
             cache_callable_method_entry(klass, mid, cme);
+    RB_GC_GUARD(defined_class);
         }
     }
     RB_VM_LOCK_LEAVE();
 
     return cme;
+    RB_GC_GUARD(klass);
 }
 
 // This is exposed for YJIT so that we can make assumptions that methods are
@@ -1525,6 +1601,7 @@ const rb_callable_method_entry_t *
 rb_callable_method_entry_or_negative(VALUE klass, ID mid)
 {
     return callable_method_entry_or_negative(klass, mid, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static const rb_callable_method_entry_t *
@@ -1533,12 +1610,14 @@ callable_method_entry(VALUE klass, ID mid, VALUE *defined_class_ptr)
     const rb_callable_method_entry_t *cme;
     cme = callable_method_entry_or_negative(klass, mid, defined_class_ptr);
     return !UNDEFINED_METHOD_ENTRY_P(cme) ? cme : NULL;
+    RB_GC_GUARD(klass);
 }
 
 const rb_callable_method_entry_t *
 rb_callable_method_entry(VALUE klass, ID mid)
 {
     return callable_method_entry(klass, mid, NULL);
+    RB_GC_GUARD(klass);
 }
 
 static const rb_method_entry_t *resolve_refined_method(VALUE refinements, const rb_method_entry_t *me, VALUE *defined_class_ptr);
@@ -1554,6 +1633,7 @@ method_entry_resolve_refinement(VALUE klass, ID id, int with_refinement, VALUE *
                 const rb_cref_t *cref = rb_vm_cref();
                 VALUE refinements = cref ? CREF_REFINEMENTS(cref) : Qnil;
                 me = resolve_refined_method(refinements, me, defined_class_ptr);
+            RB_GC_GUARD(refinements);
             }
             else {
                 me = resolve_refined_method(Qnil, me, defined_class_ptr);
@@ -1564,12 +1644,14 @@ method_entry_resolve_refinement(VALUE klass, ID id, int with_refinement, VALUE *
     }
 
     return me;
+    RB_GC_GUARD(klass);
 }
 
 const rb_method_entry_t *
 rb_method_entry_with_refinements(VALUE klass, ID id, VALUE *defined_class_ptr)
 {
     return method_entry_resolve_refinement(klass, id, TRUE, defined_class_ptr);
+    RB_GC_GUARD(klass);
 }
 
 static const rb_callable_method_entry_t *
@@ -1583,6 +1665,8 @@ callable_method_entry_refinements0(VALUE klass, ID id, VALUE *defined_class_ptr,
         VALUE defined_class, *dcp = defined_class_ptr ? defined_class_ptr : &defined_class;
         const rb_method_entry_t *me = method_entry_resolve_refinement(klass, id, with_refinements, dcp);
         return prepare_callable_method_entry(*dcp, id, me, TRUE);
+        RB_GC_GUARD(defined_class);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -1591,24 +1675,28 @@ callable_method_entry_refinements(VALUE klass, ID id, VALUE *defined_class_ptr, 
 {
     const rb_callable_method_entry_t *cme = callable_method_entry(klass, id, defined_class_ptr);
     return callable_method_entry_refinements0(klass, id, defined_class_ptr, with_refinements, cme);
+    RB_GC_GUARD(klass);
 }
 
 const rb_callable_method_entry_t *
 rb_callable_method_entry_with_refinements(VALUE klass, ID id, VALUE *defined_class_ptr)
 {
     return callable_method_entry_refinements(klass, id, defined_class_ptr, true);
+    RB_GC_GUARD(klass);
 }
 
 static const rb_callable_method_entry_t *
 callable_method_entry_without_refinements(VALUE klass, ID id, VALUE *defined_class_ptr)
 {
     return callable_method_entry_refinements(klass, id, defined_class_ptr, false);
+    RB_GC_GUARD(klass);
 }
 
 const rb_method_entry_t *
 rb_method_entry_without_refinements(VALUE klass, ID id, VALUE *defined_class_ptr)
 {
     return method_entry_resolve_refinement(klass, id, FALSE, defined_class_ptr);
+    RB_GC_GUARD(klass);
 }
 
 const rb_callable_method_entry_t *
@@ -1617,6 +1705,8 @@ rb_callable_method_entry_without_refinements(VALUE klass, ID id, VALUE *defined_
     VALUE defined_class, *dcp = defined_class_ptr ? defined_class_ptr : &defined_class;
     const rb_method_entry_t *me = method_entry_resolve_refinement(klass, id, FALSE, dcp);
     return prepare_callable_method_entry(*dcp, id, me, TRUE);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(defined_class);
 }
 
 static const rb_method_entry_t *
@@ -1648,14 +1738,18 @@ resolve_refined_method(VALUE refinements, const rb_method_entry_t *me, VALUE *de
         }
 
         me = search_method_protect(super, me->called_id, defined_class_ptr);
+    RB_GC_GUARD(super);
+    RB_GC_GUARD(refinement);
     }
     return me;
+    RB_GC_GUARD(refinements);
 }
 
 const rb_method_entry_t *
 rb_resolve_refined_method(VALUE refinements, const rb_method_entry_t *me)
 {
     return resolve_refined_method(refinements, me, NULL);
+    RB_GC_GUARD(refinements);
 }
 
 const rb_callable_method_entry_t *
@@ -1669,6 +1763,8 @@ rb_resolve_refined_method_callable(VALUE refinements, const rb_callable_method_e
     }
     else {
         return (const rb_callable_method_entry_t *)resolved_me;
+        RB_GC_GUARD(defined_class);
+        RB_GC_GUARD(refinements);
     }
 }
 
@@ -1706,18 +1802,23 @@ remove_method(VALUE klass, ID mid)
     }
 
     CALL_METHOD_HOOK(self, removed, mid);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(self);
 }
 
 void
 rb_remove_method_id(VALUE klass, ID mid)
 {
     remove_method(klass, mid);
+    RB_GC_GUARD(klass);
 }
 
 void
 rb_remove_method(VALUE klass, const char *name)
 {
     remove_method(klass, rb_intern(name));
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1743,8 +1844,10 @@ rb_mod_remove_method(int argc, VALUE *argv, VALUE mod)
                               mod, v);
         }
         remove_method(mod, id);
+    RB_GC_GUARD(v);
     }
     return mod;
+    RB_GC_GUARD(mod);
 }
 
 static void
@@ -1785,6 +1888,9 @@ rb_export_method(VALUE klass, ID name, rb_method_visibility_t visi)
             rb_add_method(klass, name, VM_METHOD_TYPE_ZSUPER, 0, visi);
         }
     }
+            RB_GC_GUARD(defined_class);
+            RB_GC_GUARD(klass);
+            RB_GC_GUARD(origin_class);
 }
 
 #define BOUND_PRIVATE  0x01
@@ -1823,6 +1929,7 @@ method_boundp(VALUE klass, ID id, int ex)
         return 1;
     }
     return 0;
+    RB_GC_GUARD(klass);
 }
 
 // deprecated
@@ -1830,6 +1937,7 @@ int
 rb_method_boundp(VALUE klass, ID id, int ex)
 {
     return method_boundp(klass, id, ex);
+    RB_GC_GUARD(klass);
 }
 
 static void
@@ -1900,6 +2008,7 @@ rb_attr(VALUE klass, ID id, int read, int write, int ex)
     if (write) {
         rb_add_method(klass, rb_id_attrset(id), VM_METHOD_TYPE_ATTRSET, (void *)attriv, visi);
     }
+        RB_GC_GUARD(klass);
 }
 
 void
@@ -1928,6 +2037,7 @@ rb_undef(VALUE klass, ID id)
     rb_add_method(klass, id, VM_METHOD_TYPE_UNDEF, 0, METHOD_VISI_PUBLIC);
 
     CALL_METHOD_HOOK(klass, undefined, id);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -1986,8 +2096,10 @@ rb_mod_undef_method(int argc, VALUE *argv, VALUE mod)
             rb_method_name_error(mod, v);
         }
         rb_undef(mod, id);
+    RB_GC_GUARD(v);
     }
     return mod;
+    RB_GC_GUARD(mod);
 }
 
 static rb_method_visibility_t
@@ -2019,6 +2131,10 @@ check_definition_visibility(VALUE mod, int argc, VALUE *argv)
         return METHOD_ENTRY_VISI(me);
     }
     return METHOD_VISI_UNDEF;
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(lookup_mod);
+    RB_GC_GUARD(include_super);
+    RB_GC_GUARD(mid);
 }
 
 /*
@@ -2062,12 +2178,14 @@ rb_mod_method_defined(int argc, VALUE *argv, VALUE mod)
 {
     rb_method_visibility_t visi = check_definition_visibility(mod, argc, argv);
     return RBOOL(visi == METHOD_VISI_PUBLIC || visi == METHOD_VISI_PROTECTED);
+    RB_GC_GUARD(mod);
 }
 
 static VALUE
 check_definition(VALUE mod, int argc, VALUE *argv, rb_method_visibility_t visi)
 {
     return RBOOL(check_definition_visibility(mod, argc, argv) == visi);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -2104,6 +2222,7 @@ static VALUE
 rb_mod_public_method_defined(int argc, VALUE *argv, VALUE mod)
 {
     return check_definition(mod, argc, argv, METHOD_VISI_PUBLIC);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -2140,6 +2259,7 @@ static VALUE
 rb_mod_private_method_defined(int argc, VALUE *argv, VALUE mod)
 {
     return check_definition(mod, argc, argv, METHOD_VISI_PRIVATE);
+    RB_GC_GUARD(mod);
 }
 
 /*
@@ -2176,6 +2296,7 @@ static VALUE
 rb_mod_protected_method_defined(int argc, VALUE *argv, VALUE mod)
 {
     return check_definition(mod, argc, argv, METHOD_VISI_PROTECTED);
+    RB_GC_GUARD(mod);
 }
 
 int
@@ -2350,6 +2471,8 @@ rb_alias(VALUE klass, ID alias_name, ID original_name)
             RB_OBJ_WRITE(alias_me, &alias_me->defined_class, orig_me->defined_class);
         }
     }
+            RB_GC_GUARD(defined_class);
+            RB_GC_GUARD(klass);
 }
 
 /*
@@ -2384,6 +2507,10 @@ rb_mod_alias_method(VALUE mod, VALUE newname, VALUE oldname)
     VALUE id = rb_to_id(newname);
     rb_alias(mod, id, oldid);
     return ID2SYM(id);
+    RB_GC_GUARD(oldname);
+    RB_GC_GUARD(newname);
+    RB_GC_GUARD(mod);
+    RB_GC_GUARD(id);
 }
 
 static void
@@ -2394,6 +2521,8 @@ check_and_export_method(VALUE self, VALUE name, rb_method_visibility_t visi)
         rb_print_undef_str(self, name);
     }
     rb_export_method(self, id, visi);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(name);
 }
 
 static void
@@ -2423,6 +2552,8 @@ set_method_visibility(VALUE self, int argc, const VALUE *argv, rb_method_visibil
             check_and_export_method(self, argv[i], visi);
         }
     }
+            RB_GC_GUARD(v);
+            RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -2439,6 +2570,7 @@ set_visibility(int argc, const VALUE *argv, VALUE module, rb_method_visibility_t
         return argv[0];
     }
     return rb_ary_new_from_values(argc, argv);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -2462,6 +2594,7 @@ static VALUE
 rb_mod_public(int argc, VALUE *argv, VALUE module)
 {
     return set_visibility(argc, argv, module, METHOD_VISI_PUBLIC);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -2494,6 +2627,7 @@ static VALUE
 rb_mod_protected(int argc, VALUE *argv, VALUE module)
 {
     return set_visibility(argc, argv, module, METHOD_VISI_PROTECTED);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -2528,6 +2662,7 @@ static VALUE
 rb_mod_private(int argc, VALUE *argv, VALUE module)
 {
     return set_visibility(argc, argv, module, METHOD_VISI_PRIVATE);
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -2627,6 +2762,7 @@ rb_mod_ruby2_keywords(int argc, VALUE *argv, VALUE module)
                         rb_warn("Skipping set of ruby2_keywords flag for %"PRIsVALUE" (method accepts keywords or method does not accept argument splat)", QUOTE_ID(name));
                     }
                     break;
+              RB_GC_GUARD(procval);
                 }
               }
               /* fallthrough */
@@ -2637,9 +2773,13 @@ rb_mod_ruby2_keywords(int argc, VALUE *argv, VALUE module)
         }
         else {
             rb_warn("Skipping set of ruby2_keywords flag for %"PRIsVALUE" (can only set in method defining module)", QUOTE_ID(name));
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(defined_class);
         }
     }
     return Qnil;
+    RB_GC_GUARD(module);
+    RB_GC_GUARD(origin_class);
 }
 
 /*
@@ -2659,6 +2799,7 @@ rb_mod_public_method(int argc, VALUE *argv, VALUE obj)
 {
     set_method_visibility(rb_singleton_class(obj), argc, argv, METHOD_VISI_PUBLIC);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2687,6 +2828,7 @@ rb_mod_private_method(int argc, VALUE *argv, VALUE obj)
 {
     set_method_visibility(rb_singleton_class(obj), argc, argv, METHOD_VISI_PRIVATE);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2708,6 +2850,7 @@ static VALUE
 top_public(int argc, VALUE *argv, VALUE _)
 {
     return rb_mod_public(argc, argv, rb_top_main_class("public"));
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -2728,6 +2871,7 @@ static VALUE
 top_private(int argc, VALUE *argv, VALUE _)
 {
     return rb_mod_private(argc, argv, rb_top_main_class("private"));
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -2741,6 +2885,7 @@ static VALUE
 top_ruby2_keywords(int argc, VALUE *argv, VALUE module)
 {
     return rb_mod_ruby2_keywords(argc, argv, rb_top_main_class("ruby2_keywords"));
+    RB_GC_GUARD(module);
 }
 
 /*
@@ -2823,11 +2968,13 @@ rb_mod_modfunc(int argc, VALUE *argv, VALUE module)
                 break;
         }
         rb_method_entry_set(rb_singleton_class(module), id, me, METHOD_VISI_PUBLIC);
+    RB_GC_GUARD(m);
     }
     if (argc == 1) {
         return argv[0];
     }
     return rb_ary_new_from_values(argc, argv);
+    RB_GC_GUARD(module);
 }
 
 #ifdef __GNUC__
@@ -2841,6 +2988,7 @@ rb_method_basic_definition_p(VALUE klass, ID id)
     if (!klass) return TRUE; /* hidden object cannot be overridden */
     cme = rb_callable_method_entry(klass, id);
     return (cme && METHOD_ENTRY_BASIC(cme)) ? TRUE : FALSE;
+    RB_GC_GUARD(klass);
 }
 #ifdef __GNUC__
 #pragma pop_macro("rb_method_basic_definition_p")
@@ -2854,6 +3002,10 @@ call_method_entry(rb_execution_context_t *ec, VALUE defined_class, VALUE obj, ID
     VALUE result = rb_vm_call_kw(ec, obj, id, argc, argv, cme, kw_splat);
     vm_passed_block_handler_set(ec, passed_block_handler);
     return result;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(defined_class);
+    RB_GC_GUARD(result);
+    RB_GC_GUARD(passed_block_handler);
 }
 
 static VALUE
@@ -2868,6 +3020,11 @@ basic_obj_respond_to_missing(rb_execution_context_t *ec, VALUE klass, VALUE obj,
     args[0] = mid;
     args[1] = priv;
     return call_method_entry(ec, defined_class, obj, rtmid, cme, 2, args, RB_NO_KEYWORDS);
+    RB_GC_GUARD(priv);
+    RB_GC_GUARD(mid);
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(defined_class);
 }
 
 static inline int
@@ -2885,6 +3042,9 @@ basic_obj_respond_to(rb_execution_context_t *ec, VALUE obj, ID id, int pub)
         return RTEST(ret) && !UNDEF_P(ret);
       default:
         return TRUE;
+        RB_GC_GUARD(klass);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(ret);
     }
 }
 
@@ -2931,12 +3091,19 @@ vm_respond_to(rb_execution_context_t *ec, VALUE klass, VALUE obj, ID id, int pri
                         rb_category_compile_warn(RB_WARN_CATEGORY_DEPRECATED,
                                         RSTRING_PTR(path), NUM2INT(line),
                                         "respond_to? is defined here");
+        RB_GC_GUARD(path);
+        RB_GC_GUARD(line);
                     }
+        RB_GC_GUARD(location);
                 }
             }
         }
         result = call_method_entry(ec, defined_class, obj, resid, cme, argc, args, RB_NO_KEYWORDS);
         return RTEST(result);
+        RB_GC_GUARD(result);
+        RB_GC_GUARD(defined_class);
+        RB_GC_GUARD(obj);
+        RB_GC_GUARD(klass);
     }
 }
 
@@ -2945,6 +3112,7 @@ rb_obj_respond_to(VALUE obj, ID id, int priv)
 {
     rb_execution_context_t *ec = GET_EC();
     return rb_ec_obj_respond_to(ec, obj, id, priv);
+    RB_GC_GUARD(obj);
 }
 
 int
@@ -2954,12 +3122,15 @@ rb_ec_obj_respond_to(rb_execution_context_t *ec, VALUE obj, ID id, int priv)
     int ret = vm_respond_to(ec, klass, obj, id, priv);
     if (ret == -1) ret = basic_obj_respond_to(ec, obj, id, !priv);
     return ret;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(klass);
 }
 
 int
 rb_respond_to(VALUE obj, ID id)
 {
     return rb_obj_respond_to(obj, id, FALSE);
+    RB_GC_GUARD(obj);
 }
 
 
@@ -2996,8 +3167,12 @@ obj_respond_to(int argc, VALUE *argv, VALUE obj)
                                                  rb_to_symbol(mid), priv);
         if (UNDEF_P(ret)) ret = Qfalse;
         return ret;
+    RB_GC_GUARD(ret);
     }
     return  RBOOL(basic_obj_respond_to(ec, obj, id, !RTEST(priv)));
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(priv);
+    RB_GC_GUARD(mid);
 }
 
 /*
@@ -3019,6 +3194,9 @@ static VALUE
 obj_respond_to_missing(VALUE obj, VALUE mid, VALUE priv)
 {
     return Qfalse;
+    RB_GC_GUARD(priv);
+    RB_GC_GUARD(mid);
+    RB_GC_GUARD(obj);
 }
 
 void

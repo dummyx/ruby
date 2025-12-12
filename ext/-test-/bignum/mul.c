@@ -9,36 +9,51 @@ big(VALUE x)
         return x;
     rb_raise(rb_eTypeError, "can't convert %s to Bignum",
             rb_obj_classname(x));
+            RB_GC_GUARD(x);
 }
 
 static VALUE
 mul_normal(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_mul_normal(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 sq_fast(VALUE klass, VALUE x)
 {
     return rb_big_norm(rb_big_sq_fast(big(x)));
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 mul_balance(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_mul_balance(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 mul_karatsuba(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_mul_karatsuba(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
 mul_toom3(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_mul_toom3(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 
 #if defined(HAVE_LIBGMP) && defined(HAVE_GMP_H)
@@ -46,6 +61,9 @@ static VALUE
 mul_gmp(VALUE klass, VALUE x, VALUE y)
 {
     return rb_big_norm(rb_big_mul_gmp(big(x), big(y)));
+    RB_GC_GUARD(y);
+    RB_GC_GUARD(x);
+    RB_GC_GUARD(klass);
 }
 #else
 #define mul_gmp rb_f_notimplement

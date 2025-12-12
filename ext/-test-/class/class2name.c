@@ -5,6 +5,8 @@ class2name(VALUE self, VALUE klass)
 {
     const char *name = rb_class2name(klass);
     return name ? rb_str_new_cstr(name) : Qnil;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(self);
 }
 
 void

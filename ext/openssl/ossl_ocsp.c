@@ -154,6 +154,7 @@ ossl_ocspcertid_new(OCSP_CERTID *cid)
     VALUE obj = NewOCSPCertId(cOCSPCertId);
     SetOCSPCertId(obj, cid);
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -171,6 +172,8 @@ ossl_ocspreq_alloc(VALUE klass)
     SetOCSPReq(obj, req);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -190,6 +193,8 @@ ossl_ocspreq_initialize_copy(VALUE self, VALUE other)
     OCSP_REQUEST_free(req_old);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -222,6 +227,8 @@ ossl_ocspreq_initialize(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -255,6 +262,8 @@ ossl_ocspreq_add_nonce(int argc, VALUE *argv, VALUE self)
     if(!ret) ossl_raise(eOCSPError, NULL);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
 }
 
 /*
@@ -288,6 +297,8 @@ ossl_ocspreq_check_nonce(VALUE self, VALUE basic_resp)
     res = OCSP_check_nonce(req, bs);
 
     return INT2NUM(res);
+    RB_GC_GUARD(basic_resp);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -314,6 +325,8 @@ ossl_ocspreq_add_certid(VALUE self, VALUE certid)
     }
 
     return self;
+    RB_GC_GUARD(certid);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -345,6 +358,9 @@ ossl_ocspreq_get_certid(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(tmp);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -395,6 +411,12 @@ ossl_ocspreq_sign(int argc, VALUE *argv, VALUE self)
     if (!ret) ossl_raise(eOCSPError, NULL);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(certs);
+    RB_GC_GUARD(signer_key);
+    RB_GC_GUARD(signer_cert);
 }
 
 /*
@@ -429,6 +451,10 @@ ossl_ocspreq_verify(int argc, VALUE *argv, VALUE self)
 	ossl_clear_error();
 
     return result > 0 ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(store);
+    RB_GC_GUARD(certs);
 }
 
 /*
@@ -453,6 +479,8 @@ ossl_ocspreq_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -469,6 +497,7 @@ ossl_ocspreq_signed_p(VALUE self)
 
     GetOCSPReq(self, req);
     return OCSP_request_is_signed(req) ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -497,6 +526,10 @@ ossl_ocspres_s_create(VALUE klass, VALUE status, VALUE basic_resp)
     SetOCSPRes(obj, res);
 
     return obj;
+    RB_GC_GUARD(basic_resp);
+    RB_GC_GUARD(status);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -511,6 +544,8 @@ ossl_ocspres_alloc(VALUE klass)
     SetOCSPRes(obj, res);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -530,6 +565,8 @@ ossl_ocspres_initialize_copy(VALUE self, VALUE other)
     OCSP_RESPONSE_free(res_old);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -562,6 +599,8 @@ ossl_ocspres_initialize(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -581,6 +620,7 @@ ossl_ocspres_status(VALUE self)
     st = OCSP_response_status(res);
 
     return INT2NUM(st);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -600,6 +640,7 @@ ossl_ocspres_status_string(VALUE self)
     st = OCSP_response_status(res);
 
     return rb_str_new2(OCSP_response_status_str(st));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -623,6 +664,8 @@ ossl_ocspres_get_basic(VALUE self)
     SetOCSPBasicRes(ret, bs);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -650,6 +693,8 @@ ossl_ocspres_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -667,6 +712,8 @@ ossl_ocspbres_alloc(VALUE klass)
     SetOCSPBasicRes(obj, bs);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -686,6 +733,8 @@ ossl_ocspbres_initialize_copy(VALUE self, VALUE other)
     OCSP_BASICRESP_free(bs_old);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -717,6 +766,8 @@ ossl_ocspbres_initialize(int argc, VALUE *argv, VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(arg);
 }
 
 /*
@@ -739,6 +790,8 @@ ossl_ocspbres_copy_nonce(VALUE self, VALUE request)
     ret = OCSP_copy_nonce(bs, req);
 
     return INT2NUM(ret);
+    RB_GC_GUARD(request);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -769,6 +822,8 @@ ossl_ocspbres_add_nonce(int argc, VALUE *argv, VALUE self)
     if(!ret) ossl_raise(eOCSPError, NULL);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(val);
 }
 
 static VALUE
@@ -785,6 +840,7 @@ add_status_convert_time(VALUE obj)
 	ossl_raise(eOCSPError, NULL);
 
     return (VALUE)time;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -878,6 +934,15 @@ ossl_ocspbres_add_status(VALUE self, VALUE cid, VALUE status,
     if(rstatus) rb_jump_tag(rstatus);
 
     return self;
+    RB_GC_GUARD(ext);
+    RB_GC_GUARD(nextupd);
+    RB_GC_GUARD(thisupd);
+    RB_GC_GUARD(revtime);
+    RB_GC_GUARD(reason);
+    RB_GC_GUARD(status);
+    RB_GC_GUARD(cid);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(tmp);
 }
 
 /*
@@ -935,6 +1000,10 @@ ossl_ocspbres_get_status(VALUE self)
     }
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ext);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE ossl_ocspsres_new(OCSP_SINGLERESP *);
@@ -969,6 +1038,8 @@ ossl_ocspbres_get_responses(VALUE self)
     }
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 
@@ -999,6 +1070,8 @@ ossl_ocspbres_find_response(VALUE self, VALUE target)
 	ossl_raise(eOCSPError, "ASN1_item_dup");
 
     return ossl_ocspsres_new(sres_new);
+    RB_GC_GUARD(target);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1046,6 +1119,12 @@ ossl_ocspbres_sign(int argc, VALUE *argv, VALUE self)
     if (!ret) ossl_raise(eOCSPError, NULL);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(certs);
+    RB_GC_GUARD(signer_key);
+    RB_GC_GUARD(signer_cert);
 }
 
 /*
@@ -1075,6 +1154,10 @@ ossl_ocspbres_verify(int argc, VALUE *argv, VALUE self)
 	ossl_clear_error();
 
     return result > 0 ? Qtrue : Qfalse;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(flags);
+    RB_GC_GUARD(store);
+    RB_GC_GUARD(certs);
 }
 
 /*
@@ -1101,6 +1184,8 @@ ossl_ocspbres_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -1115,6 +1200,7 @@ ossl_ocspsres_new(OCSP_SINGLERESP *sres)
     SetOCSPSingleRes(obj, sres);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1129,6 +1215,8 @@ ossl_ocspsres_alloc(VALUE klass)
     SetOCSPSingleRes(obj, sres);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -1155,6 +1243,8 @@ ossl_ocspsres_initialize(VALUE self, VALUE arg)
     OCSP_SINGLERESP_free(res);
 
     return self;
+    RB_GC_GUARD(arg);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -1174,6 +1264,8 @@ ossl_ocspsres_initialize_copy(VALUE self, VALUE other)
     OCSP_SINGLERESP_free(sres_old);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1216,6 +1308,9 @@ ossl_ocspsres_check_validity(int argc, VALUE *argv, VALUE self)
     else {
 	ossl_clear_error();
 	return Qfalse;
+	RB_GC_GUARD(nsec_v);
+	RB_GC_GUARD(self);
+	RB_GC_GUARD(maxsec_v);
     }
 }
 
@@ -1235,6 +1330,7 @@ ossl_ocspsres_get_certid(VALUE self)
     id = OCSP_CERTID_dup((OCSP_CERTID *)OCSP_SINGLERESP_get0_id(sres)); /* FIXME */
 
     return ossl_ocspcertid_new(id);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1263,6 +1359,7 @@ ossl_ocspsres_get_cert_status(VALUE self)
 	ossl_raise(eOCSPError, "OCSP_single_get0_status");
 
     return INT2NUM(status);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1284,6 +1381,7 @@ ossl_ocspsres_get_this_update(VALUE self)
 	return Qnil;
 
     return asn1time_to_time(time);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1305,6 +1403,7 @@ ossl_ocspsres_get_next_update(VALUE self)
 	return Qnil;
 
     return asn1time_to_time(time);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1328,6 +1427,7 @@ ossl_ocspsres_get_revocation_time(VALUE self)
 	return Qnil;
 
     return asn1time_to_time(time);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1348,6 +1448,7 @@ ossl_ocspsres_get_revocation_reason(VALUE self)
 	ossl_raise(eOCSPError, "certificate is not revoked");
 
     return INT2NUM(reason);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1372,6 +1473,8 @@ ossl_ocspsres_get_extensions(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -1398,6 +1501,8 @@ ossl_ocspsres_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 
@@ -1416,6 +1521,8 @@ ossl_ocspcid_alloc(VALUE klass)
     SetOCSPCertId(obj, id);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -1435,6 +1542,8 @@ ossl_ocspcid_initialize_copy(VALUE self, VALUE other)
     OCSP_CERTID_free(cid_old);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1468,6 +1577,7 @@ ossl_ocspcid_initialize(int argc, VALUE *argv, VALUE self)
 	newid = d2i_OCSP_CERTID(NULL, &p, RSTRING_LEN(arg));
 	if (!newid)
 	    ossl_raise(eOCSPError, "d2i_OCSP_CERTID");
+    RB_GC_GUARD(arg);
     }
     else {
 	X509 *x509s, *x509i;
@@ -1486,6 +1596,10 @@ ossl_ocspcid_initialize(int argc, VALUE *argv, VALUE self)
     OCSP_CERTID_free(id);
 
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(digest);
+    RB_GC_GUARD(issuer);
+    RB_GC_GUARD(subject);
 }
 
 /*
@@ -1506,6 +1620,8 @@ ossl_ocspcid_cmp(VALUE self, VALUE other)
     result = OCSP_id_cmp(id, id2);
 
     return (result == 0) ? Qtrue : Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1527,6 +1643,8 @@ ossl_ocspcid_cmp_issuer(VALUE self, VALUE other)
     result = OCSP_id_issuer_cmp(id, id2);
 
     return (result == 0) ? Qtrue : Qfalse;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1546,6 +1664,7 @@ ossl_ocspcid_get_serial(VALUE self)
     OCSP_id_get0_info(NULL, NULL, NULL, &serial, id);
 
     return asn1integer_to_num(serial);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1569,6 +1688,8 @@ ossl_ocspcid_get_issuer_name_hash(VALUE self)
     ossl_bin2hex(name_hash->data, RSTRING_PTR(ret), name_hash->length);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1592,6 +1713,8 @@ ossl_ocspcid_get_issuer_key_hash(VALUE self)
     ossl_bin2hex(key_hash->data, RSTRING_PTR(ret), key_hash->length);
 
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -1619,6 +1742,7 @@ ossl_ocspcid_get_hash_algorithm(VALUE self)
 	ossl_raise(eOCSPError, "i2a_ASN1_OBJECT");
     }
     return ossl_membio2str(out);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1645,6 +1769,8 @@ ossl_ocspcid_to_der(VALUE self)
     ossl_str_adjust(str, p);
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 void

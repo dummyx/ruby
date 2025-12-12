@@ -65,6 +65,7 @@ ossl_x509revoked_new(X509_REVOKED *rev)
     SetX509Rev(obj, new);
 
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 X509_REVOKED *
@@ -78,6 +79,7 @@ DupX509RevokedPtr(VALUE obj)
     }
 
     return new;
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -96,6 +98,8 @@ ossl_x509revoked_alloc(VALUE klass)
     SetX509Rev(obj, rev);
 
     return obj;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -103,6 +107,7 @@ ossl_x509revoked_initialize(int argc, VALUE *argv, VALUE self)
 {
     /* EMPTY */
     return self;
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -122,6 +127,8 @@ ossl_x509revoked_initialize_copy(VALUE self, VALUE other)
     X509_REVOKED_free(rev);
 
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -132,6 +139,7 @@ ossl_x509revoked_get_serial(VALUE self)
     GetX509Rev(self, rev);
 
     return asn1integer_to_num(X509_REVOKED_get0_serialNumber(rev));
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -149,6 +157,8 @@ ossl_x509revoked_set_serial(VALUE self, VALUE num)
     ASN1_INTEGER_free(asn1int);
 
     return num;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -163,6 +173,7 @@ ossl_x509revoked_get_time(VALUE self)
 	return Qnil;
 
     return asn1time_to_time(time);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -180,6 +191,8 @@ ossl_x509revoked_set_time(VALUE self, VALUE time)
     ASN1_TIME_free(asn1time);
 
     return time;
+    RB_GC_GUARD(time);
+    RB_GC_GUARD(self);
 }
 /*
  * Gets X509v3 extensions as array of X509Ext objects
@@ -205,6 +218,8 @@ ossl_x509revoked_get_extensions(VALUE self)
     }
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -234,6 +249,9 @@ ossl_x509revoked_set_extensions(VALUE self, VALUE ary)
     }
 
     return ary;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(item);
 }
 
 static VALUE
@@ -247,6 +265,8 @@ ossl_x509revoked_add_extension(VALUE self, VALUE ext)
     }
 
     return ext;
+    RB_GC_GUARD(ext);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -267,6 +287,8 @@ ossl_x509revoked_to_der(VALUE self)
 	ossl_raise(eX509RevError, "i2d_X509_REVOKED");
     ossl_str_adjust(str, p);
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*

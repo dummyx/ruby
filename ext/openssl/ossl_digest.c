@@ -67,6 +67,7 @@ ossl_evp_get_digestbyname(VALUE obj)
     }
 
     return md;
+    RB_GC_GUARD(obj);
 }
 
 VALUE
@@ -85,6 +86,7 @@ ossl_digest_new(const EVP_MD *md)
 	ossl_raise(eDigestError, "Digest initialization failed");
 
     return ret;
+    RB_GC_GUARD(ret);
 }
 
 /*
@@ -94,6 +96,7 @@ static VALUE
 ossl_digest_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &ossl_digest_type, 0);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE ossl_digest_update(VALUE, VALUE);
@@ -139,6 +142,9 @@ ossl_digest_initialize(int argc, VALUE *argv, VALUE self)
 
     if (!NIL_P(data)) return ossl_digest_update(self, data);
     return self;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(type);
 }
 
 static VALUE
@@ -161,6 +167,8 @@ ossl_digest_copy(VALUE self, VALUE other)
 	ossl_raise(eDigestError, NULL);
     }
     return self;
+    RB_GC_GUARD(other);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -168,6 +176,7 @@ add_digest_name_to_ary(const OBJ_NAME *name, void *arg)
 {
     VALUE ary = (VALUE)arg;
     rb_ary_push(ary, rb_str_new2(name->name));
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -187,6 +196,8 @@ ossl_s_digests(VALUE self)
                     (void*)ary);
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -208,6 +219,7 @@ ossl_digest_reset(VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -237,6 +249,8 @@ ossl_digest_update(VALUE self, VALUE data)
 	ossl_raise(eDigestError, "EVP_DigestUpdate");
 
     return self;
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -256,6 +270,8 @@ ossl_digest_finish(VALUE self)
 	ossl_raise(eDigestError, "EVP_DigestFinal_ex");
 
     return str;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -278,6 +294,7 @@ ossl_digest_name(VALUE self)
     GetDigest(self, ctx);
 
     return rb_str_new_cstr(EVP_MD_name(EVP_MD_CTX_get0_md(ctx)));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -300,6 +317,7 @@ ossl_digest_size(VALUE self)
     GetDigest(self, ctx);
 
     return INT2NUM(EVP_MD_CTX_size(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -323,6 +341,7 @@ ossl_digest_block_length(VALUE self)
     GetDigest(self, ctx);
 
     return INT2NUM(EVP_MD_CTX_block_size(ctx));
+    RB_GC_GUARD(self);
 }
 
 /*

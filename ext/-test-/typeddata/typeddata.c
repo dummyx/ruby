@@ -12,6 +12,7 @@ test_alloc(VALUE klass)
 {
     char *p;
     return TypedData_Make_Struct(klass, char, &test_data, p);
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -19,6 +20,8 @@ test_check(VALUE self, VALUE obj)
 {
     rb_check_typeddata(obj, &test_data);
     return obj;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -31,6 +34,8 @@ test_make(VALUE klass, VALUE num)
     }
 
     return Qnil;
+    RB_GC_GUARD(num);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -41,4 +46,6 @@ Init_typeddata(void)
     rb_define_alloc_func(klass, test_alloc);
     rb_define_singleton_method(klass, "check", test_check, 1);
     rb_define_singleton_method(klass, "make", test_make, 1);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(klass);
 }

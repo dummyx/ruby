@@ -146,6 +146,9 @@ mprotect_write(rb_execution_context_t *ec, VALUE self, VALUE rb_mem_block, VALUE
     void *mem_block = (void *)NUM2SIZET(rb_mem_block);
     uint32_t mem_size = NUM2UINT(rb_mem_size);
     return RBOOL(mprotect(mem_block, mem_size, PROT_READ | PROT_WRITE) == 0);
+    RB_GC_GUARD(rb_mem_size);
+    RB_GC_GUARD(rb_mem_block);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -160,6 +163,9 @@ mprotect_exec(rb_execution_context_t *ec, VALUE self, VALUE rb_mem_block, VALUE 
             mem_block, (unsigned long)mem_size, strerror(errno));
     }
     return Qtrue;
+    RB_GC_GUARD(rb_mem_size);
+    RB_GC_GUARD(rb_mem_block);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -168,18 +174,23 @@ rjit_optimized_call(VALUE *recv, rb_execution_context_t *ec, int argc, VALUE *ar
     rb_proc_t *proc;
     GetProcPtr(recv, proc);
     return rb_vm_invoke_proc(ec, proc, argc, argv, kw_splat, block_handler);
+    RB_GC_GUARD(block_handler);
 }
 
 static VALUE
 rjit_str_neq_internal(VALUE str1, VALUE str2)
 {
     return rb_str_eql_internal(str1, str2) == Qtrue ? Qfalse : Qtrue;
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 static VALUE
 rjit_str_simple_append(VALUE str1, VALUE str2)
 {
     return rb_str_cat(str1, RSTRING_PTR(str2), RSTRING_LEN(str2));
+    RB_GC_GUARD(str2);
+    RB_GC_GUARD(str1);
 }
 
 static VALUE
@@ -187,6 +198,7 @@ rjit_rb_ary_subseq_length(VALUE ary, long beg)
 {
     long len = RARRAY_LEN(ary);
     return rb_ary_subseq(ary, beg, len);
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -200,8 +212,11 @@ rjit_build_kwhash(const struct rb_callinfo *ci, VALUE *sp)
         VALUE key = kw_arg->keywords[i];
         VALUE val = *(sp - kw_len + i);
         rb_hash_aset(hash, key, val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(key);
     }
     return hash;
+    RB_GC_GUARD(hash);
 }
 
 // The code we generate in gen_send_cfunc() doesn't fire the c_return TracePoint event
@@ -232,6 +247,7 @@ rjit_full_cfunc_return(rb_execution_context_t *ec, VALUE return_value)
     // uses cfp->sp because we are patching a call done with gen_send_cfunc().
     ec->cfp->sp[0] = return_value;
     ec->cfp->sp++;
+    RB_GC_GUARD(return_value);
 }
 
 static rb_proc_t *
@@ -240,6 +256,7 @@ rjit_get_proc_ptr(VALUE procv)
     rb_proc_t *proc;
     GetProcPtr(procv, proc);
     return proc;
+    RB_GC_GUARD(procv);
 }
 
 // Use the same buffer size as Stackprof.
@@ -298,6 +315,8 @@ rjit_record_exit_stack(const VALUE *exit_pc)
 
                 idx--;
                 prev_frame_idx++;
+            RB_GC_GUARD(prev_frame);
+            RB_GC_GUARD(current_frame);
             }
 
             // If we know we've seen this stack before, increment the counter by 1.
@@ -326,6 +345,7 @@ rjit_record_exit_stack(const VALUE *exit_pc)
         rb_ary_push(rb_rjit_line_samples, INT2NUM(line));
 
         idx--;
+    RB_GC_GUARD(frame);
     }
 
     // Push the insn value into the yjit_raw_samples Vec.
@@ -340,6 +360,7 @@ rjit_record_exit_stack(const VALUE *exit_pc)
     // because it's the first time we've seen it.
     rb_ary_push(rb_rjit_raw_samples, INT2NUM(1));
     rb_ary_push(rb_rjit_line_samples, INT2NUM(1));
+    RB_GC_GUARD(prev_stack_len_obj);
 }
 
 // For a given raw_sample (frame), set the hash with the caller's
@@ -378,7 +399,14 @@ rjit_add_frame(VALUE hash, VALUE frame)
         }
 
        rb_hash_aset(hash, frame_id, frame_info);
+       RB_GC_GUARD(line);
+       RB_GC_GUARD(file);
+       RB_GC_GUARD(name);
+       RB_GC_GUARD(frame_info);
     }
+       RB_GC_GUARD(frame_id);
+       RB_GC_GUARD(frame);
+       RB_GC_GUARD(hash);
 }
 
 static VALUE
@@ -431,6 +459,10 @@ rjit_exit_traces(void)
     rb_hash_aset(result, ID2SYM(rb_intern("frames")), frames);
 
     return result;
+    RB_GC_GUARD(frames);
+    RB_GC_GUARD(line_samples);
+    RB_GC_GUARD(raw_samples);
+    RB_GC_GUARD(result);
 }
 
 // An offsetof implementation that works for unnamed struct and union.
@@ -478,6 +510,11 @@ dump_disasm(rb_execution_context_t *ec, VALUE self, VALUE from, VALUE to, VALUE 
     cs_close(&handle);
 #endif
     return result;
+    RB_GC_GUARD(test);
+    RB_GC_GUARD(to);
+    RB_GC_GUARD(from);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(result);
 }
 
 // Same as `RubyVM::RJIT.enabled?`, but this is used before it's defined.
@@ -485,6 +522,7 @@ static VALUE
 rjit_enabled_p(rb_execution_context_t *ec, VALUE self)
 {
     return RBOOL(rb_rjit_enabled);
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -505,6 +543,8 @@ for_each_iseq_i(void *vstart, void *vend, size_t stride, void *data)
         asan_poison_object_if(ptr, v);
     }
     return 0;
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(block);
 }
 
 static VALUE
@@ -512,6 +552,8 @@ rjit_for_each_iseq(rb_execution_context_t *ec, VALUE self, VALUE block)
 {
     rb_objspace_each_objects(for_each_iseq_i, (void *)block);
     return Qnil;
+    RB_GC_GUARD(block);
+    RB_GC_GUARD(self);
 }
 
 // bindgen references

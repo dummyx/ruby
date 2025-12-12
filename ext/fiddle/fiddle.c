@@ -25,6 +25,8 @@ rb_fiddle_malloc(VALUE self, VALUE size)
     void *ptr;
     ptr = (void*)ruby_xcalloc(1, NUM2SIZET(size));
     return PTR2NUM(ptr);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -41,6 +43,9 @@ rb_fiddle_realloc(VALUE self, VALUE addr, VALUE size)
 
     ptr = (void*)ruby_xrealloc(ptr, NUM2SIZET(size));
     return PTR2NUM(ptr);
+    RB_GC_GUARD(size);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -55,6 +60,8 @@ rb_fiddle_free(VALUE self, VALUE addr)
 
     ruby_xfree(ptr);
     return Qnil;
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -75,6 +82,8 @@ VALUE
 rb_fiddle_ptr2value(VALUE self, VALUE addr)
 {
     return (VALUE)NUM2PTR(addr);
+    RB_GC_GUARD(addr);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -101,6 +110,8 @@ static VALUE
 rb_fiddle_value2ptr(VALUE self, VALUE val)
 {
     return PTR2NUM((void*)val);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 void Init_fiddle_handle(void);
@@ -708,4 +719,5 @@ Init_fiddle(void)
 #ifdef HAVE_RUBY_MEMORY_VIEW_H
     Init_fiddle_memory_view();
 #endif
+    RB_GC_GUARD(mFiddleTypes);
 }

@@ -962,6 +962,7 @@ cont_ptr(VALUE obj)
     TypedData_Get_Struct(obj, rb_context_t, &cont_data_type, cont);
 
     return cont;
+    RB_GC_GUARD(obj);
 }
 
 static rb_fiber_t *
@@ -973,6 +974,7 @@ fiber_ptr(VALUE obj)
     if (!fiber) rb_raise(rb_eFiberError, "uninitialized fiber");
 
     return fiber;
+    RB_GC_GUARD(obj);
 }
 
 NOINLINE(static VALUE cont_capture(volatile int *volatile stat));
@@ -1189,6 +1191,7 @@ VALUE
 rb_obj_is_fiber(VALUE obj)
 {
     return RBOOL(rb_typeddata_is_kind_of(obj, &fiber_data_type));
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -1385,6 +1388,7 @@ cont_new(VALUE klass)
     cont->self = contval;
     cont_init(cont, th);
     return cont;
+    RB_GC_GUARD(klass);
 }
 
 VALUE
@@ -1476,6 +1480,7 @@ cont_capture(volatile int *volatile stat)
         cont->value = Qnil;
         *stat = 1;
         return value;
+    RB_GC_GUARD(value);
     }
     else {
         *stat = 0;
@@ -1762,6 +1767,7 @@ rb_callcc(VALUE self)
     }
     else {
         return rb_yield(val);
+        RB_GC_GUARD(self);
     }
 }
 #ifdef RUBY_ASAN_ENABLED
@@ -1826,6 +1832,7 @@ rb_cont_call(int argc, VALUE *argv, VALUE contval)
 
     cont_restore_0(cont, &contval);
     UNREACHABLE_RETURN(Qnil);
+    RB_GC_GUARD(contval);
 }
 
 /*********/
@@ -1925,6 +1932,7 @@ static VALUE
 fiber_alloc(VALUE klass)
 {
     return TypedData_Wrap_Struct(klass, &fiber_data_type, 0);
+    RB_GC_GUARD(klass);
 }
 
 static rb_fiber_t*
@@ -1957,6 +1965,7 @@ fiber_t_alloc(VALUE fiber_value, unsigned int blocking)
     DATA_PTR(fiber_value) = fiber;
 
     return fiber;
+    RB_GC_GUARD(fiber_value);
 }
 
 static rb_fiber_t *
@@ -1976,6 +1985,7 @@ root_fiber_alloc(rb_thread_t *th)
     coroutine_initialize_main(&fiber->context);
 
     return fiber;
+    RB_GC_GUARD(fiber_value);
 }
 
 static inline rb_fiber_t*
@@ -2005,6 +2015,7 @@ static inline void
 fiber_storage_set(struct rb_fiber_struct *fiber, VALUE storage)
 {
     fiber->cont.saved_ec.storage = storage;
+    RB_GC_GUARD(storage);
 }
 
 static inline VALUE
@@ -2016,6 +2027,7 @@ fiber_storage_get(rb_fiber_t *fiber, int allocate)
         fiber_storage_set(fiber, storage);
     }
     return storage;
+    RB_GC_GUARD(storage);
 }
 
 static void
@@ -2026,6 +2038,7 @@ storage_access_must_be_from_same_fiber(VALUE self)
     if (fiber != current) {
         rb_raise(rb_eArgError, "Fiber storage can only be accessed from the Fiber it belongs to");
     }
+        RB_GC_GUARD(self);
 }
 
 /**
@@ -2046,6 +2059,8 @@ rb_fiber_storage_get(VALUE self)
     }
     else {
         return rb_obj_dup(storage);
+        RB_GC_GUARD(storage);
+        RB_GC_GUARD(self);
     }
 }
 
@@ -2055,6 +2070,9 @@ fiber_storage_validate_each(VALUE key, VALUE value, VALUE _argument)
     Check_Type(key, T_SYMBOL);
 
     return ST_CONTINUE;
+    RB_GC_GUARD(_argument);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static void
@@ -2072,6 +2090,7 @@ fiber_storage_validate(VALUE value)
     }
 
     rb_hash_foreach(value, fiber_storage_validate_each, Qundef);
+    RB_GC_GUARD(value);
 }
 
 /**
@@ -2109,6 +2128,8 @@ rb_fiber_storage_set(VALUE self, VALUE value)
 
     fiber_ptr(self)->cont.saved_ec.storage = rb_obj_dup(value);
     return value;
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(self);
 }
 
 /**
@@ -2130,6 +2151,9 @@ rb_fiber_storage_aref(VALUE class, VALUE key)
     if (storage == Qnil) return Qnil;
 
     return rb_hash_aref(storage, key);
+    RB_GC_GUARD(key);
+    RB_GC_GUARD(class);
+    RB_GC_GUARD(storage);
 }
 
 /**
@@ -2155,6 +2179,10 @@ rb_fiber_storage_aset(VALUE class, VALUE key, VALUE value)
     }
     else {
         return rb_hash_aset(storage, key, value);
+        RB_GC_GUARD(storage);
+        RB_GC_GUARD(value);
+        RB_GC_GUARD(key);
+        RB_GC_GUARD(class);
     }
 }
 
@@ -2178,6 +2206,9 @@ fiber_initialize(VALUE self, VALUE proc, struct fiber_pool * fiber_pool, unsigne
     fiber->stack.pool = fiber_pool;
 
     return self;
+    RB_GC_GUARD(storage);
+    RB_GC_GUARD(proc);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -2203,6 +2234,7 @@ static struct fiber_pool *
 rb_fiber_pool_default(VALUE pool)
 {
     return &shared_fiber_pool;
+    RB_GC_GUARD(pool);
 }
 
 VALUE rb_fiber_inherit_storage(struct rb_execution_context_struct *ec, struct rb_fiber_struct *fiber)
@@ -2210,6 +2242,7 @@ VALUE rb_fiber_inherit_storage(struct rb_execution_context_struct *ec, struct rb
     VALUE storage = rb_obj_dup(ec->storage);
     fiber->cont.saved_ec.storage = storage;
     return storage;
+    RB_GC_GUARD(storage);
 }
 
 /* :nodoc: */
@@ -2236,9 +2269,14 @@ rb_fiber_initialize_kw(int argc, VALUE* argv, VALUE self, int kw_splat)
         }
 
         storage = arguments[2];
+    RB_GC_GUARD(options);
     }
 
     return fiber_initialize(self, rb_block_proc(), rb_fiber_pool_default(pool), RTEST(blocking), storage);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(storage);
+    RB_GC_GUARD(blocking);
+    RB_GC_GUARD(pool);
 }
 
 /*
@@ -2294,18 +2332,22 @@ static VALUE
 rb_fiber_initialize(int argc, VALUE* argv, VALUE self)
 {
     return rb_fiber_initialize_kw(argc, argv, self, rb_keyword_given_p());
+    RB_GC_GUARD(self);
 }
 
 VALUE
 rb_fiber_new_storage(rb_block_call_func_t func, VALUE obj, VALUE storage)
 {
     return fiber_initialize(fiber_alloc(rb_cFiber), rb_proc_new(func, obj), rb_fiber_pool_default(Qnil), 0, storage);
+    RB_GC_GUARD(storage);
+    RB_GC_GUARD(obj);
 }
 
 VALUE
 rb_fiber_new(rb_block_call_func_t func, VALUE obj)
 {
     return rb_fiber_new_storage(func, obj, Qtrue);
+    RB_GC_GUARD(obj);
 }
 
 static VALUE
@@ -2323,6 +2365,8 @@ rb_fiber_s_schedule_kw(int argc, VALUE* argv, int kw_splat)
     }
 
     return fiber;
+    RB_GC_GUARD(fiber);
+    RB_GC_GUARD(scheduler);
 }
 
 /*
@@ -2370,6 +2414,7 @@ static VALUE
 rb_fiber_s_schedule(int argc, VALUE *argv, VALUE obj)
 {
     return rb_fiber_s_schedule_kw(argc, argv, rb_keyword_given_p());
+    RB_GC_GUARD(obj);
 }
 
 /*
@@ -2386,6 +2431,7 @@ static VALUE
 rb_fiber_s_scheduler(VALUE klass)
 {
     return rb_fiber_scheduler_get();
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2400,6 +2446,7 @@ static VALUE
 rb_fiber_current_scheduler(VALUE klass)
 {
     return rb_fiber_scheduler_current();
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -2422,6 +2469,8 @@ static VALUE
 rb_fiber_set_scheduler(VALUE klass, VALUE scheduler)
 {
     return rb_fiber_scheduler_set(scheduler);
+    RB_GC_GUARD(scheduler);
+    RB_GC_GUARD(klass);
 }
 
 NORETURN(static void rb_fiber_terminate(rb_fiber_t *fiber, int need_interrupt, VALUE err));
@@ -2480,6 +2529,7 @@ rb_fiber_start(rb_fiber_t *fiber)
     }
 
     rb_fiber_terminate(fiber, need_interrupt, err);
+    RB_GC_GUARD(err);
 }
 
 // Set up a "root fiber", which is the fiber that every Ractor has.
@@ -2703,12 +2753,14 @@ fiber_switch(rb_fiber_t *fiber, int argc, const VALUE *argv, int kw_splat, rb_fi
     }
 
     return value;
+    RB_GC_GUARD(value);
 }
 
 VALUE
 rb_fiber_transfer(VALUE fiber_value, int argc, const VALUE *argv)
 {
     return fiber_switch(fiber_ptr(fiber_value), argc, argv, RB_NO_KEYWORDS, NULL, false);
+    RB_GC_GUARD(fiber_value);
 }
 
 /*
@@ -2729,6 +2781,7 @@ VALUE
 rb_fiber_blocking_p(VALUE fiber)
 {
     return RBOOL(fiber_ptr(fiber)->blocking);
+    RB_GC_GUARD(fiber);
 }
 
 static VALUE
@@ -2746,6 +2799,7 @@ fiber_blocking_yield(VALUE fiber_value)
     th->blocking += 1;
 
     return rb_yield(fiber_value);
+    RB_GC_GUARD(fiber_value);
 }
 
 static VALUE
@@ -2759,6 +2813,7 @@ fiber_blocking_ensure(VALUE fiber_value)
     th->blocking -= 1;
 
     return Qnil;
+    RB_GC_GUARD(fiber_value);
 }
 
 /*
@@ -2783,6 +2838,8 @@ rb_fiber_blocking(VALUE class)
     }
     else {
         return rb_ensure(fiber_blocking_yield, fiber_value, fiber_blocking_ensure, fiber_value);
+        RB_GC_GUARD(fiber_value);
+        RB_GC_GUARD(class);
     }
 }
 
@@ -2814,6 +2871,7 @@ rb_fiber_s_blocking_p(VALUE klass)
         return Qfalse;
 
     return INT2NUM(blocking);
+    RB_GC_GUARD(klass);
 }
 
 void
@@ -2842,6 +2900,8 @@ rb_fiber_terminate(rb_fiber_t *fiber, int need_interrupt, VALUE error)
     else
         fiber_switch(next_fiber, 1, &value, RB_NO_KEYWORDS, NULL, false);
     ruby_stop(0);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(error);
 }
 
 static VALUE
@@ -2876,12 +2936,14 @@ VALUE
 rb_fiber_resume_kw(VALUE self, int argc, const VALUE *argv, int kw_splat)
 {
     return fiber_resume_kw(fiber_ptr(self), argc, argv, kw_splat);
+    RB_GC_GUARD(self);
 }
 
 VALUE
 rb_fiber_resume(VALUE self, int argc, const VALUE *argv)
 {
     return fiber_resume_kw(fiber_ptr(self), argc, argv, RB_NO_KEYWORDS);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -2916,6 +2978,7 @@ VALUE
 rb_fiber_alive_p(VALUE fiber_value)
 {
     return RBOOL(!FIBER_TERMINATED_P(fiber_ptr(fiber_value)));
+    RB_GC_GUARD(fiber_value);
 }
 
 /*
@@ -2937,6 +3000,7 @@ static VALUE
 rb_fiber_m_resume(int argc, VALUE *argv, VALUE fiber)
 {
     return rb_fiber_resume_kw(fiber, argc, argv, rb_keyword_given_p());
+    RB_GC_GUARD(fiber);
 }
 
 /*
@@ -2989,6 +3053,7 @@ static VALUE
 rb_fiber_backtrace(int argc, VALUE *argv, VALUE fiber)
 {
     return rb_vm_backtrace(argc, argv, &fiber_ptr(fiber)->cont.saved_ec);
+    RB_GC_GUARD(fiber);
 }
 
 /*
@@ -3014,6 +3079,7 @@ static VALUE
 rb_fiber_backtrace_locations(int argc, VALUE *argv, VALUE fiber)
 {
     return rb_vm_backtrace_locations(argc, argv, &fiber_ptr(fiber)->cont.saved_ec);
+    RB_GC_GUARD(fiber);
 }
 
 /*
@@ -3102,6 +3168,7 @@ static VALUE
 rb_fiber_m_transfer(int argc, VALUE *argv, VALUE self)
 {
     return rb_fiber_transfer_kw(self, argc, argv, rb_keyword_given_p());
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -3122,6 +3189,7 @@ VALUE
 rb_fiber_transfer_kw(VALUE self, int argc, const VALUE *argv, int kw_splat)
 {
     return fiber_transfer_kw(fiber_ptr(self), argc, argv, kw_splat);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3138,6 +3206,7 @@ static VALUE
 rb_fiber_s_yield(int argc, VALUE *argv, VALUE klass)
 {
     return rb_fiber_yield_kw(argc, argv, rb_keyword_given_p());
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -3155,6 +3224,7 @@ fiber_raise(rb_fiber_t *fiber, VALUE exception)
     else {
         return fiber_resume_kw(fiber, -1, &exception, RB_NO_KEYWORDS);
     }
+        RB_GC_GUARD(exception);
 }
 
 VALUE
@@ -3163,6 +3233,8 @@ rb_fiber_raise(VALUE fiber, int argc, const VALUE *argv)
     VALUE exception = rb_make_exception(argc, argv);
 
     return fiber_raise(fiber_ptr(fiber), exception);
+    RB_GC_GUARD(fiber);
+    RB_GC_GUARD(exception);
 }
 
 /*
@@ -3194,6 +3266,7 @@ static VALUE
 rb_fiber_m_raise(int argc, VALUE *argv, VALUE self)
 {
     return rb_fiber_raise(self, argc, argv);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3234,6 +3307,7 @@ rb_fiber_m_kill(VALUE self)
     }
 
     return self;
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -3247,6 +3321,7 @@ static VALUE
 rb_fiber_s_current(VALUE klass)
 {
     return rb_fiber_current();
+    RB_GC_GUARD(klass);
 }
 
 static VALUE
@@ -3269,9 +3344,11 @@ fiber_to_s(VALUE fiber_value)
         rb_str_set_len(str, RSTRING_LEN(str)-1);
         rb_str_cat_cstr(str, status_info);
         return str;
+    RB_GC_GUARD(str);
     }
     GetProcPtr(fiber->first_proc, proc);
     return rb_block_to_s(fiber_value, &proc->block, status_info);
+    RB_GC_GUARD(fiber_value);
 }
 
 #ifdef HAVE_WORKING_FORK

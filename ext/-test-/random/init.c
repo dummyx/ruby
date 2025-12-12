@@ -8,4 +8,6 @@ Init_random(void)
     VALUE base = rb_const_get(rb_cRandom, rb_intern_const("Base"));
     VALUE mod = rb_define_module_under(rb_define_module("Bug"), "Random");
     TEST_INIT_FUNCS(init);
+    RB_GC_GUARD(base);
+    RB_GC_GUARD(mod);
 }

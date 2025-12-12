@@ -33,6 +33,7 @@ pjob_callback(void *data)
     Check_Type(ary, T_ARRAY);
 
     rb_ary_push(ary, INT2FIX(counter));
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -47,6 +48,8 @@ pjob_register(VALUE self, VALUE obj)
     rb_gc_start();
     counter++;
     return self;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -56,6 +59,7 @@ pjob_one_callback(void *data)
     Check_Type(ary, T_ARRAY);
 
     rb_ary_push(ary, INT2FIX(1));
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -65,6 +69,8 @@ pjob_register_one(VALUE self, VALUE obj)
     rb_postponed_job_register_one(0, pjob_one_callback, (void *)obj);
     rb_postponed_job_register_one(0, pjob_one_callback, (void *)obj);
     return self;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -79,6 +85,8 @@ pjob_call_direct(VALUE self, VALUE obj)
     rb_gc_start();
     counter++;
     return self;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static void pjob_noop_callback(void *data) { }
@@ -95,6 +103,8 @@ pjob_register_one_same(VALUE self)
     rb_ary_push(ary, INT2FIX(r2));
     rb_ary_push(ary, INT2FIX(r3));
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 #ifdef HAVE_PTHREAD_H
@@ -122,6 +132,8 @@ pjob_register_in_c_thread(VALUE self, VALUE obj)
     }
 
     return Qtrue;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 #endif
 
@@ -131,6 +143,7 @@ pjob_preregistered_callback(void *data)
     VALUE ary = (VALUE)data;
     Check_Type(ary, T_ARRAY);
     rb_ary_push(ary, INT2FIX(counter));
+    RB_GC_GUARD(ary);
 }
 
 static VALUE
@@ -148,6 +161,8 @@ pjob_preregister_and_call_with_sleep(VALUE self, VALUE obj)
     rb_postponed_job_trigger(h);
     rb_thread_sleep(0);
     return self;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -160,6 +175,8 @@ pjob_preregister_and_call_without_sleep(VALUE self, VALUE obj)
     rb_postponed_job_trigger(h);
     rb_postponed_job_trigger(h);
     return self;
+    RB_GC_GUARD(obj);
+    RB_GC_GUARD(self);
 }
 
 static VALUE
@@ -173,6 +190,8 @@ pjob_preregister_multiple_times(VALUE self)
     rb_ary_push(ary, INT2FIX(r2));
     rb_ary_push(ary, INT2FIX(r3));
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 
 }
 
@@ -210,6 +229,8 @@ pjob_preregister_calls_with_last_argument(VALUE self)
     rb_thread_sleep(0); // should execute with arg4
 
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 void
@@ -227,5 +248,7 @@ Init_postponed_job(VALUE self)
     rb_define_module_function(mBug, "postponed_job_preregister_and_call_without_sleep", pjob_preregister_and_call_without_sleep, 1);
     rb_define_module_function(mBug, "postponed_job_preregister_multiple_times", pjob_preregister_multiple_times, 0);
     rb_define_module_function(mBug, "postponed_job_preregister_calls_with_last_argument", pjob_preregister_calls_with_last_argument, 0);
+    RB_GC_GUARD(mBug);
+    RB_GC_GUARD(self);
 }
 

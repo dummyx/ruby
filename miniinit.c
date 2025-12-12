@@ -22,6 +22,7 @@ rb_locale_charmap(VALUE klass)
 {
     /* never used */
     return Qnil;
+    RB_GC_GUARD(klass);
 }
 
 int
@@ -66,6 +67,7 @@ builtin_loaded(const char *feature_name, VALUE iseq)
 {
     st_insert(loaded_builtin_table, (st_data_t)feature_name, (st_data_t)iseq);
     rb_vm_register_global_object(iseq);
+    RB_GC_GUARD(iseq);
 }
 
 static int
@@ -85,6 +87,7 @@ each_builtin(VALUE self)
 {
     st_foreach(loaded_builtin_table, each_builtin_i, 0);
     return Qnil;
+    RB_GC_GUARD(self);
 }
 
 void

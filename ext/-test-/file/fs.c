@@ -76,6 +76,8 @@ get_fsname(VALUE self, VALUE str)
 # endif
 #endif
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 VALUE
@@ -100,6 +102,8 @@ get_noatime_p(VALUE self, VALUE str)
 # endif
 #endif
     return Qnil;
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 void
@@ -108,4 +112,5 @@ Init_fs(VALUE module)
     VALUE fs = rb_define_module_under(module, "Fs");
     rb_define_module_function(fs, "fsname", get_fsname, 1);
     rb_define_module_function(fs, "noatime?", get_noatime_p, 1);
+    RB_GC_GUARD(fs);
 }

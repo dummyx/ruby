@@ -56,6 +56,9 @@ bsock_s_for_fd(VALUE klass, VALUE _descriptor)
     GetOpenFile(sock, fptr);
 
     return sock;
+    RB_GC_GUARD(_descriptor);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -106,6 +109,8 @@ bsock_shutdown(int argc, VALUE *argv, VALUE sock)
         rb_sys_fail("shutdown(2)");
 
     return INT2FIX(0);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(howto);
 }
 
 /*
@@ -131,6 +136,7 @@ bsock_close_read(VALUE sock)
     fptr->mode &= ~FMODE_READABLE;
 
     return Qnil;
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -161,6 +167,7 @@ bsock_close_write(VALUE sock)
     fptr->mode &= ~FMODE_WRITABLE;
 
     return Qnil;
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -268,6 +275,10 @@ bsock_setsockopt(int argc, VALUE *argv, VALUE sock)
         rsock_sys_fail_path("setsockopt(2)", fptr->pathv);
 
     return INT2FIX(0);
+    RB_GC_GUARD(sock);
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(optname);
+    RB_GC_GUARD(lev);
 }
 
 /*
@@ -360,6 +371,9 @@ bsock_getsockopt(VALUE sock, VALUE lev, VALUE optname)
         rsock_sys_fail_path("getsockopt(2)", fptr->pathv);
 
     return rsock_sockopt_new(family, level, option, rb_str_new(buf, len));
+    RB_GC_GUARD(optname);
+    RB_GC_GUARD(lev);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -388,6 +402,7 @@ bsock_getsockname(VALUE sock)
         rb_sys_fail("getsockname(2)");
     if (len0 < len) len = len0;
     return rb_str_new((char*)&buf, len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -419,6 +434,7 @@ bsock_getpeername(VALUE sock)
         rb_sys_fail("getpeername(2)");
     if (len0 < len) len = len0;
     return rb_str_new((char*)&buf, len);
+    RB_GC_GUARD(sock);
 }
 
 #if defined(HAVE_GETPEEREID) || defined(SO_PEERCRED) || defined(HAVE_GETPEERUCRED)
@@ -463,6 +479,7 @@ bsock_getpeereid(VALUE self)
     if (getsockopt(fptr->fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
         rb_sys_fail("getsockopt(SO_PEERCRED)");
     return rb_assoc_new(UIDT2NUM(cred.uid), GIDT2NUM(cred.gid));
+    RB_GC_GUARD(self);
 #elif defined(HAVE_GETPEERUCRED) /* Solaris */
     rb_io_t *fptr;
     ucred_t *uc = NULL;
@@ -509,6 +526,7 @@ bsock_local_address(VALUE sock)
         rb_sys_fail("getsockname(2)");
     if (len0 < len) len = len0;
     return rsock_fd_socket_addrinfo(fptr->fd, &buf.addr, len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -543,6 +561,7 @@ bsock_remote_address(VALUE sock)
         rb_sys_fail("getpeername(2)");
     if (len0 < len) len = len0;
     return rsock_fd_socket_addrinfo(fptr->fd, &buf.addr, len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -606,6 +625,9 @@ rsock_bsock_send(int argc, VALUE *argv, VALUE socket)
         }
 
         rb_sys_fail(funcname);
+        RB_GC_GUARD(flags);
+        RB_GC_GUARD(socket);
+        RB_GC_GUARD(to);
     }
 }
 
@@ -633,6 +655,7 @@ bsock_do_not_reverse_lookup(VALUE sock)
 
     GetOpenFile(sock, fptr);
     return (fptr->mode & FMODE_NOREVLOOKUP) ? Qtrue : Qfalse;
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -662,6 +685,8 @@ bsock_do_not_reverse_lookup_set(VALUE sock, VALUE state)
         fptr->mode &= ~FMODE_NOREVLOOKUP;
     }
     return sock;
+    RB_GC_GUARD(state);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -689,6 +714,7 @@ static VALUE
 bsock_recv(int argc, VALUE *argv, VALUE sock)
 {
     return rsock_s_recvfrom(sock, argc, argv, RECV_RECV);
+    RB_GC_GUARD(sock);
 }
 
 /* :nodoc: */
@@ -696,6 +722,11 @@ static VALUE
 bsock_recv_nonblock(VALUE sock, VALUE len, VALUE flg, VALUE str, VALUE ex)
 {
     return rsock_s_recvfrom_nonblock(sock, len, flg, str, ex, RECV_RECV);
+    RB_GC_GUARD(ex);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(flg);
+    RB_GC_GUARD(len);
+    RB_GC_GUARD(sock);
 }
 
 /*
@@ -710,6 +741,7 @@ static VALUE
 bsock_do_not_rev_lookup(VALUE _)
 {
     return rsock_do_not_reverse_lookup?Qtrue:Qfalse;
+    RB_GC_GUARD(_);
 }
 
 /*
@@ -733,6 +765,8 @@ bsock_do_not_rev_lookup_set(VALUE self, VALUE val)
 {
     rsock_do_not_reverse_lookup = RTEST(val);
     return val;
+    RB_GC_GUARD(val);
+    RB_GC_GUARD(self);
 }
 
 void

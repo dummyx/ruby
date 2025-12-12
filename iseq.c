@@ -76,6 +76,7 @@ obj_resurrect(VALUE obj)
         }
     }
     return obj;
+    RB_GC_GUARD(obj);
 }
 
 static void
@@ -121,6 +122,7 @@ remove_from_constant_cache(ID id, IC ic)
             st_free_table(ics);
         }
     }
+            RB_GC_GUARD(lookup_result);
 }
 
 // When an ISEQ is being freed, all of its associated ICs are going to go away
@@ -230,6 +232,8 @@ iseq_scan_bits(unsigned int page, iseq_bits_t bits, VALUE *code, VALUE *original
             original_iseq[page_offset + offset] = newop;
         }
         bits &= bits - 1; // Reset Lowest Set Bit (BLSR)
+        RB_GC_GUARD(newop);
+        RB_GC_GUARD(op);
     }
 }
 
@@ -530,6 +534,9 @@ rb_iseq_pathobj_new(VALUE path, VALUE realpath)
         rb_ary_freeze(pathobj);
     }
     return pathobj;
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(pathobj);
 }
 
 void
@@ -537,6 +544,8 @@ rb_iseq_pathobj_set(const rb_iseq_t *iseq, VALUE path, VALUE realpath)
 {
     RB_OBJ_WRITE(iseq, &ISEQ_BODY(iseq)->location.pathobj,
                  rb_iseq_pathobj_new(path, realpath));
+                 RB_GC_GUARD(path);
+                 RB_GC_GUARD(realpath);
 }
 
 // Make a dummy iseq for a dummy frame that exposes a path for profilers to inspect
@@ -550,6 +559,7 @@ rb_iseq_alloc_with_dummy_path(VALUE fname)
     RB_OBJ_WRITE(dummy_iseq, &ISEQ_BODY(dummy_iseq)->location.label, fname);
 
     return dummy_iseq;
+    RB_GC_GUARD(fname);
 }
 
 static rb_iseq_location_t *
@@ -578,6 +588,9 @@ iseq_location_setup(rb_iseq_t *iseq, VALUE name, VALUE path, VALUE realpath, int
     }
 
     return loc;
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
 }
 
 static void
@@ -669,6 +682,7 @@ prepare_iseq_build(rb_iseq_t *iseq,
         if (RTEST(coverages)) {
             coverage = rb_hash_lookup(coverages, rb_iseq_path(iseq));
             if (NIL_P(coverage)) coverage = Qfalse;
+    RB_GC_GUARD(coverages);
         }
     }
     ISEQ_COVERAGE_SET(iseq, coverage);
@@ -676,6 +690,12 @@ prepare_iseq_build(rb_iseq_t *iseq,
         ISEQ_PC2BRANCHINDEX_SET(iseq, rb_ary_hidden_new(0));
 
     return Qtrue;
+    RB_GC_GUARD(script_lines);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(err_info);
+    RB_GC_GUARD(coverage);
 }
 
 #if VM_CHECK_MODE > 0 && VM_INSN_INFO_TABLE_IMPL > 0
@@ -738,6 +758,7 @@ finish_iseq_build(rb_iseq_t *iseq)
         if (err == Qtrue) err = rb_exc_new_cstr(rb_eSyntaxError, "compile error");
         rb_funcallv(err, rb_intern("set_backtrace"), 1, &path);
         rb_exc_raise(err);
+    RB_GC_GUARD(path);
     }
 
     RB_DEBUG_COUNTER_INC(iseq_num);
@@ -745,6 +766,7 @@ finish_iseq_build(rb_iseq_t *iseq)
 
     rb_iseq_init_trace(iseq);
     return Qtrue;
+    RB_GC_GUARD(err);
 }
 
 static rb_compile_option_t COMPILE_OPTION_DEFAULT = {
@@ -793,6 +815,7 @@ set_compile_option_from_hash(rb_compile_option_t *option, VALUE opt)
     SET_COMPILE_OPTION_NUM(option, opt, debug_level);
 #undef SET_COMPILE_OPTION
 #undef SET_COMPILE_OPTION_NUM
+    RB_GC_GUARD(opt);
 }
 
 static rb_compile_option_t *
@@ -829,6 +852,7 @@ make_compile_option(rb_compile_option_t *option, VALUE opt)
     else {
         rb_raise(rb_eTypeError, "Compile option must be Hash/true/false/nil");
     }
+        RB_GC_GUARD(opt);
 }
 
 static VALUE
@@ -855,6 +879,8 @@ make_compile_option_value(rb_compile_option_t *option)
     VALUE frozen_string_literal = option->frozen_string_literal == -1 ? Qnil : RBOOL(option->frozen_string_literal);
     rb_hash_aset(opt, ID2SYM(rb_intern("frozen_string_literal")), frozen_string_literal);
     return opt;
+    RB_GC_GUARD(frozen_string_literal);
+    RB_GC_GUARD(opt);
 }
 
 rb_iseq_t *
@@ -864,6 +890,9 @@ rb_iseq_new(const VALUE ast_value, VALUE name, VALUE path, VALUE realpath,
     return rb_iseq_new_with_opt(ast_value, name, path, realpath, 0, parent,
                                 0, type, &COMPILE_OPTION_DEFAULT,
                                 Qnil);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
+                                RB_GC_GUARD(name);
 }
 
 static int
@@ -883,9 +912,12 @@ iseq_setup_coverage(VALUE coverages, VALUE path, int line_count)
         rb_hash_aset(coverages, path, coverage);
 
         return coverage;
+    RB_GC_GUARD(coverage);
     }
 
     return Qnil;
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(coverages);
 }
 
 static inline void
@@ -896,6 +928,8 @@ iseq_new_setup_coverage(VALUE path, int line_count)
     if (RTEST(coverages)) {
         iseq_setup_coverage(coverages, path, line_count);
     }
+        RB_GC_GUARD(coverages);
+        RB_GC_GUARD(path);
 }
 
 rb_iseq_t *
@@ -906,6 +940,9 @@ rb_iseq_new_top(const VALUE ast_value, VALUE name, VALUE path, VALUE realpath, c
     return rb_iseq_new_with_opt(ast_value, name, path, realpath, 0, parent, 0,
                                 ISEQ_TYPE_TOP, &COMPILE_OPTION_DEFAULT,
                                 Qnil);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
+                                RB_GC_GUARD(name);
 }
 
 /**
@@ -918,6 +955,9 @@ pm_iseq_new_top(pm_scope_node_t *node, VALUE name, VALUE path, VALUE realpath, c
 
     return pm_iseq_new_with_opt(node, name, path, realpath, 0, parent, 0,
                                 ISEQ_TYPE_TOP, &COMPILE_OPTION_DEFAULT, error_state);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
+                                RB_GC_GUARD(name);
 }
 
 rb_iseq_t *
@@ -929,6 +969,8 @@ rb_iseq_new_main(const VALUE ast_value, VALUE path, VALUE realpath, const rb_ise
                                 path, realpath, 0,
                                 parent, 0, ISEQ_TYPE_MAIN, opt ? &COMPILE_OPTION_DEFAULT : &COMPILE_OPTION_FALSE,
                                 Qnil);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
 }
 
 /**
@@ -943,6 +985,8 @@ pm_iseq_new_main(pm_scope_node_t *node, VALUE path, VALUE realpath, const rb_ise
     return pm_iseq_new_with_opt(node, rb_fstring_lit("<main>"),
                                 path, realpath, 0,
                                 parent, 0, ISEQ_TYPE_MAIN, opt ? &COMPILE_OPTION_DEFAULT : &COMPILE_OPTION_FALSE, error_state);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
 }
 
 rb_iseq_t *
@@ -952,12 +996,16 @@ rb_iseq_new_eval(const VALUE ast_value, VALUE name, VALUE path, VALUE realpath, 
         VALUE coverages = rb_get_coverages();
         if (RTEST(coverages) && RTEST(path) && !RTEST(rb_hash_has_key(coverages, path))) {
             iseq_setup_coverage(coverages, path, ast_line_count(ast_value) + first_lineno - 1);
+    RB_GC_GUARD(coverages);
         }
     }
 
     return rb_iseq_new_with_opt(ast_value, name, path, realpath, first_lineno,
                                 parent, isolated_depth, ISEQ_TYPE_EVAL, &COMPILE_OPTION_DEFAULT,
                                 Qnil);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
+                                RB_GC_GUARD(name);
 }
 
 rb_iseq_t *
@@ -968,11 +1016,15 @@ pm_iseq_new_eval(pm_scope_node_t *node, VALUE name, VALUE path, VALUE realpath,
         VALUE coverages = rb_get_coverages();
         if (RTEST(coverages) && RTEST(path) && !RTEST(rb_hash_has_key(coverages, path))) {
             iseq_setup_coverage(coverages, path, ((int) (node->parser->newline_list.size - 1)) + first_lineno - 1);
+    RB_GC_GUARD(coverages);
         }
     }
 
     return pm_iseq_new_with_opt(node, name, path, realpath, first_lineno,
                                 parent, isolated_depth, ISEQ_TYPE_EVAL, &COMPILE_OPTION_DEFAULT, error_state);
+                                RB_GC_GUARD(realpath);
+                                RB_GC_GUARD(path);
+                                RB_GC_GUARD(name);
 }
 
 static inline rb_iseq_t *
@@ -983,6 +1035,8 @@ iseq_translate(rb_iseq_t *iseq)
         VALUE v2 = rb_funcall(rb_cISeq, rb_intern("translate"), 1, v1);
         if (v1 != v2 && CLASS_OF(v2) == rb_cISeq) {
             iseq = (rb_iseq_t *)iseqw_check(v2);
+    RB_GC_GUARD(v1);
+    RB_GC_GUARD(v2);
         }
     }
 
@@ -1026,6 +1080,11 @@ rb_iseq_new_with_opt(VALUE ast_value, VALUE name, VALUE path, VALUE realpath,
     RB_GC_GUARD(ast_value);
 
     return iseq_translate(iseq);
+    RB_GC_GUARD(script_lines);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(ast_value);
 }
 
 struct pm_iseq_new_with_opt_data {
@@ -1045,6 +1104,7 @@ pm_iseq_new_with_opt_try(VALUE d)
     finish_iseq_build(data->iseq);
 
     return Qundef;
+    RB_GC_GUARD(d);
 }
 
 /**
@@ -1097,6 +1157,9 @@ pm_iseq_new_with_opt(pm_scope_node_t *node, VALUE name, VALUE path, VALUE realpa
     if (*error_state) return NULL;
 
     return iseq_translate(iseq);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
 }
 
 rb_iseq_t *
@@ -1116,6 +1179,9 @@ rb_iseq_new_with_callback(
     finish_iseq_build(iseq);
 
     return iseq;
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
 }
 
 const rb_iseq_t *
@@ -1128,6 +1194,8 @@ rb_iseq_load_iseq(VALUE fname)
     }
 
     return NULL;
+    RB_GC_GUARD(fname);
+    RB_GC_GUARD(iseqv);
 }
 
 #define CHECK_ARRAY(v)   rb_to_array_type(v)
@@ -1135,6 +1203,7 @@ rb_iseq_load_iseq(VALUE fname)
 #define CHECK_STRING(v)  rb_str_to_str(v)
 #define CHECK_SYMBOL(v)  rb_to_symbol_type(v)
 static inline VALUE CHECK_INTEGER(VALUE v) {(void)NUM2LONG(v); return v;}
+    // RB_GC_GUARD(v);
 
 static enum rb_iseq_type
 iseq_type_from_sym(VALUE type)
@@ -1161,6 +1230,7 @@ iseq_type_from_sym(VALUE type)
     if (typeid == id_main) return ISEQ_TYPE_MAIN;
     if (typeid == id_plain) return ISEQ_TYPE_PLAIN;
     return (enum rb_iseq_type)-1;
+    RB_GC_GUARD(type);
 }
 
 static VALUE
@@ -1234,6 +1304,23 @@ iseq_load(VALUE data, const rb_iseq_t *parent, VALUE opt)
     finish_iseq_build(iseq);
 
     return iseqw_new(iseq);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(data);
+    RB_GC_GUARD(exception);
+    RB_GC_GUARD(params);
+    RB_GC_GUARD(locals);
+    RB_GC_GUARD(body);
+    RB_GC_GUARD(type);
+    RB_GC_GUARD(node_id);
+    RB_GC_GUARD(code_location);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(misc);
+    RB_GC_GUARD(format_type);
+    RB_GC_GUARD(version2);
+    RB_GC_GUARD(version1);
+    RB_GC_GUARD(magic);
 }
 
 /*
@@ -1245,12 +1332,18 @@ iseq_s_load(int argc, VALUE *argv, VALUE self)
     VALUE data, opt=Qnil;
     rb_scan_args(argc, argv, "11", &data, &opt);
     return iseq_load(data, NULL, opt);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(data);
 }
 
 VALUE
 rb_iseq_load(VALUE data, VALUE parent, VALUE opt)
 {
     return iseq_load(data, RTEST(parent) ? (rb_iseq_t *)parent : NULL, opt);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(parent);
+    RB_GC_GUARD(data);
 }
 
 static rb_iseq_t *
@@ -1288,6 +1381,7 @@ rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE realpath, VALUE line, V
         if (ruby_vm_keep_script_lines) rb_parser_set_script_lines(parser);
         RB_GC_GUARD(outer_scope_v);
         ast_value = (*parse)(parser, file, src, ln);
+    RB_GC_GUARD(outer_scope_v);
     }
 
     ast = rb_ruby_ast_data_get(ast_value);
@@ -1304,6 +1398,13 @@ rb_iseq_compile_with_option(VALUE src, VALUE file, VALUE realpath, VALUE line, V
     }
 
     return iseq;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(ast_value);
 }
 
 static rb_iseq_t *
@@ -1376,6 +1477,14 @@ pm_iseq_compile_with_option(VALUE src, VALUE file, VALUE realpath, VALUE line, V
     }
 
     return iseq;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(realpath);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(src);
+    RB_GC_GUARD(error);
+    RB_GC_GUARD(script_lines);
+    RB_GC_GUARD(name);
 }
 
 VALUE
@@ -1473,6 +1582,7 @@ remove_coverage_i(void *vstart, void *vend, size_t stride, void *data)
         asan_poison_object_if(ptr, v);
     }
     return 0;
+    RB_GC_GUARD(v);
 }
 
 void
@@ -1533,6 +1643,7 @@ iseqw_new(const rb_iseq_t *iseq)
         RB_OBJ_FREEZE((VALUE)iseq);
 
         return obj;
+        RB_GC_GUARD(obj);
     }
 }
 
@@ -1578,6 +1689,12 @@ iseqw_s_compile_parser(int argc, VALUE *argv, VALUE self, bool prism)
     }
 
     return iseqw_new(iseq);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(line);
+    RB_GC_GUARD(path);
+    RB_GC_GUARD(file);
+    RB_GC_GUARD(src);
 }
 
 /*
@@ -1621,6 +1738,7 @@ static VALUE
 iseqw_s_compile(int argc, VALUE *argv, VALUE self)
 {
     return iseqw_s_compile_parser(argc, argv, self, rb_ruby_prism_p());
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1663,6 +1781,7 @@ static VALUE
 iseqw_s_compile_parsey(int argc, VALUE *argv, VALUE self)
 {
     return iseqw_s_compile_parser(argc, argv, self, false);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1705,6 +1824,7 @@ static VALUE
 iseqw_s_compile_prism(int argc, VALUE *argv, VALUE self)
 {
     return iseqw_s_compile_parser(argc, argv, self, true);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1775,6 +1895,15 @@ iseqw_s_compile_file(int argc, VALUE *argv, VALUE self)
     rb_vm_pop_frame(ec);
     RB_GC_GUARD(v);
     return ret;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(v);
+    RB_GC_GUARD(ast_value);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(exc);
+    RB_GC_GUARD(f);
+    RB_GC_GUARD(parser);
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(file);
 }
 
 /*
@@ -1849,6 +1978,13 @@ iseqw_s_compile_file_prism(int argc, VALUE *argv, VALUE self)
         RB_GC_GUARD(v);
         rb_exc_raise(error);
     }
+        RB_GC_GUARD(file);
+        RB_GC_GUARD(self);
+        RB_GC_GUARD(error);
+        RB_GC_GUARD(script_lines);
+        RB_GC_GUARD(v);
+        RB_GC_GUARD(ret);
+        RB_GC_GUARD(opt);
 }
 
 /*
@@ -1888,6 +2024,8 @@ iseqw_s_compile_option_set(VALUE self, VALUE opt)
     make_compile_option(&option, opt);
     COMPILE_OPTION_DEFAULT = option;
     return opt;
+    RB_GC_GUARD(opt);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1902,6 +2040,7 @@ static VALUE
 iseqw_s_compile_option_get(VALUE self)
 {
     return make_compile_option_value(&COMPILE_OPTION_DEFAULT);
+    RB_GC_GUARD(self);
 }
 
 static const rb_iseq_t *
@@ -1919,12 +2058,14 @@ iseqw_check(VALUE iseqw)
         rb_raise(rb_eTypeError, "uninitialized InstructionSequence");
     }
     return iseq;
+    RB_GC_GUARD(iseqw);
 }
 
 const rb_iseq_t *
 rb_iseqw_to_iseq(VALUE iseqw)
 {
     return iseqw_check(iseqw);
+    RB_GC_GUARD(iseqw);
 }
 
 /*
@@ -1943,6 +2084,7 @@ iseqw_eval(VALUE self)
         rb_raise(rb_eTypeError, "attempt to evaluate dummy InstructionSequence");
     }
     return rb_iseq_eval(iseq);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -1964,6 +2106,8 @@ iseqw_inspect(VALUE self)
                           klass,
                           body->location.label, rb_iseq_path(iseq),
                           FIX2INT(rb_iseq_first_lineno(iseq)));
+                          RB_GC_GUARD(klass);
+                          RB_GC_GUARD(self);
     }
 }
 
@@ -1994,6 +2138,7 @@ static VALUE
 iseqw_path(VALUE self)
 {
     return rb_iseq_path(iseqw_check(self));
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -2016,6 +2161,7 @@ static VALUE
 iseqw_absolute_path(VALUE self)
 {
     return rb_iseq_realpath(iseqw_check(self));
+    RB_GC_GUARD(self);
 }
 
 /*  Returns the label of this instruction sequence.
@@ -2045,6 +2191,7 @@ static VALUE
 iseqw_label(VALUE self)
 {
     return rb_iseq_label(iseqw_check(self));
+    RB_GC_GUARD(self);
 }
 
 /*  Returns the base label of this instruction sequence.
@@ -2071,6 +2218,7 @@ static VALUE
 iseqw_base_label(VALUE self)
 {
     return rb_iseq_base_label(iseqw_check(self));
+    RB_GC_GUARD(self);
 }
 
 /*  Returns the number of the first source line where the instruction sequence
@@ -2087,6 +2235,7 @@ static VALUE
 iseqw_first_lineno(VALUE self)
 {
     return rb_iseq_first_lineno(iseqw_check(self));
+    RB_GC_GUARD(self);
 }
 
 static VALUE iseq_data_to_ary(const rb_iseq_t *iseq);
@@ -2177,6 +2326,7 @@ iseqw_to_a(VALUE self)
 {
     const rb_iseq_t *iseq = iseqw_check(self);
     return iseq_data_to_ary(iseq);
+    RB_GC_GUARD(self);
 }
 
 #if VM_INSN_INFO_TABLE_IMPL == 1 /* binary search */
@@ -2414,6 +2564,10 @@ local_var_name(const rb_iseq_t *diseq, VALUE level, VALUE op)
     }
     rb_str_catf(name, "@%d", idx);
     return name;
+    RB_GC_GUARD(op);
+    RB_GC_GUARD(level);
+    RB_GC_GUARD(name);
+    RB_GC_GUARD(i);
 }
 
 int rb_insn_unified_local_var_level(VALUE);
@@ -2550,6 +2704,7 @@ rb_insn_operand_intern(const rb_iseq_t *iseq,
                 const struct rb_callinfo_kwarg *kw_args = vm_ci_kwarg(ci);
                 VALUE kw_ary = rb_ary_new_from_values(kw_args->keyword_len, kw_args->keywords);
                 rb_ary_push(ary, rb_sprintf("kw:[%"PRIsVALUE"]", rb_ary_join(kw_ary, rb_str_new2(","))));
+            RB_GC_GUARD(kw_ary);
             }
 
             if (vm_ci_flag(ci)) {
@@ -2570,9 +2725,11 @@ rb_insn_operand_intern(const rb_iseq_t *iseq,
                 CALL_FLAG(FORWARDING);
                 CALL_FLAG(OPT_SEND); /* maybe not reachable */
                 rb_ary_push(ary, rb_ary_join(flags, rb_str_new2("|")));
+            RB_GC_GUARD(flags);
             }
 
             ret = rb_sprintf("<calldata!%"PRIsVALUE">", rb_ary_join(ary, rb_str_new2(", ")));
+        RB_GC_GUARD(ary);
         }
         break;
 
@@ -2605,6 +2762,10 @@ rb_insn_operand_intern(const rb_iseq_t *iseq,
         rb_bug("unknown operand type: %c", type);
     }
     return ret;
+    RB_GC_GUARD(child);
+    RB_GC_GUARD(op);
+    RB_GC_GUARD(insn);
+    RB_GC_GUARD(ret);
 }
 
 static VALUE
@@ -2614,6 +2775,7 @@ right_strip(VALUE str)
     while (end-- > beg && *end == ' ');
     rb_str_set_len(str, end - beg + 1);
     return str;
+    RB_GC_GUARD(str);
 }
 
 /**
@@ -2649,6 +2811,7 @@ rb_iseq_disasm_insn(VALUE ret, const VALUE *code, size_t pos,
 
         if (types[j + 1]) {
             rb_str_cat2(str, ", ");
+    RB_GC_GUARD(opstr);
         }
     }
 
@@ -2690,6 +2853,10 @@ rb_iseq_disasm_insn(VALUE ret, const VALUE *code, size_t pos,
         printf("%.*s\n", (int)RSTRING_LEN(str), RSTRING_PTR(str));
     }
     return len;
+    RB_GC_GUARD(child);
+    RB_GC_GUARD(ret);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(insn);
 }
 
 static const char *
@@ -2864,6 +3031,7 @@ rb_iseq_disasm_recursive(const rb_iseq_t *iseq, VALUE indent)
             rb_str_append(str, name);
             if (*argi) rb_str_catf(str, "<%s>", argi);
             if ((width -= RSTRING_LEN(str)) > 0) rb_str_catf(str, "%*s", (int)width, "");
+        RB_GC_GUARD(name);
         }
         rb_str_cat_cstr(right_strip(str), "\n");
     }
@@ -2881,10 +3049,15 @@ rb_iseq_disasm_recursive(const rb_iseq_t *iseq, VALUE indent)
         rb_str_cat_cstr(str, "\n");
         rb_str_concat(str, rb_iseq_disasm_recursive(rb_iseq_check((rb_iseq_t *)isv), indent));
         indent_str = RSTRING_PTR(indent);
+    RB_GC_GUARD(isv);
     }
     RB_GC_GUARD(done_iseq_wrapper);
 
     return str;
+    RB_GC_GUARD(indent);
+    RB_GC_GUARD(done_iseq_wrapper);
+    RB_GC_GUARD(child);
+    RB_GC_GUARD(str);
 }
 
 VALUE
@@ -2893,6 +3066,7 @@ rb_iseq_disasm(const rb_iseq_t *iseq)
     VALUE str = rb_iseq_disasm_recursive(iseq, rb_str_new(0, 0));
     rb_str_resize(str, RSTRING_LEN(str));
     return str;
+    RB_GC_GUARD(str);
 }
 
 /*
@@ -2921,6 +3095,8 @@ rb_estimate_iv_count(VALUE klass, const rb_iseq_t * initialize_iseq)
     rb_id_table_free(iv_names);
 
     return count;
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(superclass);
 }
 
 /*
@@ -2945,6 +3121,7 @@ static VALUE
 iseqw_disasm(VALUE self)
 {
     return rb_iseq_disasm(iseqw_check(self));
+    RB_GC_GUARD(self);
 }
 
 static int
@@ -2992,9 +3169,11 @@ iseq_iterate_children(const rb_iseq_t *iseq, void (*iter_func)(const rb_iseq_t *
             }
         }
         i += len;
+    RB_GC_GUARD(insn);
     }
 
     return (int)RHASH_SIZE(all_children);
+    RB_GC_GUARD(all_children);
 }
 
 static void
@@ -3017,6 +3196,7 @@ iseqw_each_child(VALUE self)
     const rb_iseq_t *iseq = iseqw_check(self);
     iseq_iterate_children(iseq, yield_each_children, NULL);
     return self;
+    RB_GC_GUARD(self);
 }
 
 static void
@@ -3032,6 +3212,7 @@ push_event_info(const rb_iseq_t *iseq, rb_event_flag_t events, int line, VALUE a
     C(RUBY_EVENT_B_RETURN, "b_return", INT2FIX(line));
     C(RUBY_EVENT_RESCUE,    "rescue",  INT2FIX(line));
 #undef C
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3056,6 +3237,8 @@ iseqw_trace_points(VALUE self)
         }
     }
     return ary;
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(ary);
 }
 
 /*
@@ -3116,6 +3299,8 @@ iseqw_s_of(VALUE klass, VALUE body)
     }
 
     return iseq ? iseqw_new(iseq) : Qnil;
+    RB_GC_GUARD(body);
+    RB_GC_GUARD(klass);
 }
 
 /*
@@ -3175,6 +3360,9 @@ iseqw_s_disasm(VALUE klass, VALUE body)
 {
     VALUE iseqw = iseqw_s_of(klass, body);
     return NIL_P(iseqw) ? Qnil : rb_iseq_disasm(iseqw_check(iseqw));
+    RB_GC_GUARD(body);
+    RB_GC_GUARD(klass);
+    RB_GC_GUARD(iseqw);
 }
 
 static VALUE
@@ -3183,6 +3371,7 @@ register_label(struct st_table *table, unsigned long idx)
     VALUE sym = rb_str_intern(rb_sprintf("label_%lu", idx));
     st_insert(table, idx, sym);
     return sym;
+    RB_GC_GUARD(sym);
 }
 
 static VALUE
@@ -3200,6 +3389,7 @@ exception_type2symbol(VALUE type)
         rb_bug("unknown exception type: %d", (int)type);
     }
     return ID2SYM(id);
+    RB_GC_GUARD(type);
 }
 
 static int
@@ -3208,6 +3398,9 @@ cdhash_each(VALUE key, VALUE value, VALUE ary)
     rb_ary_push(ary, obj_resurrect(key));
     rb_ary_push(ary, value);
     return ST_CONTINUE;
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(value);
+    RB_GC_GUARD(key);
 }
 
 static const rb_data_type_t label_wrapper = {
@@ -3324,8 +3517,10 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
             for (j = 0; j < len; j++) {
                 VALUE l = register_label(labels_table, iseq_body->param.opt_table[j]);
                 rb_ary_push(arg_opt_labels, l);
+            RB_GC_GUARD(l);
             }
             rb_hash_aset(params, ID2SYM(rb_intern("opt")), arg_opt_labels);
+        RB_GC_GUARD(arg_opt_labels);
         }
 
         /* commit */
@@ -3346,11 +3541,13 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
                     rb_ary_push(key, keyword->default_values[j]);
                 }
                 rb_ary_push(keywords, key);
+            RB_GC_GUARD(key);
             }
 
             rb_hash_aset(params, ID2SYM(rb_intern("kwbits")),
                          INT2FIX(keyword->bits_start));
             rb_hash_aset(params, ID2SYM(rb_intern("keyword")), keywords);
+        RB_GC_GUARD(keywords);
         }
         if (iseq_body->param.flags.has_kwrest) rb_hash_aset(params, ID2SYM(rb_intern("kwrest")), INT2FIX(keyword->rest_start));
         if (iseq_body->param.flags.ambiguous_param0) rb_hash_aset(params, ID2SYM(rb_intern("ambiguous_param0")), Qtrue);
@@ -3389,6 +3586,7 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
                     if (iseq) {
                         VALUE val = iseq_data_to_ary(rb_iseq_check(iseq));
                         rb_ary_push(ary, val);
+                    RB_GC_GUARD(val);
                     }
                     else {
                         rb_ary_push(ary, Qnil);
@@ -3403,6 +3601,7 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
                         rb_ary_push(list, ID2SYM(*ids++));
                     }
                     rb_ary_push(ary, list);
+                RB_GC_GUARD(list);
                 }
                 break;
               case TS_IVC:
@@ -3434,11 +3633,13 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
                             rb_ary_push(kw, kwarg->keywords[i]);
                         }
                         rb_hash_aset(e, ID2SYM(rb_intern("kw_arg")), kw);
+                    RB_GC_GUARD(kw);
                     }
 
                     rb_hash_aset(e, ID2SYM(rb_intern("orig_argc")),
                                 INT2FIX(argc));
                     rb_ary_push(ary, e);
+                RB_GC_GUARD(e);
                 }
                 break;
               case TS_ID:
@@ -3458,8 +3659,11 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
 
                         rb_ary_store(val, i+1,
                                      register_label(labels_table, idx));
+                    RB_GC_GUARD(pos);
                     }
                     rb_ary_push(ary, val);
+                RB_GC_GUARD(val);
+                RB_GC_GUARD(hash);
                 }
                 break;
               case TS_FUNCPTR:
@@ -3470,6 +3674,7 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
                     VALUE val = LL2NUM((SIGNED_VALUE)*seq);
 #endif
                     rb_ary_push(ary, val);
+                RB_GC_GUARD(val);
                 }
                 break;
               case TS_BUILTIN:
@@ -3485,6 +3690,8 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
                     rb_hash_aset(val, ID2SYM(rb_intern("index")), INT2NUM(((RB_BUILTIN)*seq)->index));
                     rb_hash_aset(val, ID2SYM(rb_intern("name")), rb_str_new_cstr(((RB_BUILTIN)*seq)->name));
                     rb_ary_push(ary, val);
+                RB_GC_GUARD(func_ptr);
+                RB_GC_GUARD(val);
                 }
                 break;
               default:
@@ -3492,6 +3699,8 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
             }
         }
         rb_ary_push(body, ary);
+    RB_GC_GUARD(ary);
+    RB_GC_GUARD(insn);
     }
 
     nbody = body;
@@ -3513,6 +3722,7 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
         rb_ary_push(ary, register_label(labels_table, entry->cont));
         rb_ary_push(ary, UINT2NUM(entry->sp));
         rb_ary_push(exception, ary);
+    RB_GC_GUARD(ary);
     }
 
     /* make body with labels and insert line number */
@@ -3559,6 +3769,7 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
 
         rb_ary_push(body, ary);
         pos += RARRAY_LENINT(ary); /* reject too huge data */
+    RB_GC_GUARD(ary);
     }
     RB_GC_GUARD(nbody);
     RB_GC_GUARD(labels_wrapper);
@@ -3598,6 +3809,15 @@ iseq_data_to_ary(const rb_iseq_t *iseq)
     rb_ary_push(val, exception);
     rb_ary_push(val, body);
     return val;
+    RB_GC_GUARD(node_ids);
+    RB_GC_GUARD(labels_wrapper);
+    RB_GC_GUARD(misc);
+    RB_GC_GUARD(exception);
+    RB_GC_GUARD(nbody);
+    RB_GC_GUARD(body);
+    RB_GC_GUARD(params);
+    RB_GC_GUARD(locals);
+    RB_GC_GUARD(val);
 }
 
 VALUE
@@ -3712,6 +3932,8 @@ rb_iseq_parameters(const rb_iseq_t *iseq, int is_proc)
         rb_ary_push(args, PARAM(body->param.block_start, block));
     }
     return args;
+    RB_GC_GUARD(args);
+    RB_GC_GUARD(a);
 }
 
 VALUE
@@ -3917,6 +4139,7 @@ iseq_add_local_tracepoint(const rb_iseq_t *iseq, rb_event_flag_t turnon_events, 
     }
 
     return n;
+    RB_GC_GUARD(tpval);
 }
 
 struct trace_set_local_events_struct {
@@ -3949,6 +4172,7 @@ rb_iseq_add_local_tracepoint_recursively(const rb_iseq_t *iseq, rb_event_flag_t 
     iseq_add_local_tracepoint_i(iseq, (void *)&data);
     if (0) rb_funcall(Qnil, rb_intern("puts"), 1, rb_iseq_disasm(iseq)); /* for debug */
     return data.n;
+    RB_GC_GUARD(tpval);
 }
 
 static int
@@ -3977,6 +4201,7 @@ iseq_remove_local_tracepoint(const rb_iseq_t *iseq, VALUE tpval)
         }
     }
     return n;
+    RB_GC_GUARD(tpval);
 }
 
 struct trace_clear_local_events_struct {
@@ -4001,6 +4226,7 @@ rb_iseq_remove_local_tracepoint_recursively(const rb_iseq_t *iseq, VALUE tpval)
 
     iseq_remove_local_tracepoint_i(iseq, (void *)&data);
     return data.n;
+    RB_GC_GUARD(tpval);
 }
 
 void
@@ -4041,6 +4267,7 @@ clear_attr_cc(VALUE v)
     }
     else {
         return false;
+        RB_GC_GUARD(v);
     }
 }
 
@@ -4053,6 +4280,7 @@ clear_bf_cc(VALUE v)
     }
     else {
         return false;
+        RB_GC_GUARD(v);
     }
 }
 
@@ -4067,6 +4295,7 @@ clear_attr_ccs_i(void *vstart, void *vend, size_t stride, void *data)
         asan_poison_object_if(ptr, v);
     }
     return 0;
+    RB_GC_GUARD(v);
 }
 
 void
@@ -4086,6 +4315,7 @@ clear_bf_ccs_i(void *vstart, void *vend, size_t stride, void *data)
         asan_poison_object_if(ptr, v);
     }
     return 0;
+    RB_GC_GUARD(v);
 }
 
 void
@@ -4115,6 +4345,7 @@ trace_set_i(void *vstart, void *vend, size_t stride, void *data)
         asan_poison_object_if(ptr, v);
     }
     return 0;
+    RB_GC_GUARD(v);
 }
 
 void
@@ -4127,6 +4358,7 @@ VALUE
 rb_iseqw_local_variables(VALUE iseqval)
 {
     return rb_iseq_local_variables(iseqw_check(iseqval));
+    RB_GC_GUARD(iseqval);
 }
 
 /*
@@ -4151,6 +4383,8 @@ iseqw_to_binary(int argc, VALUE *argv, VALUE self)
 {
     VALUE opt = !rb_check_arity(argc, 0, 1) ? Qnil : argv[0];
     return rb_iseq_ibf_dump(iseqw_check(self), opt);
+    RB_GC_GUARD(self);
+    RB_GC_GUARD(opt);
 }
 
 /*
@@ -4170,6 +4404,8 @@ static VALUE
 iseqw_s_load_from_binary(VALUE self, VALUE str)
 {
     return iseqw_new(rb_iseq_ibf_load(str));
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 /*
@@ -4182,6 +4418,8 @@ static VALUE
 iseqw_s_load_from_binary_extra_data(VALUE self, VALUE str)
 {
     return rb_iseq_ibf_load_extra_data(str);
+    RB_GC_GUARD(str);
+    RB_GC_GUARD(self);
 }
 
 #if VM_INSN_INFO_TABLE_IMPL == 2
@@ -4337,6 +4575,7 @@ iseqw_script_lines(VALUE self)
 {
     const rb_iseq_t *iseq = iseqw_check(self);
     return ISEQ_BODY(iseq)->variable.script_lines;
+    RB_GC_GUARD(self);
 }
 
 /*
